@@ -22,15 +22,36 @@ const enterPolicyCases: Array<[string, Partial<EnterKeyPolicyInput>, boolean]> =
         ['mobile default Enter inserts a newline', { isMobile: true }, false],
         ['desktop default Enter sends', {}, true],
         ['desktop focus mode default Enter inserts a newline', { isDesktopExpanded: true }, false],
-        ['configured enabled Enter sends on mobile', { isMobile: true, enterToSendConfigured: true, enterToSend: true }, true],
+        ['configured enabled Enter sends on desktop', { enterToSendConfigured: true, enterToSend: true }, true],
         ['configured enabled Shift+Enter inserts a newline', { enterToSendConfigured: true, enterToSend: true, shiftKey: true }, false],
         ['configured disabled Enter inserts a newline', { enterToSendConfigured: true, enterToSend: false }, false],
         ['configured disabled Shift+Enter sends', { enterToSendConfigured: true, enterToSend: false, shiftKey: true }, true],
-        ['configured Ctrl+Enter always sends', { enterToSendConfigured: true, isMobile: true, isDesktopExpanded: true, shiftKey: true, ctrlKey: true }, true],
-        ['configured Meta+Enter always sends', { enterToSendConfigured: true, isMobile: true, isDesktopExpanded: true, shiftKey: true, metaKey: true }, true],
+        ['configured Ctrl+Enter sends on desktop', { enterToSendConfigured: true, isDesktopExpanded: true, shiftKey: true, ctrlKey: true }, true],
+        ['configured Meta+Enter sends on desktop', { enterToSendConfigured: true, isDesktopExpanded: true, shiftKey: true, metaKey: true }, true],
 ];
 
 describe('Enter key policy', () => {
+    test('mobile never submits from Enter, regardless of synced settings or modifiers', () => {
+        for (const enterToSendConfigured of [false, true]) {
+            for (const enterToSend of [false, true]) {
+                for (const shiftKey of [false, true]) {
+                    for (const ctrlKey of [false, true]) {
+                        for (const metaKey of [false, true]) {
+                            expect(shouldSubmitEnter(policy({
+                                isMobile: true,
+                                enterToSendConfigured,
+                                enterToSend,
+                                shiftKey,
+                                ctrlKey,
+                                metaKey,
+                            }))).toBe(false);
+                        }
+                    }
+                }
+            }
+        }
+    });
+
     for (const surface of [{}, { isMobile: true }, { isDesktopExpanded: true }]) {
         for (const modifiers of [{}, { ctrlKey: true }, { metaKey: true }, { ctrlKey: true, metaKey: true }]) {
             test(`untouched Shift+Enter does not submit: ${JSON.stringify({ ...surface, ...modifiers })}`, () => {

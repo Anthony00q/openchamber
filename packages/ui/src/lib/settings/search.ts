@@ -387,6 +387,7 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     titleKey: 'settings.openchamber.visual.field.enterToSend',
     descriptionKey: 'settings.openchamber.visual.field.enterToSendHint',
     keywords: ['enter', 'shift enter', 'send', 'newline'],
+    isAvailable: (ctx) => !ctx.isMobile,
   },
   {
     id: 'sessions.default-model',

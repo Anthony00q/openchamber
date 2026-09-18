@@ -17,6 +17,19 @@ const runtimeCtx = {
 };
 
 describe('settings search', () => {
+  test('Enter-to-send is searchable only outside mobile', () => {
+    for (const isMobile of [false, true]) {
+      const results = buildSettingsSearchResults({
+        query: 'shift enter',
+        runtimeCtx: { ...runtimeCtx, isMobile },
+        t,
+        getPageTitle: (page) => page,
+      });
+
+      expect(results.some((result) => result.id === 'chat.enter-to-send')).toBe(!isMobile);
+    }
+  });
+
   test('finds Linear connect on the integrations page', () => {
     const results = buildSettingsSearchResults({
       query: 'linear',
