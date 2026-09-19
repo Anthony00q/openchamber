@@ -22,19 +22,42 @@ const enterPolicyCases: Array<[string, Partial<EnterKeyPolicyInput>, boolean]> =
         ['mobile default Enter inserts a newline', { isMobile: true }, false],
         ['desktop default Enter sends', {}, true],
         ['desktop focus mode default Enter inserts a newline', { isDesktopExpanded: true }, false],
-        ['configured enabled Enter sends on mobile', { isMobile: true, enterToSendConfigured: true, enterToSend: true }, true],
+        ['configured enabled Enter sends on desktop', { enterToSendConfigured: true, enterToSend: true }, true],
         ['configured enabled Shift+Enter inserts a newline', { enterToSendConfigured: true, enterToSend: true, shiftKey: true }, false],
         ['configured disabled Enter inserts a newline', { enterToSendConfigured: true, enterToSend: false }, false],
         ['configured disabled Shift+Enter sends', { enterToSendConfigured: true, enterToSend: false, shiftKey: true }, true],
+        ['configured Ctrl+Enter sends on desktop', { enterToSendConfigured: true, isDesktopExpanded: true, shiftKey: true, ctrlKey: true }, true],
+        ['configured Meta+Enter sends on desktop', { enterToSendConfigured: true, isDesktopExpanded: true, shiftKey: true, metaKey: true }, true],
         ['expanded composer Enter inserts a newline when Enter-to-send is enabled', { isDesktopExpanded: true, enterToSendConfigured: true, enterToSend: true }, false],
         ['expanded composer Shift+Enter inserts a newline when Enter-to-send is disabled', { isDesktopExpanded: true, enterToSendConfigured: true, enterToSend: false, shiftKey: true }, false],
         ['expanded composer Ctrl+Enter sends despite Enter-to-send being disabled', { isDesktopExpanded: true, enterToSendConfigured: true, ctrlKey: true }, true],
         ['expanded composer Cmd+Enter sends despite Enter-to-send being enabled', { isDesktopExpanded: true, enterToSendConfigured: true, enterToSend: true, metaKey: true }, true],
-        ['configured Ctrl+Enter always sends', { enterToSendConfigured: true, isMobile: true, isDesktopExpanded: true, shiftKey: true, ctrlKey: true }, true],
-        ['configured Meta+Enter always sends', { enterToSendConfigured: true, isMobile: true, isDesktopExpanded: true, shiftKey: true, metaKey: true }, true],
+        ['mobile guard takes precedence over expanded Ctrl+Enter', { enterToSendConfigured: true, isMobile: true, isDesktopExpanded: true, shiftKey: true, ctrlKey: true }, false],
+        ['mobile guard takes precedence over expanded Meta+Enter', { enterToSendConfigured: true, isMobile: true, isDesktopExpanded: true, shiftKey: true, metaKey: true }, false],
 ];
 
 describe('Enter key policy', () => {
+    test('mobile never submits from Enter, regardless of synced settings or modifiers', () => {
+        for (const enterToSendConfigured of [false, true]) {
+            for (const enterToSend of [false, true]) {
+                for (const shiftKey of [false, true]) {
+                    for (const ctrlKey of [false, true]) {
+                        for (const metaKey of [false, true]) {
+                            expect(shouldSubmitEnter(policy({
+                                isMobile: true,
+                                enterToSendConfigured,
+                                enterToSend,
+                                shiftKey,
+                                ctrlKey,
+                                metaKey,
+                            }))).toBe(false);
+                        }
+                    }
+                }
+            }
+        }
+    });
+
     for (const surface of [{}, { isMobile: true }, { isDesktopExpanded: true }]) {
         for (const modifiers of [{}, { ctrlKey: true }, { metaKey: true }, { ctrlKey: true, metaKey: true }]) {
             test(`untouched Shift+Enter only submits with a modifier in expanded mode: ${JSON.stringify({ ...surface, ...modifiers })}`, () => {

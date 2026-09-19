@@ -405,18 +405,15 @@ suites that install module mocks are order-dependent.
 
 ## Enter preference
 
-`keyboardPolicy.ts` owns the submission decision. The expanded desktop composer
-always inserts a newline with Enter, including Shift+Enter, and sends with
-Ctrl/Cmd+Enter; it ignores the Enter-to-send preference. Outside expanded mode,
-until the Chat setting is changed, desktop Enter sends, mobile requires
-Ctrl/Cmd+Enter, and Shift-modified Enter does not send. An explicit choice
-applies across the other shared composers; Ctrl/Cmd+Enter sends in either
-configured mode.
+`keyboardPolicy.ts` owns the submission decision. Mobile composers send or queue
+through buttons only. Enter, Shift+Enter and Ctrl/Cmd+Enter never submit on
+mobile, regardless of synced settings or CodeMirror's deferred key modifiers.
+The Enter-to-send setting and its search entry are hidden on mobile.
 
-CodeMirror's deferred mobile Enter loses modifier information. Untouched
-settings restore Shift to keep the original policy. Once configured, with mobile
-autocapitalization enabled, the editor cannot distinguish its Shift flag from
-an intentional Shift press and does not restore Shift. Consequently, deferred
-Shift+Enter can send when Enter-to-send is enabled and cannot serve as the send
-shortcut when it is disabled. Ctrl/Cmd+Enter remains the supported modified
-send shortcut on this path.
+The expanded desktop composer always inserts a newline with Enter, including
+Shift+Enter, and sends with Ctrl/Cmd+Enter; it ignores the Enter-to-send preference.
+
+Outside mobile and expanded mode, desktop Enter sends by default, and
+Shift-modified Enter does not send until the Chat setting is changed.
+An explicit choice controls Enter and Shift+Enter there;
+Ctrl/Cmd+Enter sends in either configured mode.

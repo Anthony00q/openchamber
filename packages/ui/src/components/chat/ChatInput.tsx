@@ -2288,8 +2288,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             return;
         }
 
-        // Preserve each surface's existing default until the user changes the
-        // setting. Once configured, the choice applies consistently everywhere.
+        // Mobile sends through buttons only; expanded desktop mode requires
+        // Ctrl/Cmd+Enter. The standard desktop composer follows the setting.
         const isCtrlEnter = e.ctrlKey || e.metaKey;
         if (e.key === 'Enter' && shouldSubmitEnter({
             isMobile,
