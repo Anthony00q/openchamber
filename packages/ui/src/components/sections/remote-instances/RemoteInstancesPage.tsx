@@ -46,6 +46,7 @@ import { useI18n, type I18nKey } from '@/lib/i18n';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import type { PendingPairingRecord, RemoteClientRecord } from '@/lib/api/types';
 import { buildPairingConnectionPayload, encodePairingConnectionPayload, parsePairingConnectionPayload, type PairingEndpointCandidate } from '@/lib/connectionPayload';
+import { readPairingResponse } from '@/lib/pairingResponse';
 import {
   desktopSshLogsClear,
   desktopSshLogs,
@@ -481,6 +482,7 @@ export const RemoteInstancesPage: React.FC = () => {
   const [directError, setDirectError] = React.useState<string | null>(null);
   const [directAddDialogOpen, setDirectAddDialogOpen] = React.useState(false);
   const [directImportDialogOpen, setDirectImportDialogOpen] = React.useState(false);
+  const [directImporting, setDirectImporting] = React.useState(false);
   const [directEditingId, setDirectEditingId] = React.useState<string | null>(null);
   const [directEditLabel, setDirectEditLabel] = React.useState('');
   const [directEditUrl, setDirectEditUrl] = React.useState('');
@@ -543,8 +545,10 @@ export const RemoteInstancesPage: React.FC = () => {
       await desktopHostsSet({ hosts, defaultHostId, initialHostChoiceCompleted: true });
       setDirectHosts(hosts);
       setDirectDefaultHostId(defaultHostId);
+      return true;
     } catch (err) {
       setDirectError(err instanceof Error ? err.message : String(err));
+      return false;
     } finally {
       setDirectSaving(false);
     }
@@ -568,7 +572,7 @@ export const RemoteInstancesPage: React.FC = () => {
       ...(directToken.trim() ? { clientToken: directToken.trim() } : {}),
       ...(buildRequestHeaders(directHeaders) ? { requestHeaders: buildRequestHeaders(directHeaders) } : {}),
     };
-    await persistDirectHosts([host, ...directHosts], directDefaultHostId);
+    if (!await persistDirectHosts([host, ...directHosts], directDefaultHostId)) return;
     setDirectLabel('');
     setDirectUrl('');
     setDirectToken('');
@@ -580,6 +584,7 @@ export const RemoteInstancesPage: React.FC = () => {
   }, [directDefaultHostId, directHeaders, directHosts, directLabel, directToken, directUrl, persistDirectHosts, t]);
 
   const importDirectConnectLink = React.useCallback(async () => {
+    setDirectError(null);
     const payload = parsePairingConnectionPayload(directConnectLink);
     if (!payload) {
       setDirectError(t('settings.remoteInstances.direct.error.invalidConnectLink'));
@@ -603,11 +608,23 @@ export const RemoteInstancesPage: React.FC = () => {
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: redeemBody,
     };
+    let pairingError: string | null = null;
     const tokenFromResponse = async (response: Response): Promise<string | null> => {
-      if (!response.ok) return null;
-      const body = (await response.json().catch(() => null)) as { clientToken?: unknown } | null;
-      const token = typeof body?.clientToken === 'string' ? body.clientToken.trim() : '';
-      return token || null;
+      const result = await readPairingResponse(response);
+      switch (result.kind) {
+        case 'success':
+          return result.token;
+        case 'rejected':
+          pairingError = t('desktopHostSwitcher.error.pairingRejected');
+          break;
+        case 'http-error':
+          pairingError ??= t('desktopHostSwitcher.error.pairingFailed', { status: result.status });
+          break;
+        case 'invalid-response':
+          pairingError ??= t('desktopHostSwitcher.error.pairingInvalidResponse');
+          break;
+      }
+      return null;
     };
 
     // Try direct (LAN/tunnel) candidates first — they're cheaper and don't need
@@ -632,7 +649,7 @@ export const RemoteInstancesPage: React.FC = () => {
           ...(candidate.grant ? { grant: candidate.grant } : {}),
         });
         try {
-          const response = await tunnel.fetch('/api/client-auth/pairing/redeem', redeemInit);
+          const response = await tunnel.fetch('/api/client-auth/pairing/redeem', { ...redeemInit, signal: AbortSignal.timeout(15_000) });
           const token = await tokenFromResponse(response);
           if (token) {
             redeemed = {
@@ -655,7 +672,7 @@ export const RemoteInstancesPage: React.FC = () => {
       const candidateUrl = normalizeHostUrl(candidate.url);
       if (!candidateUrl) continue;
       try {
-        const response = await fetch(`${candidateUrl}/api/client-auth/pairing/redeem`, redeemInit);
+        const response = await fetch(`${candidateUrl}/api/client-auth/pairing/redeem`, { ...redeemInit, signal: AbortSignal.timeout(15_000) });
         const token = await tokenFromResponse(response);
         if (token) {
           redeemed = { kind: 'direct', url: candidateUrl, token };
@@ -667,7 +684,7 @@ export const RemoteInstancesPage: React.FC = () => {
     }
 
     if (!redeemed) {
-      setDirectError(t('desktopHostSwitcher.error.invalidUrl'));
+      setDirectError(pairingError || t('mobile.connect.error.unreachable'));
       return;
     }
 
@@ -696,7 +713,7 @@ export const RemoteInstancesPage: React.FC = () => {
 
     const url = directUrl || (relay ? relayHostDisplayUrl(relay.serverId) : null);
     if (!url) {
-      setDirectError(t('desktopHostSwitcher.error.invalidUrl'));
+      setDirectError(t('settings.remoteInstances.direct.error.invalidConnectLink'));
       return;
     }
     const transportFields = {
@@ -714,10 +731,10 @@ export const RemoteInstancesPage: React.FC = () => {
       const nextHosts = directHosts.map((host) => host.id === existing.id
         ? { ...host, label: payload.label || host.label, ...transportFields }
         : host);
-      await persistDirectHosts(nextHosts, directDefaultHostId);
+      if (!await persistDirectHosts(nextHosts, directDefaultHostId)) return;
     } else {
       // payload.label is normally the issuing server's hostname.
-      await persistDirectHosts([{ id: makeId(), label: payload.label || redactSensitiveUrl(url), ...transportFields }, ...directHosts], directDefaultHostId);
+      if (!await persistDirectHosts([{ id: makeId(), label: payload.label || redactSensitiveUrl(url), ...transportFields }, ...directHosts], directDefaultHostId)) return;
     }
     setDirectConnectLink('');
     setDirectError(null);
@@ -727,7 +744,7 @@ export const RemoteInstancesPage: React.FC = () => {
   const handleRemoveDirectHost = React.useCallback(async (id: string) => {
     const nextHosts = directHosts.filter((host) => host.id !== id);
     const nextDefault = directDefaultHostId === id ? 'local' : directDefaultHostId;
-    await persistDirectHosts(nextHosts, nextDefault);
+    if (!await persistDirectHosts(nextHosts, nextDefault)) return;
     if (directEditingId === id) {
       setDirectEditingId(null);
     }
@@ -760,7 +777,7 @@ export const RemoteInstancesPage: React.FC = () => {
         requestHeaders: buildRequestHeaders(directEditHeaders),
       }
       : host);
-    await persistDirectHosts(nextHosts, directDefaultHostId);
+    if (!await persistDirectHosts(nextHosts, directDefaultHostId)) return;
     setDirectEditingId(null);
     if (resolved.redeemUrl) {
       navigateToUrl(resolved.redeemUrl);
@@ -1659,10 +1676,10 @@ export const RemoteInstancesPage: React.FC = () => {
                the manual fallback. The token-storage note lives in the add
                dialog next to the token field it describes. */
             <div className="flex shrink-0 items-center gap-2">
-              <Button type="button" size="xs" className="!font-normal" onClick={() => setDirectImportDialogOpen(true)} disabled={directSaving}>
+              <Button type="button" size="xs" className="!font-normal" onClick={() => { setDirectError(null); setDirectImportDialogOpen(true); }} disabled={directSaving}>
                 {t('settings.remoteInstances.direct.import.action')}
               </Button>
-              <Button type="button" variant="outline" size="xs" className="!font-normal" onClick={() => setDirectAddDialogOpen(true)} disabled={directSaving}>
+              <Button type="button" variant="outline" size="xs" className="!font-normal" onClick={() => { setDirectError(null); setDirectAddDialogOpen(true); }} disabled={directSaving}>
                 <Icon name="add" className="h-3.5 w-3.5" />
                 {t('settings.remoteInstances.direct.actions.add')}
               </Button>
@@ -1737,7 +1754,7 @@ export const RemoteInstancesPage: React.FC = () => {
               })}
             </div>
 
-            {directError ? <p className="typography-meta text-[var(--status-error)]">{directError}</p> : null}
+            {directError && !directImportDialogOpen && !directAddDialogOpen && !directEditingId ? <p className="typography-meta text-[var(--status-error)]">{directError}</p> : null}
         </SettingsSection> : null}
 
         {showInstanceManagement ? <Dialog open={directAddDialogOpen} onOpenChange={setDirectAddDialogOpen}>
@@ -1776,6 +1793,7 @@ export const RemoteInstancesPage: React.FC = () => {
                 <Button type="button" variant="outline" size="xs" className="!font-normal" onClick={() => setDirectAddDialogOpen(false)} disabled={directSaving}>{t('settings.common.actions.cancel')}</Button>
                 <Button type="submit" size="xs" className="!font-normal" disabled={directSaving || !directUrl.trim()}>{t('settings.remoteInstances.direct.actions.add')}</Button>
               </div>
+              {directError ? <p role="alert" className="typography-meta text-[var(--status-error)]">{directError}</p> : null}
             </form>
           </DialogContent>
         </Dialog> : null}
@@ -1813,21 +1831,34 @@ export const RemoteInstancesPage: React.FC = () => {
                 <Button type="button" variant="outline" size="xs" className="!font-normal" onClick={() => setDirectEditingId(null)} disabled={directSaving}>{t('settings.common.actions.cancel')}</Button>
                 <Button type="submit" size="xs" className="!font-normal" disabled={directSaving}>{t('settings.common.actions.saveChanges')}</Button>
               </div>
+              {directError ? <p role="alert" className="typography-meta text-[var(--status-error)]">{directError}</p> : null}
             </form>
           </DialogContent>
         </Dialog> : null}
 
-        {showInstanceManagement ? <Dialog open={directImportDialogOpen} onOpenChange={setDirectImportDialogOpen}>
+        {showInstanceManagement ? <Dialog open={directImportDialogOpen} onOpenChange={(open) => { if (!directImporting) setDirectImportDialogOpen(open); }}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>{t('settings.remoteInstances.direct.import.action')}</DialogTitle>
               <DialogDescription>{t('settings.remoteInstances.direct.import.description')}</DialogDescription>
             </DialogHeader>
-            <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); void importDirectConnectLink(); }}>
-              <Input className="h-8" value={directConnectLink} onChange={(event) => setDirectConnectLink(event.target.value)} placeholder={t('settings.remoteInstances.direct.import.placeholder')} disabled={directSaving} autoFocus />
+            <form className="space-y-3" aria-busy={directImporting} onSubmit={async (event) => {
+              event.preventDefault();
+              if (directImporting || directSaving) return;
+              setDirectImporting(true);
+              try {
+                await importDirectConnectLink();
+              } catch {
+                setDirectError(t('mobile.connect.error.unreachable'));
+              } finally {
+                setDirectImporting(false);
+              }
+            }}>
+              <Input className="h-8" value={directConnectLink} onChange={(event) => { setDirectConnectLink(event.target.value); setDirectError(null); }} placeholder={t('settings.remoteInstances.direct.import.placeholder')} disabled={directSaving || directImporting} aria-describedby={directError ? 'direct-import-error' : undefined} autoFocus />
+              {directError ? <p id="direct-import-error" role="alert" className="typography-meta text-[var(--status-error)]">{directError}</p> : null}
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" size="xs" className="!font-normal" onClick={() => setDirectImportDialogOpen(false)} disabled={directSaving}>{t('settings.common.actions.cancel')}</Button>
-                <Button type="submit" size="xs" className="!font-normal" disabled={directSaving || !directConnectLink.trim()}>{t('settings.remoteInstances.direct.import.action')}</Button>
+                <Button type="button" variant="outline" size="xs" className="!font-normal" onClick={() => setDirectImportDialogOpen(false)} disabled={directSaving || directImporting}>{t('settings.common.actions.cancel')}</Button>
+                <Button type="submit" size="xs" className="!font-normal" disabled={directSaving || directImporting || !directConnectLink.trim()}>{t('settings.remoteInstances.direct.import.action')}</Button>
               </div>
             </form>
           </DialogContent>
