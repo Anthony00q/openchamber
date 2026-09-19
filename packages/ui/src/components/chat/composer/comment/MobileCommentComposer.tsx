@@ -1,7 +1,7 @@
 /**
  * The mobile composer's comment mode: one rounded shell replacing the normal
  * composer while a comment on a quoted selection is written. The quote row
- * shows a ten-character preview; the comment editor, a comment-scoped mic and
+ * shows a single-line quote preview; the comment editor, a comment-scoped mic and
  * the attach button sit below. Attach is the only primary action. The parent
  * remounts this shell per comment (keyed by generation), so a replaced open
  * gets fresh dictation callbacks and cannot target the previous quote.
@@ -75,8 +75,7 @@ export function MobileCommentComposer({ draft, theme: currentTheme, handlers }: 
         editorRef.current?.focus();
     }, []);
 
-    // w-fit keeps the fade anchored to the text's own trailing edge, not the
-    // flex-1 container (which would fade over empty space for short quotes).
+    // Let the available row width clip long quotes, with a fade before Close.
     const quotePreview = mobileCommentQuotePreview(draft.quote.plainText);
 
     return (
@@ -88,7 +87,7 @@ export function MobileCommentComposer({ draft, theme: currentTheme, handlers }: 
             <div className="flex items-center gap-2 pl-3.5 pr-1.5 pt-2">
                 <Icon name="double-quotes-l" className={cn(ICON_SIZE_CLASS, 'shrink-0 text-muted-foreground')} />
                 <span
-                    className="block w-fit max-w-full overflow-hidden whitespace-nowrap text-sm leading-5 text-muted-foreground"
+                    className="block min-w-0 flex-1 overflow-hidden whitespace-nowrap text-sm leading-5 text-muted-foreground"
                     style={previewFadeStyle()}
                 >
                     {quotePreview}

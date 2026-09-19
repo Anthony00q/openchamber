@@ -39,15 +39,15 @@ afterEach(() => {
 });
 
 describe('mobileCommentQuotePreview', () => {
-    test('keeps the first ten unicode characters', () => {
-        expect(mobileCommentQuotePreview('hello world')).toBe('hello worl');
+    test('keeps the full text for width-based clipping', () => {
+        expect(mobileCommentQuotePreview('hello world')).toBe('hello world');
         expect(mobileCommentQuotePreview('abc')).toBe('abc');
     });
 
     test('counts code points, not utf-16 units', () => {
         // Family emoji: four emoji code points joined by ZWJ; slicing by
         // code point must not cut one in half.
-        expect(mobileCommentQuotePreview('👍👍👍👍👍👍 rest')).toBe('👍👍👍👍👍👍 res');
+        expect(mobileCommentQuotePreview('👍👍👍👍👍👍 rest')).toBe('👍👍👍👍👍👍 rest');
         expect(mobileCommentQuotePreview('café ☕ etc')).toBe('café ☕ etc');
     });
 

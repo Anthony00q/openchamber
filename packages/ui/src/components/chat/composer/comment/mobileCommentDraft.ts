@@ -26,7 +26,7 @@ export interface MobileCommentScope {
 }
 
 export interface MobileCommentQuote {
-    /** Plain text, used only for the ten-character preview row. */
+    /** Plain text, used only for the single-line preview row. */
     plainText: string;
     /** Full markdown of the selection; attached verbatim as quote context. */
     markdownText: string;
@@ -61,15 +61,9 @@ export interface MobileCommentAttachPlan {
 
 export const CLOSED_MOBILE_COMMENT_DRAFT: MobileCommentDraft = { status: 'closed' };
 
-const MOBILE_COMMENT_QUOTE_PREVIEW_CHARS = 10;
-
-/**
- * First characters of the plain quote, by Unicode code point so an emoji is
- * not cut in half. The shell fades the trailing edge of the preview; the full
- * markdown stays attached when the comment lands.
- */
+/** Keep the full quote text; the shell clips and fades it at the row's edge. */
 export const mobileCommentQuotePreview = (plainText: string): string =>
-    Array.from(plainText.trim()).slice(0, MOBILE_COMMENT_QUOTE_PREVIEW_CHARS).join('');
+    plainText.trim();
 
 export const isSameMobileCommentScope = (a: MobileCommentScope, b: MobileCommentScope): boolean =>
     a.runtimeKey === b.runtimeKey && a.directory === b.directory && a.sessionKey === b.sessionKey;
