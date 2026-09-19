@@ -72,6 +72,7 @@ import { createRelayTunnelClient } from '@/lib/relay/tunnel-client';
 import { getDesktopLanAddress, isDesktopLocalOriginActive, isDesktopShell } from '@/lib/desktop';
 import { loadDesktopSettings } from '@/lib/persistence';
 import { getRuntimeApiBaseUrl, switchRuntimeEndpoint } from '@/lib/runtime-switch';
+import { useSshConfirmation } from './useSshConfirmation';
 
 const randomPort = (): number => {
   return Math.floor(20000 + Math.random() * 30000);
@@ -446,6 +447,7 @@ export const RemoteInstancesPage: React.FC = () => {
 
   const selectedId = useUIStore((state) => state.settingsRemoteInstancesSelectedId);
   const setSelectedId = useUIStore((state) => state.setSettingsRemoteInstancesSelectedId);
+  const { confirm: confirmSsh, dialog: sshConfirmationDialog } = useSshConfirmation(selectedId);
 
   const selectedInstance = React.useMemo(() => {
     if (!selectedId) return null;
@@ -1163,9 +1165,7 @@ export const RemoteInstancesPage: React.FC = () => {
     }
 
     if (normalized.localForward.bindHost === '0.0.0.0') {
-      const allow = window.confirm(
-        t('settings.remoteInstances.page.confirm.bindAllInterfaces'),
-      );
+      const allow = await confirmSsh('settings.remoteInstances.page.confirm.bindAllInterfaces');
       if (!allow) {
         return;
       }
@@ -1176,7 +1176,8 @@ export const RemoteInstancesPage: React.FC = () => {
       normalized.auth.sshPassword.value?.trim() &&
       normalized.auth.sshPassword.store !== 'settings'
     ) {
-      const store = window.confirm(t('settings.remoteInstances.page.confirm.storeSshPasswordPlaintext'));
+      const store = await confirmSsh('settings.remoteInstances.page.confirm.storeSshPasswordPlaintext');
+      if (store === null) return;
       normalized.auth.sshPassword.store = store ? 'settings' : 'never';
       if (!store) {
         normalized.auth.sshPassword.value = undefined;
@@ -1188,7 +1189,8 @@ export const RemoteInstancesPage: React.FC = () => {
       normalized.auth.openchamberPassword.value?.trim() &&
       normalized.auth.openchamberPassword.store !== 'settings'
     ) {
-      const store = window.confirm(t('settings.remoteInstances.page.confirm.storeUiPasswordPlaintext'));
+      const store = await confirmSsh('settings.remoteInstances.page.confirm.storeUiPasswordPlaintext');
+      if (store === null) return;
       normalized.auth.openchamberPassword.store = store ? 'settings' : 'never';
       if (!store) {
         normalized.auth.openchamberPassword.value = undefined;
@@ -1203,7 +1205,7 @@ export const RemoteInstancesPage: React.FC = () => {
         description: error instanceof Error ? error.message : String(error),
       });
     }
-  }, [draft, t, upsertInstance]);
+  }, [confirmSsh, draft, t, upsertInstance]);
 
   const createImportedInstance = React.useCallback(
     async (host: string, destination: string): Promise<boolean> => {
@@ -1293,7 +1295,10 @@ export const RemoteInstancesPage: React.FC = () => {
         throw error;
       }
 
-      const allow = window.confirm(t('settings.remoteInstances.sidebar.confirm.localPortInUseRetry'));
+      const allow = await confirmSsh(
+        'settings.remoteInstances.sidebar.confirm.localPortInUseRetry',
+        'settings.remoteInstances.sidebar.actions.retry',
+      );
       if (!allow) {
         throw error;
       }
@@ -1310,7 +1315,7 @@ export const RemoteInstancesPage: React.FC = () => {
       await connect(nextInstance.id);
       toast.success(t('settings.remoteInstances.sidebar.toast.retriedWithRandomPort'));
     }
-  }, [connect, selectedInstance, t, upsertInstance]);
+  }, [confirmSsh, connect, selectedInstance, t, upsertInstance]);
 
   const uiPasswordRef = React.useRef<HTMLInputElement | null>(null);
   const remotePortRef = React.useRef<HTMLDivElement | null>(null);
@@ -2946,6 +2951,8 @@ export const RemoteInstancesPage: React.FC = () => {
           {error ? <div className="ml-auto typography-meta text-[var(--status-error)]">{error}</div> : null}
         </div>
       </div>
+
+      {sshConfirmationDialog}
 
       <Dialog open={logDialogOpen} onOpenChange={setLogDialogOpen}>
         <DialogContent className="sm:max-w-2xl">
