@@ -168,6 +168,9 @@ import { useDictationOrigin } from './composer/state/useDictationOrigin';
 import { useDraftTarget } from './composer/state/useDraftTarget';
 import { useMobileComposerShell } from './composer/state/useMobileComposerShell';
 import { useMobileViewportPin } from './composer/state/useMobileViewportPin';
+import { MobileCommentComposer } from './composer/comment/MobileCommentComposer';
+import { useMobileCommentComposerController } from './composer/comment/MobileCommentComposerContext';
+import { useMobileCommentComposerMode } from './composer/comment/useMobileCommentComposerMode';
 import {
     DraftTargetSelectors,
     MobileDraftTargetSheets,
@@ -1018,6 +1021,16 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     const consumeDrafts = useInlineCommentDraftStore((state) => state.consumeDrafts);
     const hasDrafts = draftCount > 0;
 
+    // Mobile comment mode (see composer/comment/): read imperatively here so
+    // the send/queue guards below see the live state; rendering and lifecycle
+    // live in useMobileCommentComposerMode further down.
+    const mobileCommentController = useMobileCommentComposerController();
+    const isMobileCommentOpen = React.useCallback(
+        () => isMobile && mobileCommentController?.getState().status === 'open',
+        [isMobile, mobileCommentController],
+    );
+    const attachMobileCommentRef = React.useRef<() => void>(() => undefined);
+
     const inputHistoryScope = useInputHistoryStore((state) => state.scope);
     const inputHistoryIdentity = React.useMemo(
         () => createInputHistoryIdentity(
@@ -1222,6 +1235,9 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
 
     // Add message to queue instead of sending
     const handleQueueMessage = React.useCallback(async () => {
+        // The comment's exit paths are attach/cancel; queueing a real prompt
+        // underneath comment mode must never fire.
+        if (isMobileCommentOpen()) return;
         const inputSnapshot = getCurrentInputSnapshot();
         if (!inputSnapshot.hasContent || !currentSessionId || !messageQueueTarget) return;
 
@@ -1352,7 +1368,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             return;
         }
         recordLinkedReferences(queueSessionId, queueTarget.directory, linked);
-        }, [getCurrentInputSnapshot, currentSessionId, messageQueueTarget, inputMode, hasDrafts, guestCommands, attachedFiles, sanitizeAttachmentsForSend, prepareDocumentMentions, extractInlineFileMentions, agents, currentDirectory, consumePendingSyntheticParts, inlineDraftTarget, consumeDrafts, linkedIssue, linkedPr, linkedLinearIssue, linkedGuestIssue, scrollToLatest, clearAttachedFiles, chatDraftIdentity, isMobile, addToQueue, currentProviderId, currentModelId, currentAgentName, currentVariant, t]);
+    }, [getCurrentInputSnapshot, currentSessionId, messageQueueTarget, inputMode, hasDrafts, guestCommands, attachedFiles, sanitizeAttachmentsForSend, prepareDocumentMentions, extractInlineFileMentions, agents, currentDirectory, consumePendingSyntheticParts, inlineDraftTarget, consumeDrafts, linkedIssue, linkedPr, linkedLinearIssue, linkedGuestIssue, scrollToLatest, clearAttachedFiles, chatDraftIdentity, isMobile, isMobileCommentOpen, addToQueue, currentProviderId, currentModelId, currentAgentName, currentVariant, t]);
 
     /** Put the context a queued message was captured with back on the composer chips. */
     const restoreQueuedContext = React.useCallback((context: readonly QueuedContextPart[]) => {
@@ -1459,6 +1475,9 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     };
 
     const handleSubmit = async (options?: SubmitOptions) => {
+        // Comment mode's only submit is attach; every other send path must be
+        // inert while it is open.
+        if (isMobileCommentOpen()) return;
         if (isBtwActive && currentSessionId && (btwPanel.creating || useBtwStore.getState().byParent[currentSessionId]?.pendingSend)) return;
         const submitRuntimeKey = getRuntimeKey();
         const queuedOnly = options?.queuedOnly ?? false;
@@ -2082,6 +2101,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
 
     // Primary action for send/queue button — respects selected follow-up behavior
     const handlePrimaryAction = React.useCallback(() => {
+        // Comment mode owns the composer; its only primary action is attach.
+        if (isMobileCommentOpen()) return;
         const inputSnapshot = getCurrentInputSnapshot();
         const canQueue = !isBtwActive && inputMode === 'normal' && inputSnapshot.hasContent && currentSessionId && (currentSessionPhase !== 'idle' || autoReviewRunning);
         if (followUpBehavior === 'queue' && canQueue) {
@@ -2091,7 +2112,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         } else {
             void handleSubmitRef.current();
         }
-    }, [inputMode, getCurrentInputSnapshot, currentSessionId, currentSessionPhase, autoReviewRunning, followUpBehavior, handleQueueMessage, isBtwActive]);
+    }, [inputMode, getCurrentInputSnapshot, currentSessionId, currentSessionPhase, autoReviewRunning, followUpBehavior, handleQueueMessage, isBtwActive, isMobileCommentOpen]);
 
     // Draft welcome presets: submit immediately.
     const submitPresetPrompt = React.useCallback((text: string, type: 'command' | 'skill') => {
@@ -3354,6 +3375,18 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     const mobileComposerExpanded = mobileShell.expanded;
     const mobileTextareaFocused = mobileShell.focused;
 
+    // Mobile comment mode: subscription, scope ownership and the attach/cancel
+    // transitions live in the hook; ChatInput only renders from it.
+    const mobileComment = useMobileCommentComposerMode({
+        isMobile,
+        runtimeKey: activeRuntimeKey,
+        directory: inlineDraftDirectory,
+        sessionKey: inlineDraftSessionKey,
+        mobileShell,
+    });
+    const mobileCommentActive = mobileComment.active;
+    attachMobileCommentRef.current = mobileComment.submit;
+
 
     const applyAssistSuggestion = React.useCallback((text: string) => {
         setMessage(text);
@@ -3557,7 +3590,16 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 event.stopPropagation();
                 handleExitBtw();
             }}
-            onSubmit={(e) => { e.preventDefault(); handlePrimaryAction(); }}
+            onSubmit={(e) => {
+                e.preventDefault();
+                // Comment mode owns the form: submit attaches the comment and
+                // must never reach the send path.
+                if (mobileCommentActive) {
+                    attachMobileCommentRef.current();
+                    return;
+                }
+                handlePrimaryAction();
+            }}
             className={cn(
                 "relative w-full pt-0 pb-4",
                 isDesktopExpanded && 'flex h-full min-h-0 flex-col pt-4',
@@ -3579,6 +3621,11 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 </div>
             ) : null}
             <div className={cn('chat-input-column relative overflow-visible', isComposerExpanded && 'flex flex-1 min-h-0 flex-col')}>
+                {/* Comment mode shows only its own shell: the normal composer's
+                    furniture (chips, banners, draft selectors) stays in state
+                    and returns unchanged when the comment exits. */}
+                {!mobileCommentActive ? (<>
+                <AttachedFilesList onShowPopup={handleShowAttachmentPreview} />
                 <AutoReviewBanner />
                 {hasDrafts ? (
                     <ComposerContextChips
@@ -3621,6 +3668,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         onOpenPicker={setMobileDraftPicker}
                     />
                 ) : null}
+                </>) : null}
                 <div
                     // Desktop: layout-transparent. Mobile: positioning host for
                     // the wrapper-level dictation overlay across pill/full states.
@@ -3631,7 +3679,17 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                         isMobileExpanded && 'flex min-h-0 flex-1 flex-col',
                     )}
                 >
-                {isMobile && !mobileComposerExpanded && !isBtwActive ? (
+                {mobileCommentActive && mobileComment.draft.status === 'open' ? (
+                    // Keyed by generation: a replaced open remounts the shell
+                    // so its dictation callbacks can never target the
+                    // previous quote.
+                    <MobileCommentComposer
+                        key={mobileComment.draft.generation}
+                        draft={mobileComment.draft}
+                        theme={currentTheme}
+                        handlers={mobileComment.handlers}
+                    />
+                ) : isMobile && !mobileComposerExpanded && !isBtwActive ? (
                     <MobilePillComposer
                         message={message}
                         sessionId={currentSessionId}
@@ -3870,8 +3928,12 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 {/* Wrapper-level dictation engine + overlay: stays mounted across
                     the pill ↔ composer swap so a recording started from the pill
                     survives the morph. Its absolute overlay covers whichever
-                    shape the wrapper currently has. */}
-                {isMobile && !isBtwActive ? (
+                    shape the wrapper currently has. NOT mounted during comment
+                    mode: the comment shell runs its own comment-scoped engine,
+                    and two engines would both answer the global dictation
+                    toggle (an in-flight recording is discarded by the swap —
+                    its transcript must never reach the normal draft). */}
+                {isMobile && !isBtwActive && !mobileCommentActive ? (
                     <MemoComposerDictation
                         radius={chatInputRadius}
                         isMobile={isMobile}
@@ -3908,7 +3970,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             <QueuedMessageChips
                 key={parentMessageQueueKey}
                 target={parentMessageQueueTarget}
-                hidden={newSessionDraftOpen || isBtwActive || isBtwPanelVisible}
+                hidden={newSessionDraftOpen || isBtwActive || isBtwPanelVisible || mobileCommentActive}
                 onEditMessage={handleQueuedMessageEdit}
                 onSendMessage={handleQueuedMessageSend}
             />

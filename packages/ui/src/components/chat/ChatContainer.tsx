@@ -5,6 +5,7 @@ import type { QuestionRequest } from '@/types/question';
 
 import { ChatInput } from './ChatInput';
 import { ChatColumnSessionContext, type ChatColumnSession } from './chatColumnSession';
+import { MobileCommentComposerContext, useMobileCommentComposerOwner } from './composer/comment/MobileCommentComposerContext';
 import { DraftPresetChips } from './DraftPresetChips';
 import { useInputStore } from '@/sync/input-store';
 import { useUIStore } from '@/stores/useUIStore';
@@ -782,6 +783,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         () => ({ sessionId: currentSessionId ?? null, directory: currentSessionId ? effectiveSessionDirectory ?? null : null }),
         [currentSessionId, effectiveSessionDirectory],
     );
+    const mobileCommentComposer = useMobileCommentComposerOwner();
     const ensureSessionRenderable = React.useCallback(
         (sessionId: string) => sync.ensureSessionRenderable(sessionId, false, effectiveSessionDirectory),
         [effectiveSessionDirectory, sync],
@@ -1627,6 +1629,9 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 	return (
 		<div ref={workStatusRowRef} className="flex h-full min-h-0 bg-background">
 		<ChatColumnSessionContext.Provider value={chatColumnSession}>
+		{/* One mobile comment controller per column: selections in this column
+		    comment into this column's composer, never a sibling's. */}
+		<MobileCommentComposerContext.Provider value={mobileCommentComposer}>
 		<div data-composer-bound className="relative flex min-w-0 flex-1 flex-col h-full bg-background">
 			{returnToParentButton}
 			{sessionSurface}
@@ -1747,6 +1752,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
                 onLoadEarlier={handleLoadOlderClick}
             />
         </div>
+        </MobileCommentComposerContext.Provider>
         </ChatColumnSessionContext.Provider>
         {/* Kept mounted while it could ever show, so it can animate its own
             collapse; `visible` drives that. Unmounting on the spot is what made
