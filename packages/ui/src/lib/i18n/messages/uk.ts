@@ -2317,6 +2317,7 @@ export const dict: Record<I18nKey, string> = {
   "chat.textSelection.title.commentOnSelection": "Коментувати виділене",
   "chat.textSelection.comment.placeholder": "Додайте коментар за бажанням...",
   "chat.textSelection.comment.attach": "Прикріпити",
+  "chat.textSelection.comment.attachFailed": "Не вдалося прикріпити коментар. Скоротіть його або приберіть інший прикріплений контекст і спробуйте знову.",
   "chat.textSelection.actions.addToNotes": "Додати до нотаток",
   "chat.textSelection.title.addToCurrentChat": "Додати до поточного чату",
   "chat.textSelection.title.saveInsightToNotes": "Зберегти вибраний текст у нотатках",

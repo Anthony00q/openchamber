@@ -2116,6 +2116,7 @@ export const dict = {
   'chat.textSelection.title.commentOnSelection': 'Auswahl kommentieren',
   'chat.textSelection.comment.placeholder': 'Optionalen Kommentar hinzufügen...',
   'chat.textSelection.comment.attach': 'Anhängen',
+  'chat.textSelection.comment.attachFailed': 'Der Kommentar konnte nicht angehängt werden. Kürze ihn oder entferne anderen angehängten Kontext und versuche es erneut.',
   'chat.textSelection.actions.addToNotes': 'Zu Notizen hinzufügen',
   'chat.textSelection.title.addToCurrentChat': 'Zum aktuellen Chat hinzufügen',
   'chat.textSelection.title.saveInsightToNotes': 'Ausgewählten Text zu Notizen speichern',

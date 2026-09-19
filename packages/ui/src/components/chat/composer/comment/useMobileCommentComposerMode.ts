@@ -6,16 +6,13 @@
 
 import React from 'react';
 import { flushSync } from 'react-dom';
+import { toast } from '@/components/ui';
+import { useI18n } from '@/lib/i18n';
 
 import type { MobileComposerShell } from '../state/useMobileComposerShell';
 import { useMobileCommentComposerController, useMobileCommentDraft } from './MobileCommentComposerContext';
 import type { MobileCommentComposerHandlers } from './MobileCommentComposer';
-import {
-    applyMobileCommentAttach,
-    isSameMobileCommentScope,
-    type MobileCommentAttachPlan,
-    type MobileCommentScope,
-} from './mobileCommentDraft';
+import type { MobileCommentScope } from './mobileCommentDraft';
 
 export interface MobileCommentModeOptions {
     isMobile: boolean;
@@ -37,27 +34,23 @@ export interface MobileCommentMode {
 
 export function useMobileCommentComposerMode(options: MobileCommentModeOptions): MobileCommentMode {
     const { isMobile, runtimeKey, directory, sessionKey, mobileShell } = options;
+    const { t } = useI18n();
     const controller = useMobileCommentComposerController();
     const draft = useMobileCommentDraft(controller);
     const active = isMobile && draft.status === 'open';
 
     const scope = React.useMemo<MobileCommentScope | null>(
-        () => (!runtimeKey || !directory || !sessionKey
+        () => (!isMobile || !runtimeKey || !directory || !sessionKey
             ? null
             : { runtimeKey, directory, sessionKey }),
-        [directory, runtimeKey, sessionKey],
+        [isMobile, directory, runtimeKey, sessionKey],
     );
-    // Latest scope for the synchronous boundary check in attach; the effect
-    // below is the passive close for scope switches that happen on their own.
-    const scopeRef = React.useRef<MobileCommentScope | null>(scope);
-    scopeRef.current = scope;
-
-    React.useEffect(() => {
-        if (draft.status !== 'open') return;
-        if (!scope || !isSameMobileCommentScope(scope, draft.scope)) {
-            controller?.cancel();
-        }
-    }, [controller, draft, scope]);
+    // Publish the committed composer's target before a selection-menu tap can
+    // open a comment. The menu must not derive a second target from the parent.
+    React.useLayoutEffect(() => {
+        controller?.setScope(scope);
+        return () => controller?.setScope(null);
+    }, [controller, scope]);
 
     // Entering comment mode unmounts the wrapper-level dictation engine (the
     // shell mounts its own, comment-scoped one); a stale active flag from it
@@ -73,29 +66,23 @@ export function useMobileCommentComposerMode(options: MobileCommentModeOptions):
     // Attach inside the tap: expand() flushes the shell swap and focuses the
     // restored composer in the same call stack, as iOS requires for the soft
     // keyboard. A stale or scope-mismatched open restores nothing.
-    const attachPlan = React.useCallback((plan: MobileCommentAttachPlan | null) => {
-        if (!plan) return;
-        if (!applyMobileCommentAttach(plan)) controller?.cancel();
-        mobileShell.expand();
-    }, [controller, mobileShell]);
-
     const attach = React.useCallback((generation: number, text?: string) => {
         if (!controller) return;
+        let attached = false;
         flushSync(() => {
-            const open = controller.getState();
-            if (open.status !== 'open' || open.generation !== generation) return;
-            const current = scopeRef.current;
-            if (!current || !isSameMobileCommentScope(current, open.scope)) {
-                controller.cancel();
-                return;
-            }
-            if (text === undefined) {
-                attachPlan(controller.attach(generation));
-            } else {
-                attachPlan(controller.insertAndAttach(text, generation));
-            }
+            attached = (text === undefined
+                ? controller.attach(generation)
+                : controller.insertAndAttach(text, generation)) !== null;
         });
-    }, [attachPlan, controller]);
+        if (attached) {
+            mobileShell.expand();
+        } else {
+            const open = controller.getState();
+            if (open.status === 'open' && open.generation === generation) {
+                toast.error(t('chat.textSelection.comment.attachFailed'));
+            }
+        }
+    }, [controller, mobileShell, t]);
 
     const cancel = React.useCallback((generation: number) => {
         if (!controller) return;

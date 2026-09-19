@@ -17,8 +17,6 @@ import { useEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import { isVSCodeRuntime } from '@/lib/desktop';
 import { useI18n } from '@/lib/i18n';
 import { isIMECompositionEvent } from '@/lib/ime';
-import { getRuntimeKey } from '@/lib/runtime-switch';
-import { useChatColumnSession } from '../chatColumnSession';
 import {
     useMobileCommentComposerController,
     useMobileCommentDraft,
@@ -133,7 +131,6 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
   const availableWorktreesByProject = useSessionUIStore((state) => state.availableWorktreesByProject);
   const effectiveDirectory = useEffectiveDirectory();
   const sessions = useSessions();
-  const chatColumn = useChatColumnSession();
   const mobileCommentController = useMobileCommentComposerController();
   const mobileCommentDraft = useMobileCommentDraft(mobileCommentController);
   const mobileCommentActive = mobileCommentDraft.status === 'open';
@@ -479,18 +476,15 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
 
   // Mobile: no floating input here. The quote is handed to this column's
   // composer, which swaps its input for the comment shell. The scope is
-  // captured now, at open — attach writes to this session even if the user
-  // switches sessions mid-comment (the composer closes the comment instead of
-  // re-targeting). This menu keeps its comment mode on so the quoted range
-  // stays highlighted; the effect above clears it when the comment ends.
+  // captured from the visible composer, including BTW. Switching its target
+  // closes the comment instead of re-targeting. The menu keeps the quoted range
+  // highlighted until the comment ends.
   // flushSync mounts and focuses the comment editor while the tap's call
   // stack is still live; that synchronous focus is the only one iOS raises
   // the soft keyboard for.
   const handleOpenMobileComment = React.useCallback(() => {
     if (!selectedTextMarkdown) return;
-    const sessionKey = chatColumn?.sessionId ?? currentSessionId ?? (newSessionDraftOpen ? 'draft' : null);
-    const directory = chatColumn?.directory ?? effectiveDirectory;
-    if (!mobileCommentController || !sessionKey || !directory) {
+    if (!mobileCommentController) {
       hideMenu();
       return;
     }
@@ -504,12 +498,12 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
     updateCommentRects();
     window.getSelection()?.removeAllRanges();
     const opened = flushSync(() => (
-      mobileCommentController.open({ runtimeKey: getRuntimeKey(), directory, sessionKey }, quote)
+      mobileCommentController.open(quote)
     ));
     if (!opened) {
       hideMenu();
     }
-  }, [chatColumn, currentSessionId, effectiveDirectory, hideMenu, mobileCommentController, newSessionDraftOpen, selectedMessageId, selectedText, selectedTextMarkdown, updateCommentRects]);
+  }, [hideMenu, mobileCommentController, selectedMessageId, selectedText, selectedTextMarkdown, updateCommentRects]);
 
   const handleAttachComment = React.useCallback(() => {
     const sessionKey = currentSessionId ?? (newSessionDraftOpen ? 'draft' : null);
@@ -517,7 +511,7 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
       hideMenu();
       return;
     }
-    addContextDraft({ directory: effectiveDirectory, sessionKey }, {
+    const draftId = addContextDraft({ directory: effectiveDirectory, sessionKey }, {
       source: 'chat-quote',
       fileLabel: selectedMessageId ?? '',
       startLine: 1,
@@ -526,11 +520,15 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
       language: '',
       text: commentText.trim(),
     });
+    if (!draftId) {
+      toast.error(t('chat.textSelection.comment.attachFailed'));
+      return;
+    }
     hideMenu();
     queueMicrotask(() => {
       focusChatInput();
     });
-  }, [addContextDraft, commentText, currentSessionId, effectiveDirectory, hideMenu, newSessionDraftOpen, selectedMessageId, selectedTextMarkdown]);
+  }, [addContextDraft, commentText, currentSessionId, effectiveDirectory, hideMenu, newSessionDraftOpen, selectedMessageId, selectedTextMarkdown, t]);
 
   const currentSession = React.useMemo(() => {
     if (!currentSessionId) {

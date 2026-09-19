@@ -2061,6 +2061,7 @@ export const dict = {
   'chat.textSelection.title.commentOnSelection': 'Commenter la sélection',
   'chat.textSelection.comment.placeholder': 'Ajouter un commentaire facultatif...',
   'chat.textSelection.comment.attach': 'Joindre',
+  'chat.textSelection.comment.attachFailed': 'Impossible de joindre le commentaire. Raccourcissez-le ou retirez du contexte joint, puis réessayez.',
   'chat.textSelection.actions.addToNotes': 'Ajouter aux notes',
   'chat.textSelection.title.addToCurrentChat': 'Ajouter au chat actuel',
   'chat.textSelection.title.saveInsightToNotes': 'Enregistrer le texte sélectionné dans les notes',

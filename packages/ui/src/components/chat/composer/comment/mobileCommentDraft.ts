@@ -77,23 +77,23 @@ export const isSameMobileCommentScope = (a: MobileCommentScope, b: MobileComment
 export interface MobileCommentDraftController {
     getState(): MobileCommentDraft;
     subscribe(listener: () => void): () => void;
-    /** Open (or replace) the comment for a selection. False when rejected. */
-    open(scope: MobileCommentScope, quote: MobileCommentQuote): boolean;
+    /** The mounted composer publishes its target, including pending BTW drafts. */
+    setScope(scope: MobileCommentScope | null): void;
+    /** Capture the composer's target and open a comment for the selection. */
+    open(quote: MobileCommentQuote): boolean;
     /**
      * Discard the comment. The only exit that writes nothing. With a
      * generation, only that open is cancelled; returns whether a comment
      * closed, so a stale caller can skip its follow-up (focus restore etc.).
      */
     cancel(generation?: number): boolean;
-    /** Close when the authoritative column scope is no longer the captured one. */
-    closeIfScopeChanged(scope: MobileCommentScope): void;
     /** Comment text typed in the comment editor. */
     setText(text: string, generation: number): void;
     /** Append a dictation transcript to the comment text. */
     insertText(text: string, generation: number): void;
     /**
-     * Consume the open comment exactly once. Returns the attach plan, or null
-     * when the comment is closed or the generation is stale.
+     * Store the open comment exactly once and close only after acceptance.
+     * Rejection returns null and preserves the comment for editing or retry.
      */
     attach(generation: number): MobileCommentAttachPlan | null;
     /**
@@ -106,6 +106,7 @@ export interface MobileCommentDraftController {
 
 export function createMobileCommentDraftController(): MobileCommentDraftController {
     let state: MobileCommentDraft = CLOSED_MOBILE_COMMENT_DRAFT;
+    let scope: MobileCommentScope | null = null;
     let generation = 0;
     const listeners = new Set<() => void>();
 
@@ -130,6 +131,22 @@ export function createMobileCommentDraftController(): MobileCommentDraftControll
         },
     });
 
+    const attach = (atGeneration: number, text?: string): MobileCommentAttachPlan | null => {
+        if (state.status !== 'open' || state.generation !== atGeneration) return null;
+        if (!scope || scope.runtimeKey !== getRuntimeKey() || !isSameMobileCommentScope(scope, state.scope)) {
+            update(CLOSED_MOBILE_COMMENT_DRAFT);
+            return null;
+        }
+        const pending = text === undefined ? state : { ...state, text: appendInlineText(state.text, text) };
+        const plan = planOf(pending);
+        if (!applyMobileCommentAttach(plan)) {
+            update(pending);
+            return null;
+        }
+        update(CLOSED_MOBILE_COMMENT_DRAFT);
+        return plan;
+    };
+
     return {
         getState: () => state,
         subscribe(listener) {
@@ -138,8 +155,14 @@ export function createMobileCommentDraftController(): MobileCommentDraftControll
                 listeners.delete(listener);
             };
         },
-        open(scope, quote) {
-            if (!scope.runtimeKey || !scope.directory || !scope.sessionKey) return false;
+        setScope(nextScope) {
+            scope = nextScope;
+            if (state.status === 'open' && (!scope || !isSameMobileCommentScope(state.scope, scope))) {
+                update(CLOSED_MOBILE_COMMENT_DRAFT);
+            }
+        },
+        open(quote) {
+            if (!scope || scope.runtimeKey !== getRuntimeKey() || !scope.directory || !scope.sessionKey) return false;
             if (!quote.markdownText.trim()) return false;
             generation += 1;
             update({ status: 'open', scope, quote, text: '', generation });
@@ -150,12 +173,6 @@ export function createMobileCommentDraftController(): MobileCommentDraftControll
             if (atGeneration !== undefined && state.generation !== atGeneration) return false;
             update(CLOSED_MOBILE_COMMENT_DRAFT);
             return true;
-        },
-        closeIfScopeChanged(scope) {
-            if (state.status !== 'open') return;
-            if (!isSameMobileCommentScope(state.scope, scope)) {
-                update(CLOSED_MOBILE_COMMENT_DRAFT);
-            }
         },
         setText(text, atGeneration) {
             if (state.status !== 'open' || state.generation !== atGeneration) return;
@@ -168,18 +185,9 @@ export function createMobileCommentDraftController(): MobileCommentDraftControll
             if (next === state.text) return;
             update({ ...state, text: next });
         },
-        attach(atGeneration) {
-            if (state.status !== 'open' || state.generation !== atGeneration) return null;
-            const plan = planOf(state);
-            update(CLOSED_MOBILE_COMMENT_DRAFT);
-            return plan;
-        },
+        attach,
         insertAndAttach(text, atGeneration) {
-            if (state.status !== 'open' || state.generation !== atGeneration) return null;
-            const withText = { ...state, text: appendInlineText(state.text, text) };
-            const plan = planOf(withText);
-            update(CLOSED_MOBILE_COMMENT_DRAFT);
-            return plan;
+            return attach(atGeneration, text);
         },
     };
 }
@@ -189,7 +197,7 @@ export function createMobileCommentDraftController(): MobileCommentDraftControll
  * verified against the scope captured at open: `addDraft` keys by the CURRENT
  * runtime, so a plan from before a runtime switch must be dropped, not filed
  * under the new runtime's namespace. Directory and session are written exactly
- * as captured — the quote follows the session it was selected in.
+ * as captured from the visible composer.
  */
 export function applyMobileCommentAttach(plan: MobileCommentAttachPlan): boolean {
     if (plan.scope.runtimeKey !== getRuntimeKey()) return false;

@@ -2339,6 +2339,7 @@ export const dict = {
   'chat.textSelection.title.commentOnSelection': 'Comment on selection',
   'chat.textSelection.comment.placeholder': 'Add an optional comment...',
   'chat.textSelection.comment.attach': 'Attach',
+  'chat.textSelection.comment.attachFailed': 'Could not attach the comment. Shorten it or remove other attached context, then try again.',
   'chat.textSelection.actions.addToNotes': 'Add to notes',
   'chat.textSelection.title.addToCurrentChat': 'Add to current chat',
   'chat.textSelection.title.saveInsightToNotes': 'Save selected text to notes',

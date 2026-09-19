@@ -8,6 +8,7 @@ import {
     createMobileCommentDraftController,
     isSameMobileCommentScope,
     mobileCommentQuotePreview,
+    type MobileCommentAttachPlan,
     type MobileCommentQuote,
     type MobileCommentScope,
 } from '../mobileCommentDraft';
@@ -28,9 +29,14 @@ const quote = (overrides: Partial<MobileCommentQuote> = {}): MobileCommentQuote 
 
 const openDraft = () => {
     const controller = createMobileCommentDraftController();
-    if (!controller.open(scope(), quote())) throw new Error('open rejected');
+    controller.setScope(scope());
+    if (!controller.open(quote())) throw new Error('open rejected');
     return controller;
 };
+
+afterEach(() => {
+    useInlineCommentDraftStore.setState({ drafts: {}, touchedAt: {} });
+});
 
 describe('mobileCommentQuotePreview', () => {
     test('keeps the first ten unicode characters', () => {
@@ -54,10 +60,13 @@ describe('mobileCommentQuotePreview', () => {
 describe('createMobileCommentDraftController', () => {
     test('open requires a complete scope and a quotable selection', () => {
         const controller = createMobileCommentDraftController();
-        expect(controller.open(scope({ directory: '' }), quote())).toBe(false);
-        expect(controller.open(scope({ sessionKey: '' }), quote())).toBe(false);
-        expect(controller.open(scope({ runtimeKey: '' }), quote())).toBe(false);
-        expect(controller.open(scope(), quote({ markdownText: '  ' }))).toBe(false);
+        expect(controller.open(quote())).toBe(false);
+        for (const invalidScope of [scope({ directory: '' }), scope({ sessionKey: '' }), scope({ runtimeKey: '' })]) {
+            controller.setScope(invalidScope);
+            expect(controller.open(quote())).toBe(false);
+        }
+        controller.setScope(scope());
+        expect(controller.open(quote({ markdownText: '  ' }))).toBe(false);
         expect(controller.getState().status).toBe('closed');
     });
 
@@ -116,7 +125,7 @@ describe('createMobileCommentDraftController', () => {
         const stale = controller.getState();
         if (stale.status !== 'open') throw new Error('expected open');
         controller.cancel();
-        if (!controller.open(scope(), quote())) throw new Error('open rejected');
+        if (!controller.open(quote())) throw new Error('open rejected');
 
         expect(controller.attach(stale.generation)).toBeNull();
         controller.setText('stale text', stale.generation);
@@ -130,7 +139,7 @@ describe('createMobileCommentDraftController', () => {
         const first = controller.getState();
         if (first.status !== 'open') throw new Error('expected open');
         controller.cancel();
-        if (!controller.open(scope(), quote())) throw new Error('open rejected');
+        if (!controller.open(quote())) throw new Error('open rejected');
 
         // The old dictation callback still holds generation 1.
         controller.insertText('stale transcript', first.generation);
@@ -152,7 +161,7 @@ describe('createMobileCommentDraftController', () => {
         if (stale.status !== 'open') throw new Error('expected open');
         // The quoted selection is replaced mid-dictation: a new comment opens
         // (generation 2) while generation 1's transcript is still in flight.
-        if (!controller.open(scope(), quote({ plainText: 'second', markdownText: 'second' }))) {
+        if (!controller.open(quote({ plainText: 'second', markdownText: 'second' }))) {
             throw new Error('open rejected');
         }
         const current = controller.getState();
@@ -186,7 +195,7 @@ describe('createMobileCommentDraftController', () => {
         const controller = openDraft();
         const stale = controller.getState();
         if (stale.status !== 'open') throw new Error('expected open');
-        if (!controller.open(scope(), quote())) throw new Error('open rejected');
+        if (!controller.open(quote())) throw new Error('open rejected');
 
         expect(controller.cancel(stale.generation)).toBe(false);
         expect(controller.getState().status).toBe('open');
@@ -197,7 +206,7 @@ describe('createMobileCommentDraftController', () => {
         expect(controller.getState().status).toBe('closed');
         // A generation-less cancel still closes whatever is open (scope
         // changes, column teardown).
-        if (!controller.open(scope(), quote())) throw new Error('open rejected');
+        if (!controller.open(quote())) throw new Error('open rejected');
         expect(controller.cancel()).toBe(true);
         expect(controller.getState().status).toBe('closed');
     });
@@ -207,14 +216,107 @@ describe('createMobileCommentDraftController', () => {
         const open = controller.getState();
         if (open.status !== 'open') throw new Error('expected open');
 
-        controller.closeIfScopeChanged(scope({ sessionKey: 'session-2' }));
+        controller.setScope(scope({ sessionKey: 'session-2' }));
         expect(controller.getState().status).toBe('closed');
         expect(controller.attach(open.generation)).toBeNull();
 
         // Same scope is a no-op.
         const again = openDraft();
-        again.closeIfScopeChanged(scope());
+        again.setScope(scope());
         expect(again.getState().status).toBe('open');
+    });
+
+    for (const [label, sessionKey] of [
+        ['ordinary chat', 'session-1'],
+        ['expanded BTW', 'btw-session-1'],
+        ['pending BTW', 'btw-pending:session-1'],
+        ['collapsed BTW', 'session-1'],
+    ]) {
+        test(`${label}: selection uses the target published by the visible composer`, () => {
+            const controller = createMobileCommentDraftController();
+            const visibleScope = scope({ sessionKey });
+            controller.setScope(visibleScope);
+            expect(controller.open(quote())).toBe(true);
+            const open = controller.getState();
+            if (open.status !== 'open') throw new Error('expected open');
+            expect(open.scope).toEqual(visibleScope);
+            controller.setText('comment on the selection', open.generation);
+            expect(controller.attach(open.generation)?.target).toEqual({ directory: visibleScope.directory, sessionKey });
+            expect(controller.attach(open.generation)).toBeNull();
+            expect(useInlineCommentDraftStore.getState().getDrafts({ directory: visibleScope.directory, sessionKey })).toHaveLength(1);
+            if (sessionKey !== 'session-1') {
+                expect(useInlineCommentDraftStore.getState().getDrafts({ directory: visibleScope.directory, sessionKey: 'session-1' })).toEqual([]);
+            }
+        });
+    }
+
+    test('collapsing BTW or unmounting invalidates late attach and dictation', () => {
+        const controller = createMobileCommentDraftController();
+        controller.setScope(scope({ sessionKey: 'btw-session-1' }));
+        controller.open(quote());
+        const open = controller.getState();
+        if (open.status !== 'open') throw new Error('expected open');
+        controller.setScope(scope());
+        expect(controller.insertAndAttach('late transcript', open.generation)).toBeNull();
+        expect(useInlineCommentDraftStore.getState().drafts).toEqual({});
+        expect(controller.open(quote())).toBe(true);
+        controller.setScope(null);
+        expect(controller.getState().status).toBe('closed');
+        expect(controller.open(quote())).toBe(false);
+    });
+
+    test('a controller in another column keeps its own draft target', () => {
+        const first = openDraft();
+        const second = createMobileCommentDraftController();
+        second.setScope(scope({ sessionKey: 'session-2' }));
+        second.open(quote());
+        first.setScope(null);
+        const open = second.getState();
+        if (open.status !== 'open') throw new Error('expected open');
+        expect(second.attach(open.generation)?.target.sessionKey).toBe('session-2');
+    });
+
+    test('store-limit rejection preserves text and quote, and a retry attaches exactly once', () => {
+        const target = { directory: '/repo/main', sessionKey: 'session-1' };
+        const store = useInlineCommentDraftStore.getState();
+        const existingId = store.addDraft(target, {
+            source: 'chat-quote', fileLabel: '', startLine: 1, endLine: 1,
+            code: 'x'.repeat(800_000), language: '', text: '',
+        });
+        expect(existingId).not.toBeNull();
+        const controller = openDraft();
+        const open = controller.getState();
+        if (open.status !== 'open') throw new Error('expected open');
+        controller.setText('y'.repeat(300_000), open.generation);
+        const before = controller.getState();
+        expect(controller.attach(open.generation)).toBeNull();
+        expect(controller.getState()).toEqual(before);
+        expect(store.getDrafts(target)).toHaveLength(1);
+        expect(store.getDrafts(target)[0].id).toBe(existingId);
+
+        controller.setText('shorter comment', open.generation);
+        expect(controller.attach(open.generation)).not.toBeNull();
+        expect(controller.getState().status).toBe('closed');
+        expect(store.getDrafts(target)).toHaveLength(2);
+        expect(store.getDrafts(target)[1].text).toBe('shorter comment');
+        expect(controller.attach(open.generation)).toBeNull();
+        expect(store.getDrafts(target)).toHaveLength(2);
+    });
+
+    test('a rejected insert-and-attach retains the transcript for a later retry', () => {
+        const controller = openDraft();
+        const open = controller.getState();
+        if (open.status !== 'open') throw new Error('expected open');
+        controller.setText('typed first', open.generation);
+        expect(controller.insertAndAttach('x'.repeat(1_048_576), open.generation)).toBeNull();
+        const rejected = controller.getState();
+        if (rejected.status !== 'open') throw new Error('expected open');
+        expect(rejected.quote).toEqual(open.quote);
+        expect(rejected.text.startsWith('typed first ')).toBe(true);
+        expect(rejected.text.length).toBeGreaterThan(1_048_576);
+        expect(useInlineCommentDraftStore.getState().drafts).toEqual({});
+        controller.setText('edited transcript', open.generation);
+        expect(controller.attach(open.generation)?.draft.text).toBe('edited transcript');
     });
 
     test('open replaces an existing comment with a new generation', () => {
@@ -223,7 +325,7 @@ describe('createMobileCommentDraftController', () => {
         if (first.status !== 'open') throw new Error('expected open');
         controller.setText('draft one', first.generation);
 
-        if (!controller.open(scope(), quote({ plainText: 'second', markdownText: 'second' }))) {
+        if (!controller.open(quote({ plainText: 'second', markdownText: 'second' }))) {
             throw new Error('open rejected');
         }
         const second = controller.getState();
@@ -244,10 +346,6 @@ describe('isSameMobileCommentScope', () => {
 });
 
 describe('applyMobileCommentAttach', () => {
-    afterEach(() => {
-        useInlineCommentDraftStore.setState({ drafts: {}, touchedAt: {} });
-    });
-
     test('writes one chat-quote draft into the captured session bucket only', () => {
         const controller = openDraft();
         const open = controller.getState();
@@ -262,8 +360,6 @@ describe('applyMobileCommentAttach', () => {
             { directory: other.directory, sessionKey: other.sessionKey },
             { source: 'chat-quote', fileLabel: '', startLine: 1, endLine: 1, code: 'other', language: '', text: '' },
         );
-
-        expect(applyMobileCommentAttach(plan)).toBe(true);
 
         const key = getInlineCommentDraftKey(getRuntimeKey(), plan.target.directory, plan.target.sessionKey);
         const drafts = key ? useInlineCommentDraftStore.getState().drafts[key] ?? [] : [];
@@ -281,16 +377,15 @@ describe('applyMobileCommentAttach', () => {
     });
 
     test('drops a plan whose runtime no longer matches instead of re-targeting it', () => {
-        const controller = openDraft();
-        const open = controller.getState();
-        if (open.status !== 'open') throw new Error('expected open');
-        const plan = controller.attach(open.generation);
-        if (!plan) throw new Error('expected plan');
-
-        const stalePlan = { ...plan, scope: { ...plan.scope, runtimeKey: 'previous-runtime' } };
+        const target = { directory: '/repo/main', sessionKey: 'session-1' };
+        const stalePlan: MobileCommentAttachPlan = {
+            scope: scope({ runtimeKey: 'previous-runtime' }),
+            target,
+            draft: { source: 'chat-quote', fileLabel: '', startLine: 1, endLine: 1, code: 'quote', language: '', text: '' },
+        };
         expect(applyMobileCommentAttach(stalePlan)).toBe(false);
 
-        const key = getInlineCommentDraftKey(getRuntimeKey(), plan.target.directory, plan.target.sessionKey);
+        const key = getInlineCommentDraftKey(getRuntimeKey(), target.directory, target.sessionKey);
         const bucket = key ? useInlineCommentDraftStore.getState().drafts[key] : null;
         expect(bucket === undefined || bucket === null).toBe(true);
     });
@@ -309,8 +404,7 @@ describe('applyMobileCommentAttach', () => {
         const open = controller.getState();
         if (open.status !== 'open') throw new Error('expected open');
         controller.setText('comment text', open.generation);
-        const plan = controller.attach(open.generation);
-        if (plan) applyMobileCommentAttach(plan);
+        controller.attach(open.generation);
 
         expect(useInputStore.getState().pendingInputText).toEqual(before.pendingInputText);
         expect(useInputStore.getState().attachedFiles).toEqual(before.attachedFiles);

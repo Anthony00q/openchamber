@@ -2305,6 +2305,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.textSelection.title.commentOnSelection': '评论所选内容',
   'chat.textSelection.comment.placeholder': '添加可选评论...',
   'chat.textSelection.comment.attach': '附加',
+  'chat.textSelection.comment.attachFailed': '无法附加评论。请缩短评论或移除其他已附加的上下文，然后重试。',
   'chat.textSelection.actions.addToNotes': '添加到笔记',
   'chat.textSelection.title.addToCurrentChat': '添加到当前聊天',
   'chat.textSelection.title.saveInsightToNotes': '将选中文本保存到笔记',

@@ -974,6 +974,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.textSelection.title.commentOnSelection': 'Skomentuj zaznaczenie',
   'chat.textSelection.comment.placeholder': 'Dodaj opcjonalny komentarz...',
   'chat.textSelection.comment.attach': 'Załącz',
+  'chat.textSelection.comment.attachFailed': 'Nie udało się załączyć komentarza. Skróć go lub usuń inny załączony kontekst i spróbuj ponownie.',
   'chat.textSelection.actions.addToNotes': 'Dodaj do notatek',
   'chat.textSelection.title.addToCurrentChat': 'Dodaj do obecnego czatu',
   'chat.textSelection.title.saveInsightToNotes': 'Zapisz zaznaczony tekst do notatek',

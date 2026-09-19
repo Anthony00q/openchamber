@@ -398,8 +398,11 @@ comment into a sibling. Desktop keeps its floating input in the selection
 menu; only the mobile path changed.
 
 `comment/mobileCommentDraft.ts` owns the lifecycle. The scope (runtime,
-directory, session) is captured when the comment opens and is the only place
-the quote may land: attach writes a `chat-quote` draft into
+directory, session) comes from the visible composer's inline-draft target,
+including an expanded or pending BTW composer. A collapsed BTW uses the main
+composer's target. The hook publishes that scope before paint; the selection
+menu supplies only the quote. The scope is captured when the comment opens and
+is the only place the quote may land: attach writes a `chat-quote` draft into
 `useInlineCommentDraftStore` at the captured target, never the currently
 active session, and a scope change closes the comment instead of re-targeting
 it. Attach also refuses at the boundary unless the authoritative scope still
@@ -408,7 +411,12 @@ so a repeated attach or a dictation transcript that arrives after cancel or a
 reopen is rejected; `insertAndAttach` checks the generation once for both
 steps, so a stale dictation completion neither writes text nor attaches the
 newer comment that replaced its own. Attach is once-only; the comment text
-itself is optional.
+itself is optional. The controller closes only after the inline-draft store
+accepts the write. A size-limit rejection keeps the quote, typed text and any
+inserted transcript open for editing or retry, with a localized error toast.
+A stale runtime closes the comment without writing to the new runtime.
+Desktop's floating comment input also remains open when the store rejects
+an attachment, using the same localized error.
 
 `comment/useMobileCommentComposerMode.ts` is ChatInput's seam: subscription,
 scope ownership, and the attach/cancel transitions, flushed inside the tap and
@@ -441,11 +449,11 @@ meaning "the prompt editor".
 
 ## Testing
 
-The package has no DOM test environment, so coverage stops at the state and
-logic layers: the language, the submit assembly, path and drop handling, text
-splicing, large-paste detection, paste-offer invalidation, input-history
-traversal, the mobile comment lifecycle, and the CodeMirror language extension
-at the `EditorState` level.
+Tests cover the language, submit assembly, path and drop handling, text splicing,
+large-paste detection, paste-offer invalidation, input-history traversal, the
+mobile comment lifecycle, and the CodeMirror language extension at the
+`EditorState` level. The mobile comment hook also has a Happy DOM integration
+suite for the mounted composer's target, stale callbacks, and failed attaches.
 
 Rendering, focus, keyboard behavior, IME and WKWebView are **not covered by
 tests** and are verified by hand. That includes ArrowUp and ArrowDown recall,
@@ -458,10 +466,11 @@ suites that install module mocks are order-dependent.
 
 ## Enter preference
 
-`keyboardPolicy.ts` owns the submission decision. Mobile composers send or queue
-through buttons only. Enter, Shift+Enter and Ctrl/Cmd+Enter never submit on
-mobile, regardless of synced settings or CodeMirror's deferred key modifiers.
-The Enter-to-send setting and its search entry are hidden on mobile.
+`keyboardPolicy.ts` owns the submission decision. On mobile, Enter and
+Shift+Enter insert a newline regardless of synced settings or CodeMirror's
+deferred Shift modifier. Ctrl/Cmd+Enter remains available for external keyboards;
+Send and Queue buttons retain their normal behavior. The Enter-to-send setting
+and its search entry are hidden on mobile without changing the desktop preference.
 
 The expanded desktop composer always inserts a newline with Enter, including
 Shift+Enter, and sends with Ctrl/Cmd+Enter; it ignores the Enter-to-send preference.

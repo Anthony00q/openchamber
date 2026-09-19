@@ -2309,8 +2309,8 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
             return;
         }
 
-        // Mobile sends through buttons only; expanded desktop mode requires
-        // Ctrl/Cmd+Enter. The standard desktop composer follows the setting.
+        // Mobile and expanded desktop require Ctrl/Cmd+Enter to send from the
+        // keyboard. The standard desktop composer follows the setting.
         const isCtrlEnter = e.ctrlKey || e.metaKey;
         if (e.key === 'Enter' && shouldSubmitEnter({
             isMobile,
@@ -3625,7 +3625,6 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                     furniture (chips, banners, draft selectors) stays in state
                     and returns unchanged when the comment exits. */}
                 {!mobileCommentActive ? (<>
-                <AttachedFilesList onShowPopup={handleShowAttachmentPreview} />
                 <AutoReviewBanner />
                 {hasDrafts ? (
                     <ComposerContextChips

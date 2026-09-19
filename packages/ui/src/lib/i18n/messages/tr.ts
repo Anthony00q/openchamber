@@ -3373,6 +3373,7 @@ export const dict = {
   'chat.textSelection.title.commentOnSelection': 'Seçime yorum yap',
   'chat.textSelection.comment.placeholder': 'İsteğe bağlı bir yorum ekleyin...',
   'chat.textSelection.comment.attach': 'Ekle',
+  'chat.textSelection.comment.attachFailed': 'Yorum eklenemedi. Yorumu kısaltın veya ekli diğer bağlamı kaldırıp tekrar deneyin.',
   'commandPalette.item.cycleTheme': 'Temayı değiştir',
   'commandPalette.item.showOpenCodeStatus': 'OpenCode durumunu göster',
   'commandPalette.item.toggleMemoryDebug': 'Memory debug panelini aç/kapat',

@@ -32,12 +32,12 @@ const enterPolicyCases: Array<[string, Partial<EnterKeyPolicyInput>, boolean]> =
         ['expanded composer Shift+Enter inserts a newline when Enter-to-send is disabled', { isDesktopExpanded: true, enterToSendConfigured: true, enterToSend: false, shiftKey: true }, false],
         ['expanded composer Ctrl+Enter sends despite Enter-to-send being disabled', { isDesktopExpanded: true, enterToSendConfigured: true, ctrlKey: true }, true],
         ['expanded composer Cmd+Enter sends despite Enter-to-send being enabled', { isDesktopExpanded: true, enterToSendConfigured: true, enterToSend: true, metaKey: true }, true],
-        ['mobile guard takes precedence over expanded Ctrl+Enter', { enterToSendConfigured: true, isMobile: true, isDesktopExpanded: true, shiftKey: true, ctrlKey: true }, false],
-        ['mobile guard takes precedence over expanded Meta+Enter', { enterToSendConfigured: true, isMobile: true, isDesktopExpanded: true, shiftKey: true, metaKey: true }, false],
+        ['mobile expanded Ctrl+Enter sends', { enterToSendConfigured: true, isMobile: true, isDesktopExpanded: true, shiftKey: true, ctrlKey: true }, true],
+        ['mobile expanded Meta+Enter sends', { enterToSendConfigured: true, isMobile: true, isDesktopExpanded: true, shiftKey: true, metaKey: true }, true],
 ];
 
 describe('Enter key policy', () => {
-    test('mobile never submits from Enter, regardless of synced settings or modifiers', () => {
+    test('mobile requires Ctrl/Cmd to submit regardless of synced settings or Shift', () => {
         for (const enterToSendConfigured of [false, true]) {
             for (const enterToSend of [false, true]) {
                 for (const shiftKey of [false, true]) {
@@ -50,7 +50,7 @@ describe('Enter key policy', () => {
                                 shiftKey,
                                 ctrlKey,
                                 metaKey,
-                            }))).toBe(false);
+                            }))).toBe(ctrlKey || metaKey);
                         }
                     }
                 }
@@ -60,9 +60,9 @@ describe('Enter key policy', () => {
 
     for (const surface of [{}, { isMobile: true }, { isDesktopExpanded: true }]) {
         for (const modifiers of [{}, { ctrlKey: true }, { metaKey: true }, { ctrlKey: true, metaKey: true }]) {
-            test(`untouched Shift+Enter only submits with a modifier in expanded mode: ${JSON.stringify({ ...surface, ...modifiers })}`, () => {
+            test(`untouched Shift+Enter requires Ctrl/Cmd and a mobile or expanded composer: ${JSON.stringify({ ...surface, ...modifiers })}`, () => {
                 expect(shouldSubmitEnter(policy({ ...surface, ...modifiers, shiftKey: true })))
-                    .toBe(Boolean(surface.isDesktopExpanded && (modifiers.ctrlKey || modifiers.metaKey)));
+                    .toBe(Boolean((surface.isMobile || surface.isDesktopExpanded) && (modifiers.ctrlKey || modifiers.metaKey)));
             });
         }
     }
@@ -82,11 +82,27 @@ const deferredModifierCases: Array<[string, EnterModifierState]> = [
 ];
 
 describe('deferred Enter modifiers', () => {
+    test('Android deferred Enter ignores the synced desktop preference and keeps Ctrl/Cmd', () => {
+        for (const enterToSend of [false, true]) {
+            for (const modifiers of deferredModifierCases.map(([, value]) => value)) {
+                const event = { shiftKey: false, ctrlKey: false, metaKey: false };
+                // Configured mobile autocapitalization deliberately skips Shift restoration.
+                restoreDeferredEnterModifiers(event, modifiers, false);
+                expect(shouldSubmitEnter(policy({
+                    isMobile: true,
+                    enterToSendConfigured: true,
+                    enterToSend,
+                    ...event,
+                }))).toBe(modifiers.ctrlKey || modifiers.metaKey);
+            }
+        }
+    });
+
     for (const modifiers of [{ shiftKey: true, ctrlKey: true, metaKey: false }, { shiftKey: true, ctrlKey: false, metaKey: true }]) {
-        test(`untouched mobile deferred Shift does not submit: ${JSON.stringify(modifiers)}`, () => {
+        test(`mobile deferred Ctrl/Cmd submits even with Shift: ${JSON.stringify(modifiers)}`, () => {
             const event = { shiftKey: false, ctrlKey: false, metaKey: false };
             restoreDeferredEnterModifiers(event, modifiers, true);
-            expect(shouldSubmitEnter(policy({ isMobile: true, ...event }))).toBe(false);
+            expect(shouldSubmitEnter(policy({ isMobile: true, ...event }))).toBe(true);
         });
     }
 
