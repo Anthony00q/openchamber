@@ -52,7 +52,9 @@ import {
   type EmbeddedSessionRuntimeBootstrap,
 } from './contextPanelEmbeddedChat';
 const PluginPane = React.lazy(() => import('./PluginPane').then((module) => ({ default: module.PluginPane })));
+const GuestSurfacePane = React.lazy(() => import('./GuestSurfacePane').then((module) => ({ default: module.GuestSurfacePane })));
 import { useGuestsStore } from '@/lib/guests/store';
+import { guestHasSharedSurface } from '@/lib/guests/surfaces';
 import { FALLBACK_GUEST_ICON } from '@/lib/guests/icon';
 import { isPluginContextPanelMode, pluginIdFromMode } from '@/lib/surfaces/modes';
 import { getContextSurfaceWidthFraction } from '@/lib/surfaces/registry';
@@ -1052,6 +1054,11 @@ export const ContextPanel: React.FC = () => {
     () => tabs.filter((tab) => isPluginContextPanelMode(tab.mode)),
     [tabs],
   );
+  const guests = useGuestsStore((state) => state.guests);
+  const surfaceGuestIds = React.useMemo(
+    () => new Set(guests.filter(guestHasSharedSurface).map((guest) => guest.id)),
+    [guests],
+  );
   const hasFileTabs = React.useMemo(
     () => tabs.some((tab) => tab.mode === 'file'),
     [tabs],
@@ -1386,13 +1393,19 @@ export const ContextPanel: React.FC = () => {
         ) : null}
         {pluginTabs.map((tab) => {
           if (!isPluginContextPanelMode(tab.mode)) return null;
+          // A shared-surface extension has no iframe: the host draws its
+          // service's picture. Mounted only while shown, so an unwatched
+          // surface holds no socket and its service can idle out.
+          const sharedSurface = surfaceGuestIds.has(pluginIdFromMode(tab.mode));
+          const shown = activeTab?.id === tab.id;
+          if (sharedSurface && !(shown && isOpen)) return null;
           return (
             <div
               key={tab.id}
-              className={cn('absolute inset-0', activeTab?.id === tab.id ? 'block' : 'hidden')}
+              className={cn('absolute inset-0', shown ? 'block' : 'hidden')}
             >
               <React.Suspense fallback={null}>
-                <PluginPane mode={tab.mode} />
+                {sharedSurface ? <GuestSurfacePane mode={tab.mode} /> : <PluginPane mode={tab.mode} />}
               </React.Suspense>
             </div>
           );

@@ -11,6 +11,7 @@ import {
   GUEST_COMMAND_NAME,
   GUEST_FILESYSTEM_PATTERNS_MAX,
   GUEST_FILESYSTEM_PATTERN_MAX,
+  GUEST_SERVICE_PROVIDES,
   GUEST_TOOLS_MAX,
   GUEST_TOOL_COLUMNS_MAX,
   GUEST_TOOL_COLUMN_MAX,
@@ -197,6 +198,10 @@ const serviceSchema = z.object({
   entry: z.string().trim().refine(isSafeAssetPath),
   runtime: z.literal('host'),
   permissions: servicePermissionsSchema.optional(),
+  provides: z.array(z.enum(GUEST_SERVICE_PROVIDES)).min(1).max(GUEST_SERVICE_PROVIDES.length)
+    .refine((roles) => new Set(roles).size === roles.length, { message: 'provides entries must be unique' })
+    .optional(),
+  surface: z.literal(true).optional(),
 });
 
 const uniqueBy = <T,>(items: T[], key: (item: T) => string): boolean => (
@@ -274,7 +279,10 @@ const runtimeContributions = (contributes: z.output<typeof contributesSchema>): 
   if (contributes.attach !== undefined && contributes.attach !== false) declared.push('attach');
   if (contributes.capabilities && contributes.capabilities.length > 0) declared.push('capabilities');
   if (contributes.integration !== undefined) declared.push('integration');
-  if (contributes.service !== undefined) declared.push('service');
+  // A service the host starts itself (it provides a role or a surface) needs
+  // no frame; one that only answers a panel's `serviceRequest` has no caller
+  // without one.
+  if (contributes.service !== undefined && !contributes.service.provides?.length && !contributes.service.surface) declared.push('service');
   if (contributes.filesystem !== undefined) declared.push('filesystem');
   if (contributes.actions !== undefined) declared.push('actions');
   if (contributes.commands !== undefined) declared.push('commands');
@@ -287,6 +295,13 @@ export const openChamberManifestSchema = z.object({
     openchamber: z.string().trim().regex(OPENCHAMBER_ENGINE_PATTERN),
   }).strict().optional(),
   contributes: contributesSchema.superRefine((contributes, ctx) => {
+    if (contributes.service?.surface && hasGuestPage(contributes)) {
+      ctx.addIssue({
+        code: 'custom', path: ['service', 'surface'],
+        message: 'service.surface draws the panel itself; drop panel.entry.',
+      });
+      return;
+    }
     if (hasGuestPage(contributes)) return;
     if (contributes.background) {
       const needsPanel = [];
@@ -420,7 +435,7 @@ const failureFromIssue = (issue: { path: ReadonlyArray<PropertyKey>; code: strin
     );
   }
   if (path.startsWith('contributes.service')) {
-    return fail('invalid-service', 'contributes.service needs entry, runtime "host", and optional permissions.');
+    return fail('invalid-service', 'contributes.service needs entry, runtime "host", optional permissions, optional provides ("browser"), and optional surface (true, without panel.entry).');
   }
   return fail('missing-panel', 'contributes.panel is required.');
 };

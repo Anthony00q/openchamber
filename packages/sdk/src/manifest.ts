@@ -274,10 +274,26 @@ export type PublicSocketBinding = {
   override: string | null;
 };
 
+/**
+ * Host roles a service can stand in for. `browser` answers the agent's
+ * `browser.*` actions in place of the in-app browser view; the contract is in
+ * `service-providers.ts`. A service that provides a role needs no panel or
+ * background entry: the host starts it on the first action.
+ */
+export const GUEST_SERVICE_PROVIDES = ['browser'] as const;
+export type GuestServiceProvides = (typeof GUEST_SERVICE_PROVIDES)[number];
+
 export type ServiceContribution = {
   entry: string;
   runtime: 'host';
   permissions?: ServicePermissions;
+  provides?: GuestServiceProvides[];
+  /**
+   * The service shows a live surface (frames out, input in) that the host
+   * draws in this extension's rail panel; see `service-surface.ts`. Excludes
+   * `panel.entry`: the panel is the surface.
+   */
+  surface?: true;
 };
 
 /** Catalog card for a local service. Drops nothing secret; grant is host state. */
@@ -285,8 +301,15 @@ export type PublicService = {
   runtime: 'host';
   permissions?: PublicServicePermissions;
   socketBindings?: PublicSocketBinding[];
+  provides?: GuestServiceProvides[];
+  surface?: true;
   granted: boolean;
 };
+
+export const serviceProvides = (
+  service: Pick<ServiceContribution, 'provides'> | undefined,
+  role: GuestServiceProvides,
+): boolean => Boolean(service?.provides?.includes(role));
 
 /**
  * What a guest may do beyond drawing its own panel. The user approves the
@@ -538,6 +561,12 @@ export const toPublicService = (
       resolved: binding.resolved,
       override: binding.override,
     }));
+  }
+  if (service.provides && service.provides.length > 0) {
+    next.provides = [...service.provides];
+  }
+  if (service.surface) {
+    next.surface = true;
   }
   return next;
 };

@@ -3,6 +3,7 @@ import {
   GUEST_CAPABILITIES,
   GUEST_COMMANDS_MAX,
   GUEST_COMMAND_NAME,
+  GUEST_SERVICE_PROVIDES,
   GUEST_TOOLS_MAX,
   GUEST_TOOL_MATCH,
   GUEST_TOOL_OUTPUTS,
@@ -43,6 +44,10 @@ const publicServiceSchema = z.object({
     exec: z.array(z.string().trim().min(1)).optional(),
   }).optional(),
   socketBindings: z.array(publicSocketBindingSchema).optional(),
+  // A role this build does not know (a newer server) drops the field, not the
+  // catalog: every other extension must keep working.
+  provides: z.array(z.enum(GUEST_SERVICE_PROVIDES)).optional().catch(undefined),
+  surface: z.literal(true).optional().catch(undefined),
 });
 
 const guestActionSchema = z.object({

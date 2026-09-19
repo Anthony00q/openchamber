@@ -20,6 +20,7 @@ import { useRouter } from '@/hooks/useRouter';
 import { usePushVisibilityBeacon } from '@/hooks/usePushVisibilityBeacon';
 import { useWebNotificationStream } from '@/hooks/useWebNotificationStream';
 import { useAgentMemorySync } from '@/hooks/useAgentMemorySync';
+import { useBrowserProviderSync } from '@/hooks/useBrowserProviderSync';
 import { useRoutingSync } from '@/hooks/useRoutingSync';
 import { usePwaInstallPrompt } from '@/hooks/usePwaInstallPrompt';
 import { useWindowTitle } from '@/hooks/useWindowTitle';
@@ -720,6 +721,7 @@ function App({ apis }: AppProps) {
   // this snapshot, so leaving it to the panel meant a user who never opened
   // Project notes sent every message with no memory index at all.
   useAgentMemorySync(currentDirectory || null);
+  useBrowserProviderSync();
   useRoutingSync();
   usePwaInstallPrompt();
 

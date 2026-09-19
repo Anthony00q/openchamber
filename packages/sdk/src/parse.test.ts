@@ -954,6 +954,52 @@ describe('page-less extensions', () => {
     }
   });
 
+  test('a service that provides the browser needs no panel or background entry', () => {
+    const result = withContributes({
+      service: { entry: 'service/main.js', runtime: 'host', provides: ['browser'] },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.manifest.contributes.service?.provides).toEqual(['browser']);
+      expect(hasGuestPage(result.manifest.contributes)).toBe(false);
+      expect(requestedGuestCapabilities(result.manifest.contributes)).toEqual(['service']);
+    }
+  });
+
+  test('refuses an unknown or repeated provides role as invalid-service', () => {
+    expect(withContributes({
+      service: { entry: 'service/main.js', runtime: 'host', provides: ['browser', 'browser'] },
+    })).toMatchObject({ ok: false, code: 'invalid-service' });
+    expect(parseManifestJson(JSON.stringify({
+      apiVersion: 1,
+      contributes: { panel: pageless, service: { entry: 'service/main.js', runtime: 'host', provides: ['printer'] } },
+    }))).toMatchObject({ ok: false, code: 'invalid-service' });
+    expect(parseManifestJson(JSON.stringify({
+      apiVersion: 1,
+      contributes: { panel: pageless, service: { entry: 'service/main.js', runtime: 'host', provides: [] } },
+    }))).toMatchObject({ ok: false, code: 'invalid-service' });
+  });
+
+  test('a surface service needs no panel entry and refuses one', () => {
+    const ok = withContributes({ service: { entry: 'service/main.js', runtime: 'host', surface: true } });
+    expect(ok.ok).toBe(true);
+    if (ok.ok) expect(ok.manifest.contributes.service?.surface).toBe(true);
+
+    const withPanel = parseManifest({
+      apiVersion: 1,
+      contributes: {
+        panel: { ...pageless, entry: 'panel/index.html' },
+        service: { entry: 'service/main.js', runtime: 'host', surface: true },
+      },
+    });
+    expect(withPanel).toMatchObject({ ok: false, code: 'invalid-service' });
+
+    expect(parseManifestJson(JSON.stringify({
+      apiVersion: 1,
+      contributes: { panel: pageless, service: { entry: 'service/main.js', runtime: 'host', surface: false } },
+    }))).toMatchObject({ ok: false, code: 'invalid-service' });
+  });
+
   test('still reports a malformed page-only field by its own code', () => {
     const bogusAttach = parseManifestJson(JSON.stringify({
       apiVersion: 1,
