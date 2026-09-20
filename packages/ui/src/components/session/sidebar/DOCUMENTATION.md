@@ -171,6 +171,13 @@ matching and ordering. Search does not fetch sessions or broaden list membership
 - The sidebar does not subscribe its whole tree to the cross-directory live-session aggregate. Global create/structural/lifecycle snapshots drive rendered session metadata; the cached sync index only fills sessions not yet present globally and provides refresh fallback data. Row activity continues to come from the session-keyed live status index.
 - Session selection does not invalidate the sidebar orchestration component. Each mounted row selects only whether its own session ID is active, while parent expansion, project selection memory, and neighbor prefetch run in small effect-only subscribers.
 - Parent expansion is exclusively manual. Selecting or navigating to a subsession never expands its parent automatically. Project/worktree and `recent` trees use independent persisted context keys and receive separate stable projections, so expansion changes in one context neither invalidate nor change the other. The persisted storage key remains `v3`; older state mixed contexts and is not migrated into this contract.
+- `SessionTreeItem` is memoized with a comparator over the props it actually
+  reads: the row list re-renders on every virtualizer frame while scrolling and
+  on every model rebuild, spreading a shared props bag and a fresh
+  `renderExtras` object onto each row, so identity comparison would never
+  match. Sessions and secondary metadata compare by value; a scroll therefore
+  renders only rows entering the viewport, and a model rebuild only rows whose
+  session changed.
 - The sidebar model flattens parent/child sessions into occurrence-keyed rows.
   `SessionTreeItem` renders one row with `renderChildren={false}`; it must never
   recursively mount descendants in the shared scroller. One preorder ID pool
