@@ -23,6 +23,21 @@ the full option list.
 **Measure a production build.** A development build's render and bundle
 behaviour does not represent what users run.
 
+When launching from an agent inside packaged Desktop, explicitly set
+`OPENCHAMBER_DIST_DIR` to the checkout's `packages/web/dist`. The inherited
+value can point at the installed app's `web-dist`, so rebuilding the checkout
+would leave the browser running the old bundle. Before comparing runs, match
+the loaded module script URL against the checkout's built `index.html`. Bypass
+the service worker and HTTP cache during this check.
+
+An authenticated browser run can use a separate server with an isolated
+`HOME` and `OPENCHAMBER_DATA_DIR`, a generated `OPENCHAMBER_UI_PASSWORD`, and
+its own Chrome profile. Keep the password inside the launcher and pass it to
+CDP input without logging it. For heap comparisons, start each run in a fresh
+page and close previous test pages; retained back/forward-cache documents can
+otherwise inflate later runs. Measure the same selected session before and
+after cleanup, and label JS heap separately from process RSS.
+
 ```bash
 bun run build:ui && bun run build:web
 cd <a project directory> && node <repo>/packages/web/bin/cli.js serve --port 4599 --foreground
