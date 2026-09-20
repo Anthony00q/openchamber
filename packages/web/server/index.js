@@ -50,6 +50,7 @@ import {
 import { createFsSearchRuntime as createFsSearchRuntimeFactory } from './lib/fs/search.js';
 import { createOpenCodeLifecycleRuntime } from './lib/opencode/lifecycle.js';
 import { createOpenCodeEnvRuntime } from './lib/opencode/env-runtime.js';
+import { providedLoginShellEnvSnapshot } from './lib/opencode/login-shell-env.js';
 import { resolveOpenCodeEnvConfig } from './lib/opencode/env-config.js';
 import { createHmrStateRuntime } from './lib/opencode/hmr-state-runtime.js';
 import { createOpenCodeNetworkRuntime } from './lib/opencode/network-runtime.js';
@@ -747,6 +748,7 @@ const openCodeEnvRuntime = createOpenCodeEnvRuntime({
   state: openCodeEnvState,
   normalizeDirectoryPath,
   readSettingsFromDiskMigrated,
+  providedLoginShellEnvSnapshot,
 });
 
 const applyLoginShellEnvSnapshot = (...args) => openCodeEnvRuntime.applyLoginShellEnvSnapshot(...args);
