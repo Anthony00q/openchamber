@@ -368,7 +368,7 @@ Rules:
 1. Ownership comes from the session record's own `directory`. When directory sync has no owning record yet, the global session index supplies that record's directory before local selection, worktree, or remembered hints. `getSyncSessionDirectory()` reports *containment*, not ownership, and is only the fallback for a record without a directory: a project's session list includes the sessions of its worktrees so the sidebar can group them, so the parent repository holds worktree sessions too, and reading ownership from membership routes a worktree session to its parent. `null` means "not indexed yet", never "no directory".
 2. `attachment` and `worktreeMetadata` hold the worktree path this client asked for, before the server canonicalized it. They are a hint for a session sync has not indexed yet, never a correction of a confirmed directory — otherwise a stale local path re-creates the very mismatch this precedence exists to prevent.
 3. Never persist or rank a guessed directory. `selectSession` may fall back to the active directory to keep routing usable, but that value is not written to runtime memory, not written to the last-active snapshot, and not passed as `selected` — a persisted guess outlives the race that produced it and survives reloads and restarts.
-4. Components must not read `currentSessionDirectory` to build request or queue keys; use `getDirectoryForSession()` so every consumer resolves identically.
+4. Components must not read `currentSessionDirectory` to build request or queue keys; use `getDirectoryForSession()` so every consumer resolves identically. `session-actions.ts` resolves the directory for rename, share, archive and delete the same way: the global record's own directory first, directory-store containment only as a fallback. A project root's store indexes status, permissions and questions for its worktrees' sessions, so containment there named the root for a worktree session and the server rejected the mutation with 404/500.
 5. A disagreement between sources is logged once per session, and `__opencodeDebug.diagnoseSessionDirectory()` reports every source in precedence order.
 
 ## AI session titles
@@ -400,6 +400,8 @@ VS Code has no Small Model route and exposes a disabled action with an explicit
 explanation.
 
 ## Session action rules
+
+- Archive, restore and delete return booleans and id lists through the store contract shared by sidebar rows, the bulk bar and the mobile sheet. The reason behind a failure is recorded separately in `session-action-failures.ts` at the catch site and taken once by the surface that reports it, so the toast can quote the OpenCode status, error class and log `ref` (`OpencodeRequestError` from `lib/opencode/upstreamError.ts`) instead of a bare "failed". Rename fails loudly the same way and closes its form.
 
 Session actions live in `session-actions.ts` and are the canonical place for SDK-calling session mutations that affect global session lists.
 

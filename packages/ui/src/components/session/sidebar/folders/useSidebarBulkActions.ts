@@ -1,6 +1,8 @@
 import React from 'react';
 import { toast } from '@/components/ui';
 import { useI18n } from '@/lib/i18n';
+import { takeSessionActionFailure } from '@/sync/session-action-failures';
+import { describeSessionActionError } from '../sessions/sessionActionError';
 import { useSessionMultiSelectStore } from '@/stores/useSessionMultiSelectStore';
 import type { SessionFolder } from '@/stores/useSessionFoldersStore';
 import { deriveSessionRowBulkSelectAll, deriveSessionRowSelectionArchived, useSessionRowOrderRegistry } from '../sessions/sessionRowOrder';
@@ -74,6 +76,10 @@ export const resolveBulkDeleteConfirmation = (
  */
 export const useSidebarBulkActions = (args: Args) => {
   const { t } = useI18n();
+  const failureDescription = React.useCallback((ids: readonly string[]): { description: string } | undefined => {
+    const error = takeSessionActionFailure(ids);
+    return error ? { description: describeSessionActionError(error, t) } : undefined;
+  }, [t]);
   const {
     isInlineEditing,
     showDeletionDialog,
@@ -188,7 +194,7 @@ export const useSidebarBulkActions = (args: Args) => {
       if (failedIds.length > 0) {
         toast.error(failedIds.length === 1
           ? t('sessions.sidebar.bulkActions.failedDeleteSingle', { count: failedIds.length })
-          : t('sessions.sidebar.bulkActions.failedDeletePlural', { count: failedIds.length }));
+          : t('sessions.sidebar.bulkActions.failedDeletePlural', { count: failedIds.length }), failureDescription(failedIds));
       }
       useSessionMultiSelectStore.getState().removeMany(deletedIds);
     } else {
@@ -201,11 +207,11 @@ export const useSidebarBulkActions = (args: Args) => {
       if (failedIds.length > 0) {
         toast.error(failedIds.length === 1
           ? t('sessions.sidebar.bulkActions.failedArchiveSingle', { count: failedIds.length })
-          : t('sessions.sidebar.bulkActions.failedArchivePlural', { count: failedIds.length }));
+          : t('sessions.sidebar.bulkActions.failedArchivePlural', { count: failedIds.length }), failureDescription(failedIds));
       }
       useSessionMultiSelectStore.getState().removeMany(archivedIds);
     }
-  }, [archiveSessions, deleteSessions, t]);
+  }, [archiveSessions, deleteSessions, failureDescription, t]);
 
   const requestBulkDestructive = React.useCallback((hardDelete: boolean) => {
     if (!hasSelection) return;
@@ -233,10 +239,10 @@ export const useSidebarBulkActions = (args: Args) => {
     if (failedIds.length > 0) {
       toast.error(failedIds.length === 1
         ? t('sessions.sidebar.bulkActions.failedRestoreSingle', { count: failedIds.length })
-        : t('sessions.sidebar.bulkActions.failedRestorePlural', { count: failedIds.length }));
+        : t('sessions.sidebar.bulkActions.failedRestorePlural', { count: failedIds.length }), failureDescription(failedIds));
     }
     useSessionMultiSelectStore.getState().removeMany(restoredIds);
-  }, [bulkScopeIsArchived, hasSelection, selectedIds, t, unarchiveSessions]);
+  }, [bulkScopeIsArchived, failureDescription, hasSelection, selectedIds, t, unarchiveSessions]);
 
   const confirmBulkDelete = React.useCallback(async () => {
     if (!bulkDeleteConfirm) return;
