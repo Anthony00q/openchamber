@@ -46,7 +46,11 @@ export const resolveBulkDeleteConfirmation = (
   | { ready: false; value: NonNullable<BulkDeleteSessionsConfirmState> | null } => {
   const sessionIds = value.sessionIds.filter((id) => sessionsById.has(id));
   if (sessionIds.length === 0) return { ready: false, value: null };
-  const archivedBucket = deriveSessionRowSelectionArchived(new Set(sessionIds), sessionsById);
+  // `archivedBucket` names the action (true = permanent delete). A requested
+  // delete stays a delete; a requested archive turns into a delete only when
+  // every remaining session is already archived and cannot be archived again.
+  const archivedBucket = value.archivedBucket
+    || deriveSessionRowSelectionArchived(new Set(sessionIds), sessionsById);
   const next = { sessionIds, sessionCount: sessionIds.length, archivedBucket };
   return {
     ready: sessionIds.length === value.sessionIds.length && archivedBucket === value.archivedBucket,
@@ -203,15 +207,19 @@ export const useSidebarBulkActions = (args: Args) => {
     }
   }, [archiveSessions, deleteSessions, t]);
 
-  const handleBulkDelete = React.useCallback(() => {
+  const requestBulkDestructive = React.useCallback((hardDelete: boolean) => {
     if (!hasSelection) return;
     const sessionIds = Array.from(selectedIds);
     if (!showDeletionDialog) {
-      void executeBulkDelete(sessionIds, bulkScopeIsArchived);
+      void executeBulkDelete(sessionIds, hardDelete);
       return;
     }
-    setBulkDeleteConfirm({ sessionIds, sessionCount: sessionIds.length, archivedBucket: bulkScopeIsArchived });
-  }, [bulkScopeIsArchived, executeBulkDelete, selectedIds, showDeletionDialog, setBulkDeleteConfirm, hasSelection]);
+    setBulkDeleteConfirm({ sessionIds, sessionCount: sessionIds.length, archivedBucket: hardDelete });
+  }, [executeBulkDelete, selectedIds, showDeletionDialog, setBulkDeleteConfirm, hasSelection]);
+  /** Archive active sessions; already-archived ones can only be deleted. */
+  const handleBulkDelete = React.useCallback(() => requestBulkDestructive(bulkScopeIsArchived), [bulkScopeIsArchived, requestBulkDestructive]);
+  const handleBulkArchive = React.useCallback(() => requestBulkDestructive(false), [requestBulkDestructive]);
+  const handleBulkHardDelete = React.useCallback(() => requestBulkDestructive(true), [requestBulkDestructive]);
 
   const handleBulkRestore = React.useCallback(async () => {
     if (!hasSelection || !bulkScopeIsArchived) return;
@@ -292,6 +300,8 @@ export const useSidebarBulkActions = (args: Args) => {
     handleBulkCreateFolderAndMove,
     handleBulkRemoveFromFolder,
     handleBulkDelete,
+    handleBulkArchive,
+    handleBulkHardDelete,
     handleBulkRestore,
     confirmBulkDelete,
   };

@@ -50,7 +50,8 @@ cache. Live busy and retry state comes from `global-session-status`, never from
 the global cache or persisted history. A failed global or directory fetch keeps
 existing data; it is never treated as an authoritative empty list.
 
-Web and desktop show managed Chats before optional Recent activity. Chats use
+Web and desktop show managed Chats before optional Recent activity (off by
+default since the timeline view exists; the display menu toggles it). Chats use
 their shared managed root for folders and never expose worktree actions. Project
 display can be all projects or one selected project. The mobile sessions sheet
 (`apps/MobileSessionsSheet.tsx`) partitions the same way through
@@ -98,6 +99,41 @@ Run fusion eligibility comes from `lib/multirun/identity.ts`, with title parsing
 only for unmarked legacy sessions. Row memoization compares those same semantics
 so metadata-only membership changes update the menu. See
 `lib/multirun/DOCUMENTATION.md` for source selection and fork rules.
+
+## Timeline view
+
+`sidebarViewMode` (profile-scoped, per surface) switches the desktop and web
+sidebar between `projects` and `timeline`. VS Code has no switch and always
+renders `projects`.
+
+- Timeline keeps the managed Chats zone, with an initial reveal of 3 instead of
+  the usual Chats limit. Pinned chats are always shown and never spend that
+  limit, so Show more/Show fewer count only unpinned rows. Chats rows render
+  with `renderContext: 'timeline-chat'`: one line, no left gutter, pin and
+  status dot on the right beside the time. Collapsing a zone header resets its
+  Show more state.
+- Zone headers are sticky in the projects view and never in the timeline; there
+  is no user toggle. Timeline zone headers drop the leading icon and use a
+  taller band.
+- Below Chats it renders one `timeline` activity header (a sticky zone header
+  like `chats` and `active-now`) followed by every non-archived root project
+  session from all projects and worktrees in one flat list, in the shared
+  lifecycle order, with pinned sessions floating first. There is no reveal
+  limit: the list is virtualized.
+- Timeline rows carry `renderContext: 'timeline'`, depth 0 and empty children.
+  They never expand, show no chevron, no folders, no project headers, no
+  worktree groups and no Recent projection. Folders are not projected, so the
+  row menu hides `Move to folder`. Their archive/delete actions still
+  cover the full subtree, because `collectSessionSubtreeIds` resolves
+  descendants from the global cache at action time.
+- `recent/sessionLocation.ts` is the single owner of a session's project,
+  directory, worktree and branch label. It resolves the project through the
+  session ownership index first (managed worktrees live outside the project
+  path) and falls back to a path-prefix match. Recent hides a branch equal to the
+  project label; Timeline shows the branch on every row, using the live project
+  root branch for root-directory sessions and the worktree branch otherwise.
+- Search filters Timeline with the same rule as Recent (exact `ses_` id, else
+  title contains) and counts one match per listed row.
 
 ## Search
 

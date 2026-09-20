@@ -2,6 +2,7 @@ import React from 'react';
 import { SessionNodeItem } from './SessionNodeItem';
 import type { SessionNodeItemProps } from './SessionNodeItem';
 import type { SessionNode } from '../types';
+import type { SessionSidebarRenderContext } from '../sessionSidebarRowModel';
 import type { SessionNodeRenderExtras } from './sessionNodeItemUtils';
 import { useSessionActions, type DeleteSessionConfirmState } from './useSessionActions';
 import { useSessionFoldersStore } from '@/stores/useSessionFoldersStore';
@@ -15,7 +16,7 @@ type Context = {
   selectionScopeKey?: string | null;
   archivedBucket?: boolean;
   secondaryMeta?: { projectLabel?: string | null; branchLabel?: string | null } | null;
-  renderContext?: 'project' | 'recent';
+  renderContext?: SessionSidebarRenderContext;
   rowKey?: string;
   dragKey?: string;
 };
@@ -46,6 +47,7 @@ export type SessionTreeItemProps = SessionTreeItemRenderProps & Pick<SessionNode
   | 'toggleParent'
   | 'setOpenSidebarMenuKey'
   | 'startSessionWorktreeMenuLoad'
+  | 'onEditProject'
 > & {
   allowReselect: boolean;
   onSessionSelected?: (sessionId: string) => void;
@@ -97,6 +99,7 @@ export function SessionTreeItem({
   copiedSessionId,
   setCopiedSessionId,
   startSessionWorktreeMenuLoad,
+  onEditProject,
   mobileVariant,
   alwaysShowActions,
   renderChildren = true,
@@ -184,6 +187,7 @@ export function SessionTreeItem({
         handleDeleteSession={sessionActions.handleDeleteSession}
         handleRestoreSession={sessionActions.handleRestoreSession}
        startSessionWorktreeMenuLoad={startSessionWorktreeMenuLoad}
+       onEditProject={onEditProject}
        mobileVariant={mobileVariant}
        alwaysShowActions={alwaysShowActions}
         pinnedSessionIds={pinnedSessionIds}
