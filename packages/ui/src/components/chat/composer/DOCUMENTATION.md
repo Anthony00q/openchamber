@@ -283,7 +283,11 @@ and the send path reading the same grammar.
   through the existing project-change flow only on explicit activation.
   Filtering changes the result area below the anchored input without moving
   the search field. The worktree picker remains a Select; mobile keeps its
-  bottom sheets. The selectors only consume their shared prefix while the
+  bottom sheets. `ProjectPickerSheet` shares the mobile project list and
+  transient search state with the Settings selector. Settings passes its own
+  directory selection callback, so choosing a project there leaves chat in
+  place. Both callers use the same ranked label/path search and project icons.
+  The selectors only consume their shared prefix while the
   draft target UI is mounted.
   Keyboard selection returns focus to the current form's composer, including
   when the selected value is unchanged.
