@@ -5,6 +5,7 @@ import { linearPanelI18n } from './linear-panel.i18n';
 import { routingI18n } from './routing.i18n';
 import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
+import { fileArtifactsI18n } from './file-artifacts.i18n';
 
 export const dict: Record<I18nKey, string> = {
   'sessions.aiRename.action': '使用 AI 重命名',
@@ -36,6 +37,7 @@ export const dict: Record<I18nKey, string> = {
   ...routingI18n['zh-CN'],
   ...pluginPanelI18n['zh-CN'],
   ...surfacePanelI18n['zh-CN'],
+  ...fileArtifactsI18n['zh-CN'],
   'terminalView.actions.attachSelection': '附加所选输出',
   'terminalView.actions.copySelection': '复制所选输出',
   'terminalView.toast.selectionCopied': '已复制输出',

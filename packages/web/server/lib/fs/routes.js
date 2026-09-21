@@ -1,4 +1,5 @@
 import { createRealpathCache } from '../path-realpath-cache.js';
+import { resolveByteRange } from './byte-range.js';
 import nodeFsPromises from 'node:fs/promises';
 import nodePath from 'node:path';
 
@@ -106,14 +107,30 @@ const FILE_MIME_MAP = Object.freeze({
   '.xml': 'application/xml',
   '.txt': 'text/plain',
   '.md': 'text/markdown',
+  '.mmd': 'text/plain',
   '.pdf': 'application/pdf',
   '.csv': 'text/csv',
+  '.tsv': 'text/tab-separated-values',
   '.woff2': 'font/woff2',
   '.woff': 'font/woff',
   '.ttf': 'font/ttf',
+  '.otf': 'font/otf',
   '.eot': 'application/vnd.ms-fontobject',
   '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.wav': 'audio/wav',
+  '.flac': 'audio/flac',
+  '.ogg': 'audio/ogg',
+  '.oga': 'audio/ogg',
+  '.opus': 'audio/ogg',
+  '.weba': 'audio/webm',
   '.mp4': 'video/mp4',
+  '.m4v': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+  '.ogv': 'video/ogg',
+  '.mkv': 'video/x-matroska',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
@@ -1064,19 +1081,7 @@ export const registerFsRoutes = (app, dependencies) => {
       }
 
       const ext = path.extname(canonicalPath).toLowerCase();
-      const mimeMap = {
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.gif': 'image/gif',
-        '.svg': 'image/svg+xml',
-        '.webp': 'image/webp',
-        '.ico': 'image/x-icon',
-        '.bmp': 'image/bmp',
-        '.avif': 'image/avif',
-        '.pdf': 'application/pdf',
-      };
-      const mimeType = mimeMap[ext] || 'application/octet-stream';
+      const mimeType = FILE_MIME_MAP[ext] || 'application/octet-stream';
 
       const download = req.query.download === 'true';
       if (download) {
@@ -1090,9 +1095,35 @@ export const registerFsRoutes = (app, dependencies) => {
         res.setHeader('Content-Disposition', `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`);
       }
 
-      const content = await fsPromises.readFile(canonicalPath);
       res.setHeader('Cache-Control', 'no-store');
       res.setHeader('Referrer-Policy', 'no-referrer');
+      res.setHeader('Accept-Ranges', 'bytes');
+
+      // A byte span is streamed from disk rather than read whole: the audio
+      // and video players ask for one on every seek, and a recording can be
+      // hundreds of megabytes.
+      const range = resolveByteRange(req.headers?.range, stats.size);
+      if (range.kind === 'unsatisfiable') {
+        res.setHeader('Content-Range', `bytes */${stats.size}`);
+        return res.status(416).end();
+      }
+      if (range.kind === 'range') {
+        const handle = await fsPromises.open(canonicalPath, 'r');
+        res.status(206);
+        res.setHeader('Content-Range', `bytes ${range.start}-${range.end}/${stats.size}`);
+        res.setHeader('Content-Length', String(range.end - range.start + 1));
+        res.type(mimeType);
+        // The handle closes with the stream, on success and on failure alike.
+        const stream = handle.createReadStream({ start: range.start, end: range.end });
+        stream.on('error', (error) => {
+          console.error('Failed to stream raw file range:', error);
+          res.destroy(error);
+        });
+        stream.pipe(res);
+        return undefined;
+      }
+
+      const content = await fsPromises.readFile(canonicalPath);
       return res.type(mimeType).send(content);
     } catch (error) {
       const err = error;

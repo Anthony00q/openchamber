@@ -5,6 +5,7 @@ import { linearPanelI18n } from './linear-panel.i18n';
 import { routingI18n } from './routing.i18n';
 import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
+import { fileArtifactsI18n } from './file-artifacts.i18n';
 
 export const dict: Record<I18nKey, string> = {
   'sessions.aiRename.action': 'AIで名前を変更',
@@ -36,6 +37,7 @@ export const dict: Record<I18nKey, string> = {
   ...routingI18n.ja,
   ...pluginPanelI18n.ja,
   ...surfacePanelI18n.ja,
+  ...fileArtifactsI18n.ja,
   'terminalView.actions.attachSelection': '選択した出力を添付',
   'terminalView.actions.copySelection': '選択した出力をコピー',
   'terminalView.toast.selectionCopied': '出力をコピーしました',

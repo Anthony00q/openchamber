@@ -40,3 +40,36 @@ the meta line height, the icon minimum and vertical padding, so remembered
 offscreen dimensions cannot retain an old font size. Expanded child lists
 sit outside each row's containment, so expansion, scrolling, focus and menus keep
 their existing DOM structure. Reopening still refreshes directory contents.
+
+## Artifact previews
+
+`previews/` holds what the viewer shows instead of text: `ImageArtifact`
+(fit or 1:1, natural dimensions), `MediaArtifact` (native audio/video
+element, duration and dimensions once metadata loads, a stated failure when
+the runtime cannot decode the codec), `FontArtifact` (a specimen under a
+throwaway `FontFace` family removed when the tab closes), `TableArtifact`
+(CSV/TSV through `delimitedText.ts`, capped rows stated in the meta line),
+and `BinaryArtifact` (name, type, size, download; never a decode attempt).
+`FilesView.renderArtifactPreview` is the single switch both the docked and
+the fullscreen viewer use. SVG, Mermaid (`.mmd`) and delimited files are text
+with an artifact view: each has a per-path preview/source toggle, and opens
+in preview regardless of the text-first setting because an agent-produced
+artifact is opened to be looked at.
+
+Non-text artifacts the browser must own (PDF, audio, video, fonts) are loaded
+through `getRuntimeUrlResolver().authenticatedAsset('/api/fs/raw', …)` with
+the scoped URL token; the server streams byte ranges so playback can seek.
+Images keep the object-URL/data-URL path.
+
+`useMarkdownLocalAssets` makes a rendered Markdown file's relative images and
+links work: images are fetched through the runtime against the file's own
+directory (outside the workspace when the file is) and swapped for object
+URLs that are revoked with the preview; relative links open the target file
+through `useUIStore.openContextFile`, which the context panel and the mobile
+files surface both consume.
+
+An agent can ask for a file to be shown (`file.open` on the managed
+`openchamber` tool). The server broadcasts `openchamber:file-open-request`;
+`ContextPanel` answers it with `openContextFile`, `MobileApp` additionally
+opens the files drawer. VS Code has no shared file viewer and no managed
+tool, so the event never reaches it.

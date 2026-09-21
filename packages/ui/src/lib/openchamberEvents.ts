@@ -47,6 +47,17 @@ type BrowserControlRequestEvent = {
 };
 
 /**
+ * The agent asked for a file to be shown in the user's file panel. Every
+ * client receives it; one showing that project opens the file.
+ */
+const fileOpenRequestSchema = z.object({
+  path: z.string().min(1),
+  directory: z.string().min(1).nullable(),
+  sessionId: z.string().min(1).nullable(),
+});
+type FileOpenRequestEvent = { type: 'file-open-request' } & z.infer<typeof fileOpenRequestSchema>;
+
+/**
  * The agent changed what it remembers. Carries only which store moved, not the
  * entries: listeners re-read from the server, so the event cannot go stale
  * between being sent and being handled.
@@ -117,6 +128,7 @@ type OpenChamberEvent =
   | SessionCreatedEvent
   | WorktreeChangedEvent
   | BrowserControlRequestEvent
+  | FileOpenRequestEvent
   | BrowserProviderResetEvent
   | AgentMemoryChangedEvent;
 type Listener = (event: OpenChamberEvent) => void;
@@ -240,6 +252,12 @@ const dispatchFromEnvelope = (envelope: { type: string; properties: unknown }) =
   if (envelope.type === 'openchamber:routing.safety-skipped') {
     const parsed = routingSafetySkippedSchema.safeParse(envelope.properties);
     if (parsed.success) for (const listener of listeners) listener({ type: 'routing-safety-skipped', ...parsed.data });
+    return;
+  }
+
+  if (envelope.type === 'openchamber:file-open-request') {
+    const parsed = fileOpenRequestSchema.safeParse(envelope.properties);
+    if (parsed.success) for (const listener of listeners) listener({ type: 'file-open-request', ...parsed.data });
     return;
   }
 
