@@ -3037,6 +3037,7 @@ export const dict = {
   'mobile.header.openWorkspaceWithChangesAria': 'Ouvrir le panneau de travail, modifications non validées',
   'mobile.header.openMetadataAria': 'Ouvrir les métadonnées de session',
   'mobile.header.metadata.context': 'Contexte',
+  'mobile.header.metadata.contextPending': 'L\'utilisation du contexte apparaît dès que la session démarre.',
   'mobile.header.metadata.usage': 'Utilisation',
   'mobile.menu.titleAria': 'Outils de l’espace de travail',
   'mobile.menu.files': 'Fichiers',

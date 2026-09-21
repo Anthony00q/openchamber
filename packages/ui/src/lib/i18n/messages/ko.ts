@@ -154,6 +154,7 @@ export const dict: Record<I18nKey, string> = {
   'mobile.header.openWorkspaceWithChangesAria': '워크스페이스 패널 열기, 커밋되지 않은 변경 사항 있음',
   'mobile.header.openMetadataAria': '세션 메타데이터 열기',
   'mobile.header.metadata.context': '컨텍스트',
+  'mobile.header.metadata.contextPending': '세션이 시작되면 컨텍스트 사용량이 표시됩니다.',
   'mobile.header.metadata.usage': '사용량',
   'mobile.menu.titleAria': '작업 공간 도구',
   'mobile.menu.files': '파일',

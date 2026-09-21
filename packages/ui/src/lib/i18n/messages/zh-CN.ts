@@ -154,6 +154,7 @@ export const dict: Record<I18nKey, string> = {
   'mobile.header.openWorkspaceWithChangesAria': '打开工作区面板，有未提交的更改',
   'mobile.header.openMetadataAria': '打开会话元数据',
   'mobile.header.metadata.context': '上下文',
+  'mobile.header.metadata.contextPending': '会话开始后将显示上下文用量。',
   'mobile.header.metadata.usage': '用量',
   'mobile.menu.titleAria': '工作区工具',
   'mobile.menu.files': '文件',

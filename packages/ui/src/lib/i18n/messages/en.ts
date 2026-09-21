@@ -153,6 +153,7 @@ export const dict = {
   'mobile.header.openWorkspaceWithChangesAria': 'Open workspace panel, uncommitted changes',
   'mobile.header.openMetadataAria': 'Open session metadata',
   'mobile.header.metadata.context': 'Context',
+  'mobile.header.metadata.contextPending': 'Context usage appears once the session starts.',
   'mobile.header.metadata.usage': 'Usage',
   'mobile.menu.titleAria': 'Workspace tools',
   'mobile.menu.files': 'Files',

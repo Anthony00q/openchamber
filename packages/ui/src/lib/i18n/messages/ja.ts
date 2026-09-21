@@ -155,6 +155,7 @@ export const dict: Record<I18nKey, string> = {
   'mobile.header.openWorkspaceWithChangesAria': 'ワークスペースパネルを開く、未コミットの変更あり',
   'mobile.header.openMetadataAria': 'セッションメタデータを開く',
   'mobile.header.metadata.context': 'コンテキスト',
+  'mobile.header.metadata.contextPending': 'コンテキストの使用量はセッション開始後に表示されます。',
   'mobile.header.metadata.usage': '使用量',
   'mobile.menu.titleAria': 'ワークスペースツール',
   'mobile.menu.files': 'ファイル',

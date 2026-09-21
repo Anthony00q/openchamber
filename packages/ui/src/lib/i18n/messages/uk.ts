@@ -154,6 +154,7 @@ export const dict: Record<I18nKey, string> = {
   "mobile.header.openWorkspaceWithChangesAria": "Відкрити панель робочого простору, є незакомічені зміни",
   "mobile.header.openMetadataAria": "Відкрити метадані сесії",
   "mobile.header.metadata.context": "Контекст",
+  "mobile.header.metadata.contextPending": "Використання контексту з’явиться після початку сесії.",
   "mobile.header.metadata.usage": "Використання",
   "mobile.menu.titleAria": "Інструменти робочого простору",
   "mobile.menu.files": "Файли",

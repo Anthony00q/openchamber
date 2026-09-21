@@ -1618,6 +1618,15 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
                           {chatRootCount}
                         </span>
                       </button>
+                      {/* Same "+" every project header carries, so a new chat is
+                          reachable from its own section, not only the title bar. */}
+                      {!editingOrder ? (
+                        <NewSessionIconButton
+                          className="mr-2"
+                          label={t('mobile.sessions.newChat')}
+                          onClick={handleStartNewChat}
+                        />
+                      ) : null}
                     </div>
                     {chatsExpanded ? (
                       <div className="pb-2">

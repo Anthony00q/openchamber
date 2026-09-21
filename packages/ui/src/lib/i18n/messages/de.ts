@@ -120,6 +120,7 @@ export const dict = {
   'mobile.surface.closeAria': 'Schließen',
   'mobile.header.openMetadataAria': 'Sitzungs-Metadaten öffnen',
   'mobile.header.metadata.context': 'Kontext',
+  'mobile.header.metadata.contextPending': 'Die Kontextnutzung erscheint, sobald die Sitzung beginnt.',
   'mobile.header.metadata.usage': 'Nutzung',
   'mobile.menu.titleAria': 'Arbeitsbereichstools',
   'mobile.menu.files': 'Dateien',

@@ -140,6 +140,7 @@ export const dict = {
   'mobile.header.openWorkspaceWithChangesAria': 'Çalışma alanı panelini aç, kaydedilmemiş değişiklikler var',
   'mobile.header.openMetadataAria': 'Session meta verisini aç',
   'mobile.header.metadata.context': 'Bağlam',
+  'mobile.header.metadata.contextPending': 'Bağlam kullanımı oturum başladığında görünür.',
   'mobile.header.metadata.usage': 'Kullanım',
   'mobile.menu.titleAria': 'Çalışma alanı araçları',
   'mobile.menu.files': 'Dosyalar',
