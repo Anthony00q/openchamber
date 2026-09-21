@@ -1,18 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
 import { SpaceError } from '../errors.js';
+import { GATEKEEPER_PROGRAM } from '../gatekeeper-channel.js';
 import { buildSpaceLabels, buildToolsLabels, hashProjectDirectory } from '../labels.js';
 import { SPACE_ENVIRONMENT, SPACE_SERVER_COMMAND } from '../layout.js';
 import { createRegistryToolsSource, toolsContentKey } from '../tools.js';
 import { SPACE_BASE_IMAGE, createDockerPlace } from './docker.js';
-import { createFakeDocker, hardenedContainerEntry, internalNetworkEntry } from './fake-docker.js';
+import { bridgeNetworkEntry, createFakeDocker, hardenedContainerEntry, internalNetworkEntry } from './fake-docker.js';
 
 const OWNER = 'install-a';
 const ID = 'a1b2c3d4e5f6';
 const SPEC = { id: ID, name: 'Fix a=b, then c', project: hashProjectDirectory('/home/me/project'), created: '2026-09-19T10:00:00.000Z', memoryBytes: 4294967296 };
 
 const CONTAINER = `openchamber-space-${ID}-space`;
+const GATEKEEPER = `openchamber-space-${ID}-gatekeeper`;
 const NETWORK = `openchamber-space-${ID}-network`;
+const OUTER_NETWORK = `openchamber-space-${ID}-outer-network`;
 const WORK = `openchamber-space-${ID}-volume-work`;
 const HOME = `openchamber-space-${ID}-volume-home`;
 
@@ -36,7 +39,10 @@ const toolsResource = ({ owner = OWNER, key = KEY, filled = true, labels = tools
   return { kind: 'volume', name, entry: { Name: name, Labels: labels }, filled };
 };
 
-/** Seeds for a complete space, as the fake docker stores them. It runs on `tools` and its server has a token. */
+/**
+ * Seeds for a complete space, as the fake docker stores them. It runs on `tools`, its server has
+ * a token, and its gatekeeper runs whenever it does.
+ */
 const spaceResources = ({ id = ID, owner = OWNER, running = true, tools = `openchamber-tools-${owner}-${KEY}` } = {}) => {
   const prefix = `openchamber-space-${id}-`;
   const mounts = [
@@ -44,7 +50,20 @@ const spaceResources = ({ id = ID, owner = OWNER, running = true, tools = `openc
     { volume: `${prefix}volume-home`, destination: '/home/space' },
     { volume: tools, destination: '/opt/openchamber-tools', readOnly: true },
   ];
+  const gatekeeper = hardenedContainerEntry({
+    name: `${prefix}gatekeeper`,
+    labels: labelsFor('gatekeeper', { id, owner }),
+    network: `${prefix}network`,
+    mounts: [],
+    env: ['HOME=/tmp'],
+    running,
+    memoryBytes: 268435456,
+    tmpfs: '/tmp:rw,noexec,nosuid,size=16m',
+    aliases: ['gatekeeper'],
+  });
+  gatekeeper.NetworkSettings.Networks[`${prefix}outer-network`] = {};
   return [
+    { kind: 'container', name: `${prefix}gatekeeper`, entry: gatekeeper },
     {
       kind: 'container',
       name: `${prefix}space`,
@@ -53,6 +72,7 @@ const spaceResources = ({ id = ID, owner = OWNER, running = true, tools = `openc
     { kind: 'volume', name: `${prefix}volume-work`, entry: { Name: `${prefix}volume-work`, Labels: labelsFor('volume', { id, owner }) } },
     { kind: 'volume', name: `${prefix}volume-home`, entry: { Name: `${prefix}volume-home`, Labels: labelsFor('volume', { id, owner }) }, token: 'seeded-token' },
     { kind: 'network', name: `${prefix}network`, entry: internalNetworkEntry({ name: `${prefix}network`, labels: labelsFor('network', { id, owner }) }) },
+    { kind: 'network', name: `${prefix}outer-network`, entry: bridgeNetworkEntry({ name: `${prefix}outer-network`, labels: labelsFor('outer-network', { id, owner }) }) },
   ];
 };
 
@@ -66,11 +86,13 @@ const describeCall = (args) => {
   if (args[0] === 'run') return `run ${roleOf(args)}`;
   // A container that is addressed by the id `docker create` printed, not by a name.
   if (CONTAINER_ID.test(args[args.length - 1])) return `${args[0]} <id>`;
-  if (args[0] === 'create') return 'create space';
+  if (args[0] === 'create') return args.includes('--network-alias') ? 'create gatekeeper' : 'create space';
   if (args[0] === 'rename') return `rename ${args[1]} ${args[2]}`;
+  if (args[0] === 'network' && args[1] === 'connect') return `network connect ${args[2]}`;
   if (isExec('ln -sfn')(args)) return 'exec link plugin';
   if (isExec('token.new')(args)) return 'exec write token';
-  if (args[0] === 'exec') return `exec ${args[5].split('/').pop()}`;
+  if (isExec('gatekeeper.cjs.new')(args)) return 'exec write program';
+  if (args[0] === 'exec') return `exec ${args[4].endsWith('-gatekeeper') ? 'gatekeeper ' : ''}${args[5].split('/').pop()}`;
   const verb = ['network', 'volume'].includes(args[0]) ? `${args[0]} ${args[1]}` : args[0];
   return `${verb} ${args[args.length - 1]}`;
 };
@@ -78,15 +100,23 @@ const describeCall = (args) => {
 /** The calls that change something, in order, as short lines. */
 const changes = (fake) => fake.calls
   .map((call) => call.args)
-  .filter((args) => ['run', 'create', 'rm', 'pull', 'stop', 'start', 'exec', 'rename'].includes(args[0]) || ['create', 'rm'].includes(args[1]))
+  .filter((args) => ['run', 'create', 'rm', 'pull', 'stop', 'start', 'exec', 'rename'].includes(args[0]) || ['create', 'rm', 'connect'].includes(args[1]))
   .map(describeCall);
+
+/** What the gatekeeper costs at every start: its program is written into a tmpfs that a stop empties. */
+const GATEKEEPER_START_STEPS = ['exec write program', 'exec gatekeeper curl'];
 
 /** What `create` does after the tools volume is there. */
 const SPACE_STEPS = [
   `network create ${NETWORK}`,
+  `network create ${OUTER_NETWORK}`,
   `volume create ${WORK}`,
   `volume create ${HOME}`,
   'run setup',
+  'create gatekeeper',
+  `network connect ${OUTER_NETWORK}`,
+  `start ${GATEKEEPER}`,
+  ...GATEKEEPER_START_STEPS,
   'create space',
   `start ${CONTAINER}`,
   'exec link plugin',
@@ -161,7 +191,7 @@ describe('docker place: create', () => {
     const fake = createFakeDocker({ resources: [toolsResource()] });
     await makePlace(fake).create(SPEC);
 
-    const spaceCreate = fake.calls.map((call) => call.args).find((args) => args[0] === 'create');
+    const spaceCreate = fake.calls.map((call) => call.args).find((args) => args[0] === 'create' && !args.includes('--network-alias'));
     expect(spaceCreate).toEqual([
       'create',
       '--name', CONTAINER,
@@ -194,15 +224,71 @@ describe('docker place: create', () => {
       '--mount', `type=volume,src=${TOOLS},dst=/opt/openchamber-tools,readonly`,
       '--env', 'HOME=/home/space',
       '--env', 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/openchamber-tools/node_modules/.bin',
+      '--env', 'HTTPS_PROXY=http://gatekeeper:3128',
+      '--env', 'https_proxy=http://gatekeeper:3128',
+      '--env', 'HTTP_PROXY=http://gatekeeper:3128',
+      '--env', 'http_proxy=http://gatekeeper:3128',
+      '--env', 'NO_PROXY=gatekeeper,localhost,127.0.0.1',
+      '--env', 'no_proxy=gatekeeper,localhost,127.0.0.1',
+      '--env', 'NODE_USE_ENV_PROXY=1',
       '--env', 'OPENCODE_DISABLE_MODELS_FETCH=1',
       '--env', 'OPENCODE_DISABLE_AUTOUPDATE=1',
-      '--env', 'npm_config_fetch_retries=0',
+      '--env', 'OPENCHAMBER_RELAY_HOST=off',
       SPACE_BASE_IMAGE,
       '/bin/sh', '-c',
       'while [ ! -s /home/space/.openchamber-space/token ]; do /bin/sleep 0.2; done; OPENCHAMBER_UI_PASSWORD="$(/bin/cat /home/space/.openchamber-space/token)"; export OPENCHAMBER_UI_PASSWORD; exec openchamber serve --foreground --api-only --host 127.0.0.1 --port 27600',
     ]);
     expect(Object.keys(SPACE_ENVIRONMENT)).not.toContain('OPENCHAMBER_UI_PASSWORD');
     expect(SPACE_SERVER_COMMAND.join(' ')).not.toMatch(/\n/);
+  });
+
+  it('creates the gatekeeper with the hardening of a space, no mount, and a limit of its own', async () => {
+    const fake = createFakeDocker({ resources: [toolsResource()] });
+    await makePlace(fake).create(SPEC);
+
+    const create = fake.calls.map((call) => call.args).find((args) => args[0] === 'create' && args.includes('--network-alias'));
+    const flags = create.filter((arg, index) => create[index - 1] !== '--label' && arg !== '--label');
+    expect(flags).toEqual([
+      'create',
+      '--name', GATEKEEPER,
+      '--init',
+      '--user', '1000:1000',
+      '--read-only',
+      '--tmpfs', '/tmp:rw,noexec,nosuid,size=16m',
+      '--security-opt', 'no-new-privileges',
+      '--cap-drop', 'ALL',
+      '--pids-limit', '512',
+      '--memory', '268435456',
+      '--memory-swap', '268435456',
+      '--shm-size', '64m',
+      '--ipc', 'private',
+      '--cgroupns', 'private',
+      '--log-driver', 'local',
+      '--log-opt', 'max-size=10m',
+      '--log-opt', 'max-file=1',
+      '--log-opt', 'compress=false',
+      '--network', NETWORK,
+      '--network-alias', 'gatekeeper',
+      '--env', 'HOME=/tmp',
+      SPACE_BASE_IMAGE,
+      '/bin/sh', '-c',
+      'while [ ! -s /tmp/openchamber-gatekeeper/gatekeeper.cjs ]; do /bin/sleep 0.2; done; exec /usr/local/bin/node /tmp/openchamber-gatekeeper/gatekeeper.cjs 0.0.0.0 3128 8080 9099 300000 128 64 8',
+    ]);
+    expect(create).toContain('openchamber.space.role=gatekeeper');
+    expect(create).not.toContain('--mount');
+    // The program travels on stdin, so it is in no argument list, and no secret is in one either.
+    const write = fake.calls.find((call) => isExec('gatekeeper.cjs.new')(call.args));
+    expect(write.options.stdin).toBe(GATEKEEPER_PROGRAM);
+    expect(write.args[4]).toBe(GATEKEEPER);
+  });
+
+  it('starts the gatekeeper and waits for its corridor before the space container starts', async () => {
+    const fake = createFakeDocker({ resources: [toolsResource()] });
+    await makePlace(fake).create(SPEC);
+
+    const steps = changes(fake);
+    expect(steps.indexOf('exec gatekeeper curl')).toBeLessThan(steps.indexOf('create space'));
+    expect(steps.indexOf(`start ${GATEKEEPER}`)).toBeLessThan(steps.indexOf(`start ${CONTAINER}`));
   });
 
   it('prepares the volumes with a root one-shot that has no network and one capability', async () => {
@@ -272,6 +358,14 @@ describe('docker place: create', () => {
       '--opt', 'com.docker.network.bridge.gateway_mode_ipv4=isolated',
     ]);
     expect(networkCreate).toContain('openchamber.space.role=network');
+
+    // The outer network is the gatekeeper's way out, so it is an ordinary bridge and it is
+    // never internal. The space is not attached to it.
+    const outerCreate = fake.calls.map((call) => call.args).filter((args) => args[1] === 'create' && args[0] === 'network')[1];
+    expect(outerCreate.slice(0, 5)).toEqual(['network', 'create', '--driver', 'bridge', '--ipv6=false']);
+    expect(outerCreate).not.toContain('--internal');
+    expect(outerCreate).toContain('openchamber.space.role=outer-network');
+    expect(outerCreate[outerCreate.length - 1]).toBe(OUTER_NETWORK);
   });
 
   it('skips the pull when the image is present', async () => {
@@ -311,15 +405,22 @@ describe('docker place: create', () => {
 
 describe('docker place: create rollback', () => {
   const isCreate = (kind, name) => (args) => args[0] === kind && args[1] === 'create' && args[args.length - 1] === name;
-  const everything = [`rm ${CONTAINER}`, `volume rm ${WORK}`, `volume rm ${HOME}`, `network rm ${NETWORK}`];
+  const networks = [`network rm ${NETWORK}`, `network rm ${OUTER_NETWORK}`];
+  const withoutSpace = [`rm ${GATEKEEPER}`, `volume rm ${WORK}`, `volume rm ${HOME}`, ...networks];
+  const everything = [`rm ${GATEKEEPER}`, `rm ${CONTAINER}`, `volume rm ${WORK}`, `volume rm ${HOME}`, ...networks];
   const steps = [
     { step: 'pull', failAt: (args) => args[0] === 'pull', imagePresent: false, code: 'image_pull_failed', removals: [] },
     { step: 'network', failAt: isCreate('network', NETWORK), removals: [] },
-    { step: 'work volume', failAt: isCreate('volume', WORK), removals: [`network rm ${NETWORK}`] },
-    { step: 'home volume', failAt: isCreate('volume', HOME), removals: [`volume rm ${WORK}`, `network rm ${NETWORK}`] },
-    { step: 'volume ownership', failAt: isRun('setup'), removals: [`volume rm ${WORK}`, `volume rm ${HOME}`, `network rm ${NETWORK}`] },
-    { step: 'space container', failAt: (args) => args[0] === 'create', removals: everything },
-    { step: 'start', failAt: (args) => args[0] === 'start', removals: everything },
+    { step: 'outer network', failAt: isCreate('network', OUTER_NETWORK), removals: [`network rm ${NETWORK}`] },
+    { step: 'work volume', failAt: isCreate('volume', WORK), removals: networks },
+    { step: 'home volume', failAt: isCreate('volume', HOME), removals: [`volume rm ${WORK}`, ...networks] },
+    { step: 'volume ownership', failAt: isRun('setup'), removals: [`volume rm ${WORK}`, `volume rm ${HOME}`, ...networks] },
+    { step: 'gatekeeper container', failAt: (args) => args[0] === 'create' && args.includes('--network-alias'), removals: withoutSpace },
+    { step: 'gatekeeper network connect', failAt: (args) => args[0] === 'network' && args[1] === 'connect', removals: withoutSpace },
+    { step: 'gatekeeper start', failAt: (args) => args[0] === 'start' && args[1] === GATEKEEPER, removals: withoutSpace },
+    { step: 'gatekeeper program', failAt: isExec('gatekeeper.cjs.new'), code: 'gatekeeper_setup_failed', removals: withoutSpace },
+    { step: 'space container', failAt: (args) => args[0] === 'create' && !args.includes('--network-alias'), removals: everything },
+    { step: 'start', failAt: (args) => args[0] === 'start' && args[1] === CONTAINER, removals: everything },
     { step: 'plugin link', failAt: isExec('ln -sfn'), code: 'space_setup_failed', removals: everything },
     { step: 'token', failAt: isExec('token.new'), code: 'space_setup_failed', removals: everything },
   ];
@@ -333,6 +434,20 @@ describe('docker place: create rollback', () => {
       expect(fake.names()).toEqual([`volume:${TOOLS}`]);
     });
   }
+
+  it('rolls everything back when the gatekeeper never answers, and never makes the space', async () => {
+    // The gatekeeper starts and its control channel stays silent. Nothing of the space is made:
+    // a space must never exist without a way out that the host can talk to.
+    const fake = createFakeDocker({ gatekeeperReady: false, resources: [toolsResource()] });
+
+    const error = await makePlace(fake).create(SPEC).catch((caught) => caught);
+    expect(error.code).toBe('gatekeeper_not_ready');
+    expect(error.message).toMatch(/did not become ready within 60 seconds/);
+    expect(error.details).toMatchObject({ rollbackFailures: [], uncertain: false });
+    expect(changes(fake)).not.toContain('create space');
+    expect(removals(fake)).toEqual([`rm ${GATEKEEPER}`, `volume rm ${WORK}`, `volume rm ${HOME}`, `network rm ${NETWORK}`, `network rm ${OUTER_NETWORK}`]);
+    expect(fake.names()).toEqual([`volume:${TOOLS}`]);
+  });
 
   it('rolls the space back when its server never becomes ready, and keeps the tools volume', async () => {
     const fake = createFakeDocker({ serverReady: false, resources: [toolsResource()] });
@@ -349,7 +464,7 @@ describe('docker place: create rollback', () => {
   it('does not call a timed-out request to the server inside an interrupted Docker step', async () => {
     const fake = createFakeDocker({ resources: [toolsResource()] });
     const runCommand = async (file, args, options) => {
-      if (isExec('curl')(args)) throw new SpaceError('command_timeout', 'docker exec did not finish within 13000 ms and was stopped');
+      if (isExec('curl')(args) && args[4] === CONTAINER) throw new SpaceError('command_timeout', 'docker exec did not finish within 13000 ms and was stopped');
       return fake.runCommand(file, args, options);
     };
     let waits = 0;
@@ -366,13 +481,26 @@ describe('docker place: create rollback', () => {
 
   it('never starts a created container that fails verification, and removes it', async () => {
     const fake = createFakeDocker({
-      alterContainer: (entry) => ({ ...entry, HostConfig: { ...entry.HostConfig, Privileged: true } }),
+      alterContainer: (entry) => (entry.Name.endsWith('-space') ? { ...entry, HostConfig: { ...entry.HostConfig, Privileged: true } } : entry),
     });
 
     const error = await makePlace(fake).create(SPEC).catch((caught) => caught);
     expect(error.code).toBe('space_verification_failed');
     expect(error.details.original.violations.map((violation) => violation.check)).toEqual(['privileged']);
     expect(changes(fake)).not.toContain(`start ${CONTAINER}`);
+    expect(fake.names()).toEqual([`volume:${TOOLS}`]);
+  });
+
+  it('never starts a gatekeeper that fails verification, and never makes the space', async () => {
+    const fake = createFakeDocker({
+      alterContainer: (entry) => (entry.Name.endsWith('-gatekeeper') ? { ...entry, HostConfig: { ...entry.HostConfig, ReadonlyRootfs: false } } : entry),
+    });
+
+    const error = await makePlace(fake).create(SPEC).catch((caught) => caught);
+    expect(error.code).toBe('space_verification_failed');
+    expect(error.details.original.violations.map((violation) => violation.check)).toEqual(['gatekeeper_read_only']);
+    expect(changes(fake)).not.toContain(`start ${GATEKEEPER}`);
+    expect(changes(fake)).not.toContain('create space');
     expect(fake.names()).toEqual([`volume:${TOOLS}`]);
   });
 
@@ -385,7 +513,10 @@ describe('docker place: create rollback', () => {
     expect(error.code).toBe('docker_command_failed');
     expect(error.message).toMatch(/docker run --rm failed/);
     expect(error.message).toMatch(new RegExp(`Clean-up also failed for: network ${NETWORK}`));
-    expect(error.details.rollbackFailures).toEqual([{ kind: 'network', name: NETWORK, message: 'Error response from daemon: simulated failure' }]);
+    expect(error.details.rollbackFailures).toEqual([
+      { kind: 'network', name: NETWORK, message: 'Error response from daemon: simulated failure' },
+      { kind: 'network', name: OUTER_NETWORK, message: 'Error response from daemon: simulated failure' },
+    ]);
     expect(error.cause.code).toBe('docker_command_failed');
   });
 });
@@ -416,7 +547,7 @@ describe('docker place: create rollback after a timeout', () => {
     expect(error.details).toMatchObject({ uncertain: true, rollbackFailures: [] });
     expect(error.message).toMatch(/look at the spaces list/);
     expect(removals(fake)).toEqual([
-      `volume rm ${WORK}`, `volume rm ${HOME}`, `network rm ${NETWORK}`,
+      `volume rm ${WORK}`, `volume rm ${HOME}`, `network rm ${NETWORK}`, `network rm ${OUTER_NETWORK}`,
       `rm openchamber-space-${ID}-setup`, `volume rm ${WORK}`, `volume rm ${HOME}`,
     ]);
     expect(fake.names()).toEqual([`volume:${TOOLS}`]);
@@ -487,8 +618,25 @@ describe('docker place: list', () => {
     const fake = createFakeDocker({ resources: spaceResources().filter((resource) => resource.name !== HOME && resource.kind !== 'network') });
 
     expect(await makePlace(fake).list()).toEqual([
-      { id: ID, name: SPEC.name, project: SPEC.project, created: SPEC.created, state: 'running', orphans: [], damaged: true, missing: [NETWORK, HOME] },
+      { id: ID, name: SPEC.name, project: SPEC.project, created: SPEC.created, state: 'running', orphans: [], damaged: true, missing: [NETWORK, OUTER_NETWORK, HOME] },
     ]);
+  });
+
+  it('flags a running space whose gatekeeper is gone, or does not run, as damaged and not as missing', async () => {
+    const withoutGatekeeper = createFakeDocker({ resources: spaceResources().filter((resource) => resource.name !== GATEKEEPER) });
+    expect(await makePlace(withoutGatekeeper).list()).toEqual([
+      { id: ID, name: SPEC.name, project: SPEC.project, created: SPEC.created, state: 'running', orphans: [], damaged: true, missing: [GATEKEEPER] },
+    ]);
+
+    // The space runs and its way out does not. For the space that is as good as no gatekeeper.
+    const seeds = spaceResources();
+    seeds.find((resource) => resource.name === GATEKEEPER).entry.State.Running = false;
+    const stoppedGatekeeper = createFakeDocker({ resources: seeds });
+    expect(await makePlace(stoppedGatekeeper).list()).toMatchObject([{ state: 'running', damaged: true, missing: [GATEKEEPER] }]);
+
+    // A stopped space with a stopped gatekeeper is whole: `start` brings both up in order.
+    const bothStopped = createFakeDocker({ resources: spaceResources({ running: false }) });
+    expect(await makePlace(bothStopped).list()).toMatchObject([{ state: 'exited', damaged: false, missing: [] }]);
   });
 
   it('still lists the other spaces when a resource vanishes between the listing and the inspect', async () => {
@@ -555,10 +703,12 @@ describe('docker place: remove', () => {
     const result = await makePlace(fake).remove(ID);
     expect(result.failed).toEqual([]);
     expect(result.removed).toEqual([
+      { kind: 'container', name: GATEKEEPER },
       { kind: 'container', name: CONTAINER },
       { kind: 'volume', name: WORK },
       { kind: 'volume', name: HOME },
       { kind: 'network', name: NETWORK },
+      { kind: 'network', name: OUTER_NETWORK },
     ]);
     expect(fake.names()).toEqual([
       `volume:${unlabelled}`,
@@ -577,7 +727,7 @@ describe('docker place: remove', () => {
     };
     const result = await placeOn(runCommand).remove(ID);
     expect(result.failed).toEqual([]);
-    expect(result.removed).toHaveLength(4);
+    expect(result.removed).toHaveLength(6);
   });
 
   it('treats a container that is already being removed as removed', async () => {
@@ -609,7 +759,7 @@ describe('docker place: remove', () => {
     const fake = createFakeDocker({ resources: spaceResources(), failAt: (args) => args[0] === 'volume' && args[1] === 'rm' && args[2] === WORK });
     const result = await makePlace(fake).remove(ID);
     expect(result.failed).toEqual([{ kind: 'volume', name: WORK, message: 'Error response from daemon: simulated failure' }]);
-    expect(result.removed.map((item) => item.name)).toEqual([CONTAINER, HOME, NETWORK]);
+    expect(result.removed.map((item) => item.name)).toEqual([GATEKEEPER, CONTAINER, HOME, NETWORK, OUTER_NETWORK]);
   });
 
   it('is a no-op for a space that does not exist', async () => {
@@ -668,15 +818,60 @@ describe('docker place: exec, stop, start, verify', () => {
     expect((await place.list())[0].state).toBe('exited');
     await place.start(ID);
     expect((await place.list())[0].state).toBe('running');
-    expect(changes(fake)).toEqual([`stop ${CONTAINER}`, 'run tools-check', `start ${CONTAINER}`, 'exec curl']);
+    // The space stops before its gatekeeper and starts after it, so it never runs without one.
+    expect(changes(fake)).toEqual([
+      `stop ${CONTAINER}`,
+      `stop ${GATEKEEPER}`,
+      'run tools-check',
+      `start ${GATEKEEPER}`,
+      ...GATEKEEPER_START_STEPS,
+      `start ${CONTAINER}`,
+      'exec curl',
+    ]);
     expect(fake.token(CONTAINER)).toBe('seeded-token');
   });
 
-  it('leaves a running space alone when asked to start it', async () => {
+  it('refuses to start a space whose gatekeeper is gone, and starts nothing', async () => {
+    const fake = createFakeDocker({
+      resources: [toolsResource(), ...spaceResources({ running: false }).filter((resource) => resource.name !== GATEKEEPER)],
+    });
+
+    await expect(makePlace(fake).start(ID)).rejects.toMatchObject({ code: 'gatekeeper_missing' });
+    expect(changes(fake)).not.toContain(`start ${CONTAINER}`);
+  });
+
+  it('runs a command in the gatekeeper when the caller asks for that target, and nowhere else', async () => {
+    const fake = createFakeDocker({ resources: spaceResources() });
+    const place = makePlace(fake);
+
+    await place.exec(ID, ['id', '-u'], { target: 'gatekeeper' });
+    expect(fake.calls[fake.calls.length - 1].args.slice(0, 6)).toEqual(['exec', '--interactive', '--user', '1000:1000', GATEKEEPER, 'id']);
+
+    await expect(place.exec(ID, ['id'], { target: 'setup' })).rejects.toMatchObject({ code: 'invalid_exec_target' });
+    const withoutGatekeeper = createFakeDocker({ resources: spaceResources().filter((resource) => resource.name !== GATEKEEPER) });
+    await expect(makePlace(withoutGatekeeper).exec(ID, ['id'], { target: 'gatekeeper' })).rejects.toMatchObject({ code: 'gatekeeper_missing' });
+  });
+
+  it('leaves a running space alone when asked to start it, and still looks after its gatekeeper', async () => {
     const fake = createFakeDocker({ resources: [toolsResource({ key: 'ffffffffffffffff' }), ...spaceResources({ tools: `openchamber-tools-${OWNER}-ffffffffffffffff` })] });
 
     await makePlace(fake).start(ID);
-    expect(changes(fake)).toEqual([]);
+    // The space's own container and its tools are untouched. Its way out is not its container.
+    expect(changes(fake)).toEqual(GATEKEEPER_START_STEPS);
+  });
+
+  it('brings back a gatekeeper that died under a space that still runs, without touching the space', async () => {
+    const seeds = spaceResources();
+    // What an agent can force: the gatekeeper is killed for its memory and the space runs on.
+    seeds.find((resource) => resource.name === GATEKEEPER).entry.State.Running = false;
+    const fake = createFakeDocker({ resources: [toolsResource(), ...seeds] });
+    const place = makePlace(fake);
+
+    expect(await place.list()).toMatchObject([{ state: 'running', damaged: true, missing: [GATEKEEPER] }]);
+    await place.start(ID);
+
+    expect(changes(fake)).toEqual([`start ${GATEKEEPER}`, ...GATEKEEPER_START_STEPS]);
+    expect(await place.list()).toMatchObject([{ state: 'running', damaged: false, missing: [] }]);
   });
 
   it('rejects a start whose server never becomes ready, and leaves the space as it is', async () => {
@@ -692,7 +887,22 @@ describe('docker place: exec, stop, start, verify', () => {
 
     const withoutNetwork = createFakeDocker({ resources: [toolsResource(), ...spaceResources().filter((resource) => resource.kind !== 'network')] });
     const violations = await makePlace(withoutNetwork).verify(ID);
-    expect(violations.map((violation) => violation.check)).toEqual(['network_internal', 'network_host_isolation', 'network_labels']);
+    expect(violations.map((violation) => violation.check)).toEqual([
+      'network_internal', 'network_host_isolation', 'network_labels', 'gatekeeper_outer_network_labels',
+    ]);
+  });
+
+  it('verifies the gatekeeper too, and says when a space has none', async () => {
+    const withoutGatekeeper = createFakeDocker({ resources: [toolsResource(), ...spaceResources().filter((resource) => resource.name !== GATEKEEPER)] });
+    expect((await makePlace(withoutGatekeeper).verify(ID)).map((violation) => violation.check)).toEqual(['gatekeeper_missing']);
+
+    // A gatekeeper that lost a network, or that anyone could reach the tools of.
+    const seeds = spaceResources();
+    const gatekeeper = seeds.find((resource) => resource.name === GATEKEEPER).entry;
+    delete gatekeeper.NetworkSettings.Networks[OUTER_NETWORK];
+    gatekeeper.Mounts = [{ Type: 'volume', Name: TOOLS, Source: '/x', Destination: '/opt/openchamber-tools', RW: true }];
+    const changed = createFakeDocker({ resources: [toolsResource(), ...seeds] });
+    expect((await makePlace(changed).verify(ID)).map((violation) => violation.check)).toEqual(['gatekeeper_mounts', 'gatekeeper_networks']);
   });
 
   it('reports a space whose tools volume lost its labels', async () => {
@@ -1069,6 +1279,8 @@ describe('docker place: new tools at the next start', () => {
   const OLD_KEY = '0123456789abcdef';
   const OLD_TOOLS = `openchamber-tools-${OWNER}-${OLD_KEY}`;
   const ASIDE = `${CONTAINER}-old`;
+  // The gatekeeper start comes before the space start, so a test that fails "the start" must say which.
+  const isSpaceStart = (args) => args[0] === 'start' && args[1] !== GATEKEEPER;
   const stoppedOnOldTools = () => [toolsResource({ key: OLD_KEY }), ...spaceResources({ running: false, tools: OLD_TOOLS })];
   const toolsOf = async (fake, name = CONTAINER) => {
     const result = await fake.runCommand('docker', ['inspect', '--type', 'container', name], {});
@@ -1086,6 +1298,10 @@ describe('docker place: new tools at the next start', () => {
       'run tools-check',
       // The old tools volume is still mounted by the stopped space, so Docker keeps it.
       `volume rm ${OLD_TOOLS}`,
+      // The gatekeeper is up before the space container is made again. It mounts no tools
+      // volume, so the move itself leaves it alone.
+      `start ${GATEKEEPER}`,
+      ...GATEKEEPER_START_STEPS,
       `rename ${CONTAINER} ${ASIDE}`,
       'create space',
       'start <id>',
@@ -1105,7 +1321,7 @@ describe('docker place: new tools at the next start', () => {
   });
 
   it('puts the old container back when the start of the new one fails', async () => {
-    const fake = createFakeDocker({ failAt: (args) => args[0] === 'start', resources: [toolsResource(), ...stoppedOnOldTools()] });
+    const fake = createFakeDocker({ failAt: isSpaceStart, resources: [toolsResource(), ...stoppedOnOldTools()] });
     const place = makePlace(fake);
 
     const error = await place.start(ID).catch((caught) => caught);
@@ -1144,17 +1360,17 @@ describe('docker place: new tools at the next start', () => {
 
     await place.start(ID);
     expect(await toolsOf(fake)).toBe(TOOLS);
-    expect(fake.names().filter((name) => name.startsWith('container:'))).toEqual([`container:${CONTAINER}`]);
+    expect(fake.names().filter((name) => name.startsWith('container:')).sort()).toEqual([`container:${GATEKEEPER}`, `container:${CONTAINER}`].sort());
   });
 
   it('puts the old container back when the new one fails verification, and never starts it', async () => {
     const fake = createFakeDocker({
-      alterContainer: (entry) => ({ ...entry, HostConfig: { ...entry.HostConfig, Privileged: true } }),
+      alterContainer: (entry) => (entry.Name.endsWith('-space') ? { ...entry, HostConfig: { ...entry.HostConfig, Privileged: true } } : entry),
       resources: [toolsResource(), ...stoppedOnOldTools()],
     });
 
     await expect(makePlace(fake).start(ID)).rejects.toMatchObject({ code: 'space_verification_failed' });
-    expect(changes(fake).filter((line) => line.startsWith('start'))).toEqual([]);
+    expect(changes(fake).filter((line) => line.startsWith('start'))).toEqual([`start ${GATEKEEPER}`]);
     expect(await toolsOf(fake)).toBe(OLD_TOOLS);
   });
 
@@ -1180,7 +1396,7 @@ describe('docker place: new tools at the next start', () => {
   });
 
   it('removes the new container by the id that create printed, never by name', async () => {
-    const fake = createFakeDocker({ failAt: (args) => args[0] === 'start', resources: [toolsResource(), ...stoppedOnOldTools()] });
+    const fake = createFakeDocker({ failAt: isSpaceStart, resources: [toolsResource(), ...stoppedOnOldTools()] });
 
     await expect(makePlace(fake).start(ID)).rejects.toMatchObject({ code: 'docker_command_failed' });
     const removed = fake.calls.map((call) => call.args).filter((args) => args[0] === 'rm').map((args) => args[args.length - 1]);
@@ -1225,14 +1441,14 @@ describe('docker place: new tools at the next start', () => {
     let stopping;
     // The stop arrives between the create and the start of the move.
     const runCommand = async (file, args, options) => {
-      if (args[0] === 'start') stopping = place.stop(ID);
+      if (isSpaceStart(args)) stopping = place.stop(ID);
       return fake.runCommand(file, args, options);
     };
     place = placeOn(runCommand, { wait: fake.wait, now: fake.now });
 
     await place.start(ID);
     await stopping;
-    expect(changes(fake).slice(-4)).toEqual(['exec curl', `rm ${ASIDE}`, `volume rm ${OLD_TOOLS}`, `stop ${CONTAINER}`]);
+    expect(changes(fake).slice(-5)).toEqual(['exec curl', `rm ${ASIDE}`, `volume rm ${OLD_TOOLS}`, `stop ${CONTAINER}`, `stop ${GATEKEEPER}`]);
     expect((await place.list())[0].state).toBe('exited');
   });
 
@@ -1271,7 +1487,8 @@ describe('docker place: new tools at the next start', () => {
     const fake = createFakeDocker({ resources: [toolsResource({ key: OLD_KEY }), ...spaceResources({ tools: OLD_TOOLS })] });
 
     await makePlace(fake).start(ID);
-    expect(changes(fake)).toEqual([]);
+    // Only its gatekeeper is looked after. The space container and its tools are untouched.
+    expect(changes(fake)).toEqual(GATEKEEPER_START_STEPS);
     expect(await toolsOf(fake)).toBe(OLD_TOOLS);
   });
 
@@ -1291,7 +1508,9 @@ describe('docker place: new tools at the next start', () => {
       expect(changes(fake)).toEqual([]);
 
       await place.start(ID);
-      expect(changes(fake)).toEqual([`rename ${ASIDE} ${CONTAINER}`, 'run tools-check', `start ${CONTAINER}`, 'exec curl']);
+      expect(changes(fake)).toEqual([
+        `rename ${ASIDE} ${CONTAINER}`, 'run tools-check', `start ${GATEKEEPER}`, ...GATEKEEPER_START_STEPS, `start ${CONTAINER}`, 'exec curl',
+      ]);
     });
 
     it('drops an unfinished new container by its id and goes back to the old one before it starts', async () => {
@@ -1353,7 +1572,7 @@ describe('docker place: new tools at the next start', () => {
       const fake = createFakeDocker({ resources: [toolsResource(), ...stoppedOnOldTools().map(asAside), ...running] });
 
       await makePlace(fake).start(ID);
-      expect(changes(fake)).toEqual([]);
+      expect(changes(fake)).toEqual(GATEKEEPER_START_STEPS);
     });
 
     it('removes both containers with the space', async () => {

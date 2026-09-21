@@ -107,7 +107,7 @@ describe('space server channel: request', () => {
       headers: { 'content-type': ['application/json'], 'set-cookie': ['a=1; Path=/', 'b=2'] },
       body: '{"authenticated":true}',
     });
-    expect(calls[0].argv).toEqual(['/usr/bin/curl', '--disable', '--silent', '--show-error', '--include', '--max-time', '20', '--config', '-']);
+    expect(calls[0].argv).toEqual(['/usr/bin/curl', '--disable', '--noproxy', '*', '--silent', '--show-error', '--include', '--max-time', '20', '--config', '-']);
     expect(calls[0].options.stdin).toBe([
       'url = "http://127.0.0.1:27600/auth/session"',
       'request = "POST"',
@@ -120,13 +120,15 @@ describe('space server channel: request', () => {
     expect(calls[0].options.timeoutMs).toBeGreaterThan(20_000);
   });
 
-  it('puts --disable first, so curl never reads the ~/.curlrc that the agent can write', async () => {
+  it('puts --disable first and --noproxy on every request, whatever the space environment says', async () => {
     const { channel, calls } = channelWith(ok(http(200, '')));
     await channel.request(ID, { path: '/health' });
     await channel.waitUntilReady(ID).catch(() => {});
 
-    // curl honours --disable only as its first argument.
-    for (const call of calls) expect(call.argv.slice(0, 2)).toEqual(['/usr/bin/curl', '--disable']);
+    // curl honours --disable only as its first argument. Without --noproxy the space's own
+    // proxy variables send this request to the corridor: measured, the answer was
+    // `curl: (1) Received HTTP/0.9 when not allowed`.
+    for (const call of calls) expect(call.argv.slice(0, 4)).toEqual(['/usr/bin/curl', '--disable', '--noproxy', '*']);
   });
 
   it('sends a body that starts with @ as text, not as the content of a file', async () => {
@@ -257,7 +259,7 @@ describe('space server channel: waitUntilReady', () => {
     const { channel, calls } = channelWith(ok(http(200, '{"isOpenCodeReady":true}')));
     await channel.waitUntilReady(ID);
 
-    expect(calls[0].argv).toEqual(['/usr/bin/curl', '--disable', '--silent', '--show-error', '--include', '--max-time', '3', '--config', '-']);
+    expect(calls[0].argv).toEqual(['/usr/bin/curl', '--disable', '--noproxy', '*', '--silent', '--show-error', '--include', '--max-time', '3', '--config', '-']);
     expect(calls[0].options.timeoutMs).toBe(13_000);
   });
 

@@ -1,13 +1,19 @@
 import { SpaceError } from '../errors.js';
+import { createGatekeeperChannel } from '../gatekeeper-channel.js';
 import {
+  buildGatekeeperCreateArgs,
+  buildGatekeeperNetworkArgs,
   buildSpaceCreateArgs,
   buildSpaceNetworkArgs,
   buildVolumeOwnershipRunArgs,
+  findGatekeeperHardeningViolations,
   findHardeningViolations,
   requireMemoryBytes,
 } from '../hardening.js';
 import {
+  ROLE_GATEKEEPER,
   ROLE_NETWORK,
+  ROLE_OUTER_NETWORK,
   ROLE_SETUP,
   ROLE_SPACE,
   ROLE_VOLUME,
@@ -39,6 +45,17 @@ const ASIDE_SUFFIX = 'old';
 
 // Removal order. A network cannot go while a container is attached, and a volume cannot go while mounted.
 const KINDS = ['container', 'volume', 'network'];
+
+/** Which container an `exec` runs in. The place contract knows two targets and no more. */
+function execRole(target) {
+  if (target === undefined || target === ROLE_SPACE) {
+    return ROLE_SPACE;
+  }
+  if (target === ROLE_GATEKEEPER) {
+    return ROLE_GATEKEEPER;
+  }
+  throw new SpaceError('invalid_exec_target', `A command runs in the space or in its gatekeeper, not in '${target}'`);
+}
 
 export function createDockerPlace({ runCommand, dockerPath, owner, toolsSource, wait = pause, now = () => new Date() }) {
   requireOwner(owner);
@@ -158,18 +175,37 @@ export function createDockerPlace({ runCommand, dockerPath, owner, toolsSource, 
     return findHardeningViolations({ spaceId, owner, container, network, toolsVolume });
   };
 
-  const verify = async (spaceId) => verifyContainer(spaceId, await requireSpaceContainer(spaceId));
+  const verifyGatekeeperContainer = async (spaceId, container) => {
+    const outerNetwork = await inspect('network', spaceResourceName(spaceId, ROLE_OUTER_NETWORK));
+    return findGatekeeperHardeningViolations({ spaceId, owner, container, outerNetwork });
+  };
 
-  const requireVerified = async (spaceId, container) => {
-    const violations = await verifyContainer(spaceId, container);
+  /**
+   * Both containers and both networks. A space with no gatekeeper is a space with an
+   * uncontrolled way out, so it is a violation like any other and the manager removes it.
+   */
+  const verify = async (spaceId) => {
+    const violations = await verifyContainer(spaceId, await requireSpaceContainer(spaceId));
+    const gatekeeperContainer = await inspectOwnContainer(spaceId, spaceResourceName(spaceId, ROLE_GATEKEEPER));
+    if (!gatekeeperContainer) {
+      return [...violations, { check: 'gatekeeper_missing', message: 'The space has no gatekeeper container' }];
+    }
+    return [...violations, ...(await verifyGatekeeperContainer(spaceId, gatekeeperContainer))];
+  };
+
+  const requireNoViolations = (violations, what) => {
     if (violations.length > 0) {
       throw new SpaceError(
         'space_verification_failed',
-        `The new container does not match the requested restrictions: ${violations.map((violation) => violation.message).join('; ')}`,
+        `The new ${what} does not match the requested restrictions: ${violations.map((violation) => violation.message).join('; ')}`,
         { violations },
       );
     }
   };
+
+  const requireVerified = async (spaceId, container) => requireNoViolations(await verifyContainer(spaceId, container), 'container');
+
+  const requireGatekeeperVerified = async (spaceId, container) => requireNoViolations(await verifyGatekeeperContainer(spaceId, container), 'gatekeeper');
 
   const remove = async (spaceId) => {
     const resources = await findResources(requireSpaceId(spaceId));
@@ -194,19 +230,23 @@ export function createDockerPlace({ runCommand, dockerPath, owner, toolsSource, 
     }
   };
 
-  /** Runs argv as the space user, without looking at the container first. For containers this place just made. */
-  const execInSpace = (spaceId, argv, options = {}) => run(
-    ['exec', '--interactive', '--user', SPACE_USER, spaceResourceName(spaceId, ROLE_SPACE), ...argv],
+  /**
+   * Runs argv as the space user in the space or, with `target: 'gatekeeper'`, in its gatekeeper.
+   * It does not look at the container first, so it also serves containers this place just made.
+   */
+  const execInContainer = (spaceId, argv, options = {}) => run(
+    ['exec', '--interactive', '--user', SPACE_USER, spaceResourceName(spaceId, execRole(options.target)), ...argv],
     options.timeoutMs ?? EXEC_TIMEOUT_MS,
     { stdin: options.stdin ?? '' },
   );
 
-  const server = createSpaceServerChannel({ exec: execInSpace, wait, now: () => now().getTime() });
+  const server = createSpaceServerChannel({ exec: execInContainer, wait, now: () => now().getTime() });
+  const gatekeeper = createGatekeeperChannel({ exec: execInContainer, wait, now: () => now().getTime() });
 
   const create = async ({ id, name, project, created, memoryBytes }) => {
     requireMemoryBytes(memoryBytes);
     // Built first, so a bad spec is rejected before Docker is asked anything.
-    const labelArguments = new Map([ROLE_NETWORK, ROLE_VOLUME, ROLE_SETUP, ROLE_SPACE].map((role) => (
+    const labelArguments = new Map([ROLE_NETWORK, ROLE_OUTER_NETWORK, ROLE_VOLUME, ROLE_SETUP, ROLE_GATEKEEPER, ROLE_SPACE].map((role) => (
       [role, labelArgs(buildSpaceLabels({ id, role, owner, project, name, created }))]
     )));
     const labelsFor = (role) => labelArguments.get(role);
@@ -217,11 +257,15 @@ export function createDockerPlace({ runCommand, dockerPath, owner, toolsSource, 
       homeVolume: spaceResourceName(id, ROLE_VOLUME, 'home'),
       image: SPACE_BASE_IMAGE,
     };
+    const outerNetwork = spaceResourceName(id, ROLE_OUTER_NETWORK);
     const containerName = spaceResourceName(id, ROLE_SPACE);
+    const gatekeeperName = spaceResourceName(id, ROLE_GATEKEEPER);
     const taken = [
       ['container', containerName],
       ['container', spaceResourceName(id, ROLE_SETUP)],
+      ['container', gatekeeperName],
       ['network', resources.network],
+      ['network', outerNetwork],
       ['volume', resources.workVolume],
       ['volume', resources.homeVolume],
     ];
@@ -238,9 +282,10 @@ export function createDockerPlace({ runCommand, dockerPath, owner, toolsSource, 
     try {
       await ensureImage();
       // The tools volume is shared by every space of this owner. It has a rollback of its own,
-      // and the rollback below never touches a labelled one: it removes by space id and by the five names only.
+      // and the rollback below never touches a labelled one: it removes by space id and by the seven names only.
       toolsVolume = await tools.ensure();
       await docker(buildSpaceNetworkArgs({ network: resources.network, labelArguments: labelsFor(ROLE_NETWORK) }), CHANGE_TIMEOUT_MS);
+      await docker(buildGatekeeperNetworkArgs({ network: outerNetwork, labelArguments: labelsFor(ROLE_OUTER_NETWORK) }), CHANGE_TIMEOUT_MS);
       await docker(['volume', 'create', ...labelsFor(ROLE_VOLUME), resources.workVolume], CHANGE_TIMEOUT_MS);
       await docker(['volume', 'create', ...labelsFor(ROLE_VOLUME), resources.homeVolume], CHANGE_TIMEOUT_MS);
       await docker(buildVolumeOwnershipRunArgs({
@@ -248,6 +293,22 @@ export function createDockerPlace({ runCommand, dockerPath, owner, toolsSource, 
         containerName: spaceResourceName(id, ROLE_SETUP),
         labelArguments: labelsFor(ROLE_SETUP),
       }), CHANGE_TIMEOUT_MS);
+      // The gatekeeper comes first, and its corridor accepts connections before the space
+      // container starts, so the proxy in the space environment works from the first moment.
+      // It is also the first container on the inner network, which is why it holds the `.1`
+      // address there: that address is the gatekeeper and never the Docker host.
+      await docker(buildGatekeeperCreateArgs({
+        containerName: gatekeeperName,
+        labelArguments: labelsFor(ROLE_GATEKEEPER),
+        network: resources.network,
+        image: SPACE_BASE_IMAGE,
+      }), CHANGE_TIMEOUT_MS);
+      // A second network needs its own call: Docker refuses `--network-alias` with two `--network`.
+      await docker(['network', 'connect', outerNetwork, gatekeeperName], CHANGE_TIMEOUT_MS);
+      await requireGatekeeperVerified(id, await inspectOwnContainer(id, gatekeeperName) ?? {});
+      await docker(['start', gatekeeperName], CHANGE_TIMEOUT_MS);
+      await gatekeeper.writeProgram(id);
+      await gatekeeper.waitUntilReady(id);
       // Create, verify, then start: a container that fails the check never runs.
       await docker(buildSpaceCreateArgs({
         ...resources,
@@ -305,9 +366,21 @@ export function createDockerPlace({ runCommand, dockerPath, owner, toolsSource, 
         state = space.entry.State?.Running === true ? 'running' : 'exited';
       }
       const orphans = space ? [] : group.map((resource) => ({ kind: resource.kind, name: resource.name }));
-      // A container whose network or volume is gone. `list` only reports it and repairs nothing.
-      const expected = [spaceResourceName(id, ROLE_NETWORK), spaceResourceName(id, ROLE_VOLUME, 'work'), spaceResourceName(id, ROLE_VOLUME, 'home')];
+      // A container whose network, volume or gatekeeper is gone. `list` only reports it and repairs nothing.
+      const expected = [
+        spaceResourceName(id, ROLE_NETWORK),
+        spaceResourceName(id, ROLE_OUTER_NETWORK),
+        spaceResourceName(id, ROLE_VOLUME, 'work'),
+        spaceResourceName(id, ROLE_VOLUME, 'home'),
+      ];
       const missing = space ? expected.filter((resourceName) => !group.some((resource) => resource.name === resourceName)) : [];
+      // `state` stays the state of the space container, because that is what start and stop act on.
+      // A gatekeeper that is absent, or that does not run while the space does, is as good as no
+      // gatekeeper for the space, and both count as missing here.
+      const guard = group.find((resource) => resource.labels.role === ROLE_GATEKEEPER);
+      if (space && (!guard || (state === 'running' && guard.entry.State?.Running !== true))) {
+        missing.push(spaceResourceName(id, ROLE_GATEKEEPER));
+      }
       return { id, name, project, created, state, orphans, damaged: missing.length > 0, missing };
     });
   };
@@ -315,20 +388,61 @@ export function createDockerPlace({ runCommand, dockerPath, owner, toolsSource, 
   // Starts that are under way in this process, by space id.
   const starting = new Map();
 
+  /** The gatekeeper container of a space. It is never renamed, so there is no move to repair here. */
+  const requireGatekeeperContainer = async (spaceId) => {
+    const name = spaceResourceName(spaceId, ROLE_GATEKEEPER);
+    const entry = await inspectOwnContainer(spaceId, name);
+    if (!entry) {
+      throw new SpaceError('gatekeeper_missing', `Space ${spaceId} has no gatekeeper container. Apply or discard its work and create the space again.`);
+    }
+    return entry;
+  };
+
   const exec = async (spaceId, argv, options = {}) => {
     if (!Array.isArray(argv) || argv.length === 0) {
       throw new SpaceError('invalid_command', 'A command is a non-empty array of arguments');
     }
-    await requireSpaceContainer(spaceId);
-    return execInSpace(spaceId, argv, options);
+    if (execRole(options.target) === ROLE_GATEKEEPER) {
+      await requireGatekeeperContainer(spaceId);
+    } else {
+      await requireSpaceContainer(spaceId);
+    }
+    return execInContainer(spaceId, argv, options);
   };
 
+  /**
+   * The space stops first and its gatekeeper after it, so a space is never running while its
+   * way out is not under the host's control. A stop of the gatekeeper that fails leaves the
+   * space stopped, which is the safe side of this order.
+   */
   const stop = async (spaceId) => {
     // A start of this space that is under way finishes first, whatever its outcome. A stop that
     // slipped in between the create and the start of a move would resolve, and the space would run anyway.
     await starting.get(spaceId)?.catch(() => {});
     await requireSpaceContainer(spaceId);
     await docker(['stop', spaceResourceName(spaceId, ROLE_SPACE)], CHANGE_TIMEOUT_MS);
+    const gatekeeperName = spaceResourceName(spaceId, ROLE_GATEKEEPER);
+    if (await inspectOwnContainer(spaceId, gatekeeperName)) {
+      await docker(['stop', gatekeeperName], CHANGE_TIMEOUT_MS);
+    }
+  };
+
+  /**
+   * The gatekeeper runs, with its program, before the space container starts. Its tmpfs is empty
+   * again after every stop, so the program is written at every start. The network mode, the
+   * allowlist and the grants are not restored here: the gatekeeper comes up allowing nothing,
+   * and the host says again what this space may reach. No container of ours restarts by itself,
+   * so this also holds after the Docker machine restarts.
+   */
+  const startGatekeeper = async (spaceId) => {
+    const name = spaceResourceName(spaceId, ROLE_GATEKEEPER);
+    const container = await requireGatekeeperContainer(spaceId);
+    if (container.State?.Running !== true) {
+      await requireGatekeeperVerified(spaceId, container);
+      await docker(['start', name], CHANGE_TIMEOUT_MS);
+    }
+    await gatekeeper.writeProgram(spaceId);
+    await gatekeeper.waitUntilReady(spaceId);
   };
 
   /**
@@ -401,6 +515,11 @@ export function createDockerPlace({ runCommand, dockerPath, owner, toolsSource, 
       throw new SpaceError('space_not_found', `Space ${spaceId} has no container in Docker`);
     }
     if (container?.State?.Running === true) {
+      // The space runs, so its own container and its tools are left alone. Its way out is not
+      // the space's container: a gatekeeper that died, from its own memory limit or anything
+      // else, is brought back here. Otherwise the one action a user would take, "start", would
+      // skip the only step that repairs it.
+      await startGatekeeper(spaceId);
       return;
     }
     if (waiting) {
@@ -410,6 +529,7 @@ export function createDockerPlace({ runCommand, dockerPath, owner, toolsSource, 
       const problem = container ? await removeStoppedContainer(container.Id) : null;
       if (problem) {
         if ((await inspectOwnContainer(spaceId, name))?.State?.Running === true) {
+          await startGatekeeper(spaceId);
           return;
         }
         throw new SpaceError('space_recreate_failed', `Could not remove the unfinished container ${name}: ${problem.message}`);
@@ -422,6 +542,9 @@ export function createDockerPlace({ runCommand, dockerPath, owner, toolsSource, 
     }
     await ensureImage();
     const toolsVolume = await tools.ensure();
+    // Before either way of starting the space. The move to new tools leaves the gatekeeper
+    // alone: it mounts no tools volume, so a new tools version changes nothing about it.
+    await startGatekeeper(spaceId);
     const mounted = (container?.Mounts ?? []).find((mount) => mount.Destination === TOOLS_MOUNT_PATH)?.Name;
     if (mounted !== toolsVolume) {
       await recreate(spaceId, container, toolsVolume);
