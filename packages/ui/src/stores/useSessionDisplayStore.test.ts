@@ -1,5 +1,15 @@
-import { describe, expect, test } from 'bun:test';
-import { defaultSidebarViewMode, migrateSessionDisplayState, useSessionDisplayStore } from './useSessionDisplayStore';
+import { createJSONStorage } from 'zustand/middleware';
+import { afterAll, describe, expect, test } from 'bun:test';
+import { Window } from 'happy-dom';
+const previousStorage = Object.getOwnPropertyDescriptor(globalThis, 'window');
+const testWindow = new Window();
+Object.defineProperty(globalThis, 'window', { configurable: true, value: testWindow });
+const { defaultSidebarViewMode, migrateSessionDisplayState, useSessionDisplayStore } = await import('./useSessionDisplayStore');
+afterAll(() => {
+  testWindow.close();
+  if (previousStorage) Object.defineProperty(globalThis, 'window', previousStorage);
+  else Reflect.deleteProperty(globalThis, 'window');
+});
 
 describe('useSessionDisplayStore project sorting', () => {
   test('defaults to manual ordering', () => {
@@ -77,5 +87,36 @@ describe('useSessionDisplayStore view mode', () => {
     expect('sessionGroupingMode' in migrated).toBe(false);
     expect(migrated.projectSortOrder).toBe('a-z');
     expect(migrated.showRecentSection).toBe(false);
+  });
+});
+
+
+describe('useSessionDisplayStore animated activity', () => {
+  test('hydrates existing v8 data with motion off and retains saved choices', async () => {
+    const initialState = useSessionDisplayStore.getState();
+    const originalStorage = useSessionDisplayStore.persist.getOptions().storage;
+    let stored = JSON.stringify({ version: 8, state: { sidebarViewMode: 'timeline', showRecentSection: false } });
+    const storage = createJSONStorage<Partial<ReturnType<typeof useSessionDisplayStore.getState>>>(() => ({
+      getItem: () => stored,
+      setItem: (_name, value) => { stored = value; },
+      removeItem: () => { stored = ''; },
+    }));
+    useSessionDisplayStore.persist.setOptions({ storage });
+    try {
+      await useSessionDisplayStore.persist.rehydrate();
+      expect(useSessionDisplayStore.getState().animatedActivityIndicators).toBe(false);
+      expect(useSessionDisplayStore.getState().sidebarViewMode).toBe('timeline');
+      expect(useSessionDisplayStore.persist.getOptions().version).toBe(8);
+      useSessionDisplayStore.getState().setAnimatedActivityIndicators(true);
+      const enabledSnapshot = stored;
+      useSessionDisplayStore.setState({ animatedActivityIndicators: false });
+      stored = enabledSnapshot;
+      await useSessionDisplayStore.persist.rehydrate();
+      expect(useSessionDisplayStore.getState().animatedActivityIndicators).toBe(true);
+      expect(useSessionDisplayStore.getState().showRecentSection).toBe(false);
+    } finally {
+      useSessionDisplayStore.persist.setOptions({ storage: originalStorage });
+      useSessionDisplayStore.setState(initialState);
+    }
   });
 });

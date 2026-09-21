@@ -1,5 +1,6 @@
 import { DirectoryActionIndicator } from './DirectoryActionIndicator';
 import React from 'react';
+import { SessionActivityIndicator } from '@/components/session/SessionActivityIndicator';
 import type { Session } from '@opencode-ai/sdk/v2';
 import { ContextMenu } from '@base-ui/react/context-menu';
 import {
@@ -839,20 +840,15 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   });
   const showUnreadStatus = !isSessionActionPending && !isStreaming && needsAttention && !isActive;
   const showStatusMarker = isStreaming || showUnreadStatus;
-  // Both states are the same static dot; only the color separates "running"
-  // from "unread". The elapsed-turn readout on the right carries the motion
-  // that a spinner used to, at one repaint per second instead of per frame.
+  // Running indicators are static by default; the local appearance preference
+  // enables stepped motion without changing the elapsed-turn counter.
   const statusMarkerLabel = isStreaming
     ? t('sessions.sidebar.session.status.active')
     : t('sessions.sidebar.session.status.unread');
   const statusMarkerContent = (
-    <span
-      className={cn(
-        'h-1.5 w-1.5 rounded-full',
-        isStreaming ? 'bg-[var(--status-info)]' : 'bg-[var(--status-success)]',
-      )}
-      aria-label={statusMarkerLabel}
-      title={statusMarkerLabel}
+    <SessionActivityIndicator
+      state={isStreaming ? 'running' : 'unread'}
+      label={statusMarkerLabel}
     />
   );
   // The settled duration lives exactly as long as the unread marker does, so a

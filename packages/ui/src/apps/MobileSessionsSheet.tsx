@@ -1,4 +1,5 @@
 import React from 'react';
+import { SessionActivityIndicator } from '@/components/session/SessionActivityIndicator';
 import { createPortal } from 'react-dom';
 import {
   RiAddLine,
@@ -41,6 +42,8 @@ import { CHAT_DRAFT_PROJECT_ID, isChatDirectoryPath } from '@/lib/chatDirectorie
 import { getDescendantIds, partitionSidebarSessions } from '@/components/session/sidebar/list/sessionCollection';
 import { sortProjectsByOrder } from '@/components/session/sidebar/list/projectSort';
 import { collectSessionSubtreeIds, runSessionSubtreeAction, type SessionSubtreeAction } from '@/components/session/sidebar/sessions/sessionSubtreeActions';
+import { createSessionOwnershipIndex } from '@/components/session/sidebar/sessions/sessionOwnership';
+import { resolveSidebarSessionLocations } from '@/components/session/sidebar/recent/sessionLocation';
 import { useRuntimeAPIs } from '@/hooks/useRuntimeAPIs';
 import { useI18n } from '@/lib/i18n';
 import { matchesRankQuery, rankByQuery } from '@/lib/search/fuzzySearch';
@@ -67,6 +70,7 @@ import {
 } from '@/sync/session-ordering';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useAllLiveSessions, useGlobalSessionStatus } from '@/sync/sync-context';
+import { useGlobalSyncStore } from '@/sync/global-sync-store';
 import { useSessionUnseenCount } from '@/sync/notification-store';
 import { useHasSessionActivityDuration } from '@/sync/session-activity-timing';
 import { SessionActivityDuration } from '@/components/session/SessionActivityDuration';
@@ -194,16 +198,6 @@ const pathBelongsToRoot = (path: string, root: string): boolean => {
 const findExactWorktreeMatch = (project: ProjectMeta, normalizedDirectory: string): WorktreeMetadata | null => (
   project.worktrees.find((worktree) => normalizePath(worktree.path) === normalizedDirectory) ?? null
 );
-
-const projectMatchesExactDirectory = (project: ProjectMeta, normalizedDirectory: string): boolean => (
-  normalizedDirectory === project.path || Boolean(findExactWorktreeMatch(project, normalizedDirectory))
-);
-
-const findExactProjectMatch = (projects: ProjectMeta[], directory: string): ProjectMeta | null => {
-  const normalizedDirectory = normalizePath(directory);
-  if (!normalizedDirectory) return null;
-  return projects.find((project) => projectMatchesExactDirectory(project, normalizedDirectory)) ?? null;
-};
 
 const sessionMatchesQuery = (session: Session, projectLabel: string, query: string): boolean =>
   matchesRankQuery([session.title, session.id, getSessionDirectory(session), projectLabel], query);
@@ -351,12 +345,9 @@ const SessionRow: React.FC<{
           {aiRename.pending ? (
             <Icon name="loader-4" className="size-3 animate-spin text-primary" aria-label={t('sessions.aiRename.generating')} />
           ) : isStreaming || showUnreadDot ? (
-            <span
-              className={cn(
-                'size-1.5 rounded-full',
-                isStreaming ? 'bg-[var(--status-info)]' : 'bg-[var(--status-success)]',
-              )}
-              aria-hidden
+            <SessionActivityIndicator
+              state={isStreaming ? 'running' : 'unread'}
+              label={isStreaming ? t('sessions.sidebar.session.status.active') : t('sessions.sidebar.session.status.unread')}
             />
           ) : (
             <RiArrowDownSLine className={cn('size-[18px] transition-transform duration-150', expanded ? 'rotate-0' : '-rotate-90')} />
@@ -405,7 +396,10 @@ const SessionRow: React.FC<{
             {statusOnRight && (aiRename.pending || isStreaming || showUnreadDot) ? (
               aiRename.pending
                 ? <Icon name="loader-4" className="size-3 shrink-0 animate-spin text-primary" aria-label={t('sessions.aiRename.generating')} />
-                : <span className={cn('size-1.5 shrink-0 rounded-full', isStreaming ? 'bg-[var(--status-info)]' : 'bg-[var(--status-success)]')} aria-hidden />
+                : <SessionActivityIndicator
+                    state={isStreaming ? 'running' : 'unread'}
+                    label={isStreaming ? t('sessions.sidebar.session.status.active') : t('sessions.sidebar.session.status.unread')}
+                  />
             ) : null}
             {/* The elapsed turn takes the time slot while it matters, then
                 hands it back to the relative timestamp. */}
@@ -659,6 +653,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     [presented],
   ));
   const projects = useProjectsStore((state) => state.projects);
+  const authoritativeProjects = useGlobalSyncStore((state) => state.projects);
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
   const currentDirectory = useDirectoryStore((state) => state.currentDirectory);
   const currentSessionId = useSessionUIStore((state) => state.currentSessionId);
@@ -870,6 +865,14 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     () => partitionSidebarSessions(sessions, false),
     [sessions],
   );
+  const sessionOwnership = React.useMemo(() => createSessionOwnershipIndex(
+    projectSessions,
+    projectsMeta.map((project) => ({ id: project.id, normalizedPath: project.path })),
+    new Map(projectsMeta.map((project) => [project.path, project.worktrees])),
+    false,
+    [],
+    authoritativeProjects,
+  ), [authoritativeProjects, projectSessions, projectsMeta]);
   const chatsBucket = React.useMemo<WorktreeBucket>(() => ({
     key: CHAT_DRAFT_PROJECT_ID,
     label: '',
@@ -932,12 +935,11 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     }
 
     for (const session of projectSessions) {
-      const directory = getSessionDirectory(session);
-      if (!directory) continue;
-      const normalizedDirectory = normalizePath(directory);
-      const node = nodes.find((entry) => projectMatchesExactDirectory(entry.project, normalizedDirectory));
+      const owner = sessionOwnership.bySessionId.get(session.id);
+      if (!owner) continue;
+      const node = nodes.find((entry) => entry.project.id === owner.projectId);
       if (!node) continue;
-      const matchedWorktree = findExactWorktreeMatch(node.project, normalizedDirectory);
+      const matchedWorktree = findExactWorktreeMatch(node.project, owner.scopeDirectory);
       const bucket = matchedWorktree
         ? ensureBucket(node, matchedWorktree.path, matchedWorktree)
         : ensureBucket(node, node.project.path, null);
@@ -954,7 +956,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     }
 
     return nodes;
-  }, [activeProjectId, pinnedSessionIds, projectSessions, projectsMeta, sessionOrderRanks]);
+  }, [activeProjectId, pinnedSessionIds, projectSessions, projectsMeta, sessionOrderRanks, sessionOwnership]);
 
   const normalizedDirectory = normalizePath(currentDirectory);
 
@@ -1119,14 +1121,15 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     // Switching session switches the working directory (handled by
     // setCurrentSession) — also move the active project so the rest of the app
     // and the active highlight follow the selected session, not just the draft.
-    const project = findExactProjectMatch(projectsMeta, directory ?? '');
+    const owner = sessionOwnership.bySessionId.get(session.id);
+    const project = owner ? projectsMeta.find((candidate) => candidate.id === owner.projectId) ?? null : null;
     if (project) {
       setActiveProjectIdOnly(project.id);
       // Expand the session's project (and worktree group) in the tree, so a
       // session picked from search is actually visible — and the open-time
       // auto-scroll can land on it — the next time the drawer opens.
       setProjectExpanded(project.id, true);
-      const worktree = findExactWorktreeMatch(project, normalizePath(directory ?? ''));
+      const worktree = findExactWorktreeMatch(project, owner?.scopeDirectory ?? '');
       if (worktree) setWorktreeExpanded(`${project.id}::${normalizePath(worktree.path)}`, true);
     }
     void setCurrentSession(session.id, directory);
@@ -1237,13 +1240,14 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
     (session: Session): string => {
       const directory = getSessionDirectory(session);
       if (isChatDirectoryPath(directory)) return t('mobile.sessions.section.chats');
-      const project = findExactProjectMatch(projectsMeta, directory);
+      const owner = sessionOwnership.bySessionId.get(session.id);
+      const project = owner ? projectsMeta.find((candidate) => candidate.id === owner.projectId) ?? null : null;
       if (!project) return getProjectLabel(directory) || directory;
-      const matchedWorktree = findExactWorktreeMatch(project, normalizePath(directory));
+      const matchedWorktree = findExactWorktreeMatch(project, owner?.scopeDirectory ?? '');
       if (matchedWorktree?.branch) return `${project.label} · ${matchedWorktree.branch}`;
       return project.label;
     },
-    [projectsMeta, t],
+    [projectsMeta, sessionOwnership, t],
   );
 
   const handleSelectProject = (project: ProjectMeta) => {
@@ -1282,14 +1286,14 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
         // Subsessions are implementation noise in a flat search list — only
         // top-level sessions are searchable.
         if (getParentId(session)) return false;
-        const directory = getSessionDirectory(session);
-        const project = findExactProjectMatch(projectsMeta, directory);
+        const owner = sessionOwnership.bySessionId.get(session.id);
+        const project = owner ? projectsMeta.find((candidate) => candidate.id === owner.projectId) ?? null : null;
         return sessionMatchesQuery(session, project?.label ?? '', normalizedQuery);
       }),
       pinnedSessionIds,
       sessionOrderRanks,
     );
-  }, [normalizedQuery, pinnedSessionIds, projectsMeta, sessionOrderRanks, sessions]);
+  }, [normalizedQuery, pinnedSessionIds, projectsMeta, sessionOrderRanks, sessionOwnership, sessions]);
 
   const searchProjectMatches = React.useMemo<ProjectMeta[]>(() => {
     if (!normalizedQuery) return [];
@@ -1316,20 +1320,24 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
   const timelineContextById = React.useMemo(() => {
     const contexts = new Map<string, { project: ProjectMeta; branch: string | null }>();
     if (!timelineActive) return contexts;
+    const locations = resolveSidebarSessionLocations({
+      sessions: projectSessions,
+      projects: projectsMeta.map((project) => ({ id: project.id, normalizedPath: project.path, label: project.label })),
+      ownerBySessionId: sessionOwnership.bySessionId,
+      availableWorktreesByProject: new Map(projectsMeta.map((project) => [project.path, project.worktrees])),
+      gitBranches: gitBranchesByDirectory,
+      homeDirectory: null,
+      hideBranchMatchingProjectLabel: false,
+    });
     for (const session of projectSessions) {
       if (getParentId(session)) continue;
-      const directory = getSessionDirectory(session);
-      const project = findExactProjectMatch(projectsMeta, directory);
-      if (!project) continue;
-      const worktree = findExactWorktreeMatch(project, directory);
-      const branch = worktree?.branch?.trim()
-        || gitBranchesByDirectory.get(normalizePath(project.path))?.trim()
-        || gitBranchesByDirectory.get(project.path)?.trim()
-        || null;
-      contexts.set(session.id, { project, branch });
+      const location = locations.get(session.id);
+      const project = location ? projectsMeta.find((candidate) => candidate.id === location.projectId) : null;
+      if (!project || !location) continue;
+      contexts.set(session.id, { project, branch: location.branchLabel });
     }
     return contexts;
-  }, [gitBranchesByDirectory, projectSessions, projectsMeta, timelineActive]);
+  }, [gitBranchesByDirectory, projectSessions, projectsMeta, sessionOwnership, timelineActive]);
 
   const timelineEntries = React.useMemo<TimelineEntry[]>(() => {
     if (!timelineActive) return [];
