@@ -117,7 +117,18 @@ type RoutingDecisionEvent = { type: 'routing-decision'; decision: z.infer<typeof
 type RoutingPermissionHeldEvent = { type: 'routing-permission-held' } & z.infer<typeof routingPermissionHeldSchema>;
 type RoutingSafetySkippedEvent = { type: 'routing-safety-skipped' } & z.infer<typeof routingSafetySkippedSchema>;
 
+const notificationPropertiesSchema = z.object({
+  title: z.string().optional(),
+  body: z.string().optional(),
+  tag: z.string().optional(),
+  kind: z.string().optional(),
+  sessionId: z.string().optional(),
+  directory: z.string().optional(),
+  requireHidden: z.boolean().optional(),
+});
+
 type OpenChamberEvent =
+  | { type: 'notification'; payload: z.infer<typeof notificationPropertiesSchema> }
   | { type: 'event-stream-ready' }
   | RoutingUpdatedEvent
   | RoutingDecisionEvent
@@ -213,6 +224,14 @@ const getEventProperties = (properties: unknown): Record<string, unknown> | null
 };
 
 const dispatchFromEnvelope = (envelope: { type: string; properties: unknown }) => {
+  if (envelope.type === 'openchamber:notification') {
+    const parsed = notificationPropertiesSchema.safeParse(envelope.properties);
+    if (parsed.success) {
+      for (const listener of listeners) listener({ type: 'notification', payload: parsed.data });
+    }
+    return;
+  }
+
   if (envelope.type === 'openchamber:event-stream-ready') {
     reconnectAttempt = 0;
     for (const listener of listeners) listener({ type: 'event-stream-ready' });
