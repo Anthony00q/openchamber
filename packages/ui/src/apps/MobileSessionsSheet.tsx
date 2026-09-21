@@ -1,4 +1,5 @@
 import React from 'react';
+import { SessionActivityIndicator } from '@/components/session/SessionActivityIndicator';
 import { createPortal } from 'react-dom';
 import {
   RiAddLine,
@@ -344,12 +345,9 @@ const SessionRow: React.FC<{
           {aiRename.pending ? (
             <Icon name="loader-4" className="size-3 animate-spin text-primary" aria-label={t('sessions.aiRename.generating')} />
           ) : isStreaming || showUnreadDot ? (
-            <span
-              className={cn(
-                'size-1.5 rounded-full',
-                isStreaming ? 'bg-[var(--status-info)]' : 'bg-[var(--status-success)]',
-              )}
-              aria-hidden
+            <SessionActivityIndicator
+              state={isStreaming ? 'running' : 'unread'}
+              label={isStreaming ? t('sessions.sidebar.session.status.active') : t('sessions.sidebar.session.status.unread')}
             />
           ) : (
             <RiArrowDownSLine className={cn('size-[18px] transition-transform duration-150', expanded ? 'rotate-0' : '-rotate-90')} />
@@ -398,7 +396,10 @@ const SessionRow: React.FC<{
             {statusOnRight && (aiRename.pending || isStreaming || showUnreadDot) ? (
               aiRename.pending
                 ? <Icon name="loader-4" className="size-3 shrink-0 animate-spin text-primary" aria-label={t('sessions.aiRename.generating')} />
-                : <span className={cn('size-1.5 shrink-0 rounded-full', isStreaming ? 'bg-[var(--status-info)]' : 'bg-[var(--status-success)]')} aria-hidden />
+                : <SessionActivityIndicator
+                    state={isStreaming ? 'running' : 'unread'}
+                    label={isStreaming ? t('sessions.sidebar.session.status.active') : t('sessions.sidebar.session.status.unread')}
+                  />
             ) : null}
             {/* The elapsed turn takes the time slot while it matters, then
                 hands it back to the relative timestamp. */}

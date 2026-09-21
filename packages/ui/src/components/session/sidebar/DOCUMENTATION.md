@@ -50,6 +50,15 @@ cache. Live busy and retry state comes from `global-session-status`, never from
 the global cache or persisted history. A failed global or directory fetch keeps
 existing data; it is never treated as an authoritative empty list.
 
+Activity indicators use `SessionActivityIndicator` in project and timeline rows,
+header tabs, switchers and collapsed aggregates. Running uses the info color;
+unread uses success. The local Appearance preference `animatedActivityIndicators`
+is off by default. Enabling it swaps running dots for a stepped spinner, even
+when the OS requests reduced motion. Permission/question badges and per-session
+elapsed counters retain their existing precedence and behavior. The display
+store keeps version 8: missing preferences inherit the default during hydration,
+while an explicitly saved choice survives reload.
+
 Full-app active records remain in the collection when their directory is no
 longer in known topology, such as a deleted worktree. Grouping first uses exact
 configured project/worktree ownership. It may then use authoritative OpenCode

@@ -1,4 +1,5 @@
 import React from 'react';
+import { SessionActivityIndicator } from '@/components/session/SessionActivityIndicator';
 import type { Session } from '@opencode-ai/sdk/v2/client';
 
 import { Icon } from '@/components/icon/Icon';
@@ -101,9 +102,9 @@ const MobileTimelineRow: React.FC<{
               {aiRename.pending ? (
                 <Icon name="loader-4" className="size-3 shrink-0 animate-spin text-primary" aria-label={t('sessions.aiRename.generating')} />
               ) : isStreaming || showUnreadDot ? (
-                <span
-                  className={cn('size-1.5 shrink-0 rounded-full', isStreaming ? 'bg-[var(--status-info)]' : 'bg-[var(--status-success)]')}
-                  aria-hidden
+                <SessionActivityIndicator
+                  state={isStreaming ? 'running' : 'unread'}
+                  label={isStreaming ? t('sessions.sidebar.session.status.active') : t('sessions.sidebar.session.status.unread')}
                 />
               ) : null}
               {showActivityDuration ? (

@@ -23,6 +23,9 @@ type SessionDisplayStore = {
   setSingleProjectId: (projectId: string) => void;
   sidebarViewMode: SidebarViewMode;
   setSidebarViewMode: (mode: SidebarViewMode) => void;
+  /** Local display preference; motion remains opt-in. */
+  animatedActivityIndicators: boolean;
+  setAnimatedActivityIndicators: (enabled: boolean) => void;
   showRecentSection: boolean;
   // VS Code only: the compact webview keeps archived buckets inline because it
   // has no room for the full Archive page. Web/desktop ignore this flag and
@@ -78,6 +81,8 @@ export const migrateSessionDisplayState = (
 export const useSessionDisplayStore = create<SessionDisplayStore>()(
   persist(
     (set) => ({
+      animatedActivityIndicators: false,
+      setAnimatedActivityIndicators: (enabled) => set({ animatedActivityIndicators: enabled }),
       projectDisplayMode: 'all',
       singleProjectId: null,
       setProjectDisplayMode: (mode) => set({ projectDisplayMode: mode }),
