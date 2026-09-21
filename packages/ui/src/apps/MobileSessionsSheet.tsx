@@ -636,13 +636,27 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
   const ensureGitStatus = useGitStore((state) => state.ensureStatus);
   const liveSessions = useAllLiveSessions();
   const globalActiveSessions = useGlobalSessionsStore((state) => state.activeSessions);
+  // Store reads the closed drawer does not need. They hold the last value seen
+  // while presented rather than dropping to empty: the drawer stays mounted
+  // through its exit slide, and swapping pins, order or branches to empty at
+  // that moment reshuffles rows and drops branch lines mid-animation. A held
+  // reference is stable, so the closed drawer still never re-renders on changes.
+  const presented = open || variant === 'sidebar';
+  const heldPinnedIdsRef = React.useRef(EMPTY_PINNED_SESSION_IDS);
   const pinnedSessionIds = useSessionPinnedStore(React.useCallback(
-    (state) => open || variant === 'sidebar' ? state.ids : EMPTY_PINNED_SESSION_IDS,
-    [open, variant],
+    (state) => {
+      if (presented) heldPinnedIdsRef.current = state.ids;
+      return heldPinnedIdsRef.current;
+    },
+    [presented],
   ));
+  const heldOrderRanksRef = React.useRef(EMPTY_SESSION_ORDER_RANKS);
   const sessionOrderRanks = useSessionOrderingStore(React.useCallback(
-    (state) => open || variant === 'sidebar' ? state.rankById : EMPTY_SESSION_ORDER_RANKS,
-    [open, variant],
+    (state) => {
+      if (presented) heldOrderRanksRef.current = state.rankById;
+      return heldOrderRanksRef.current;
+    },
+    [presented],
   ));
   const projects = useProjectsStore((state) => state.projects);
   const activeProjectId = useProjectsStore((state) => state.activeProjectId);
@@ -666,9 +680,7 @@ export const MobileSessionsSheet: React.FC<MobileSessionsSheetProps> = ({ open, 
   // Branch per directory, for the timeline row's third line: worktree sessions
   // read their worktree's branch, root sessions the project root's checked-out
   // branch, which only the git store knows. The grouped view never asks.
-  const gitBranchesByDirectory = useGitAllBranches(
-    (open || variant === 'sidebar') && sidebarViewMode === 'timeline',
-  );
+  const gitBranchesByDirectory = useGitAllBranches(presented && sidebarViewMode === 'timeline');
   const removeProject = useProjectsStore((state) => state.removeProject);
   const projectExpandedMap = useMobileSessionTreeStore((state) => state.projectExpanded);
   const worktreeExpandedMap = useMobileSessionTreeStore((state) => state.worktreeExpanded);
