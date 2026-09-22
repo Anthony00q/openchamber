@@ -92,6 +92,7 @@ import {
     normalizeToolName,
     toolDescription, type ToolDescription,
     toolInputPath,
+    toolFileDiffs,
 } from '@/lib/opencode/tools';
 import { ApplyPatchFileButtons } from './ApplyPatchFileButtons';
 import { openApplyPatchFileInEditor } from './applyPatchEditorAction';
@@ -202,8 +203,21 @@ const useDeferredExpandedContent = (isExpanded: boolean) => {
     return shouldRender;
 };
 
-const parseDiffStats = (metadata?: Record<string, unknown>): { added: number; removed: number } | null => {
-    const diffText = getPatchText((metadata as { patch?: unknown } | undefined)?.patch)
+const parseDiffStats = (metadata?: Metadata): { added: number; removed: number } | null => {
+    const files = toolFileDiffs(metadata);
+    if (files.length > 0) {
+        let added = 0;
+        let removed = 0;
+        for (const file of files) {
+            // Missing counts are unknown, not zero; never show a partial total.
+            if (file.additions === undefined || file.deletions === undefined) return null;
+            added += file.additions;
+            removed += file.deletions;
+        }
+        return { added, removed };
+    }
+
+    const diffText = getPatchText(metadata?.patch)
         ?? getPatchText(metadata?.diff);
     if (!diffText) return null;
 
