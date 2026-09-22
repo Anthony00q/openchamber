@@ -175,12 +175,17 @@ without reconstructing the contributor's work.
 
 Before opening a pull request:
 
-1. Read [`AGENTS.md`](./AGENTS.md), every project skill matching the character
+1. For anything that is not a bug fix or a small improvement, make sure the
+   [Ideas discussion](https://github.com/openchamber/openchamber/discussions/categories/ideas)
+   happened first and link it. Opening one after the implementation, to
+   describe what you already built, closes the post and this pull request
+   with it.
+2. Read [`AGENTS.md`](./AGENTS.md), every project skill matching the character
    of the change, and the nearest package README and module `DOCUMENTATION.md`.
-2. Keep the change focused. Separate unrelated cleanup or refactors.
-3. Run the validation required by the applicable project guidance, not only
+3. Keep the change focused. Separate unrelated cleanup or refactors.
+4. Run the validation required by the applicable project guidance, not only
    the broad commands above.
-4. Complete the pull request template with concrete, current evidence.
+5. Complete the pull request template with concrete, current evidence.
 
 ### Pull Request Contract
 

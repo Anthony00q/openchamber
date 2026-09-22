@@ -1,11 +1,14 @@
 <!--
 Bug fix or small improvement? Fill in the sections below and open it.
 
-New feature, behavior change, or rework? Link the Ideas discussion where it was
-agreed: https://github.com/openchamber/openchamber/discussions/categories/ideas
-That post describes the problem in your own words, not this PR's summary.
-Without one, a large PR gets parked with
-`needs-discussion` until the product side is settled. See CONTRIBUTING.md.
+New feature, behavior change, or rework? It needed an Ideas discussion before
+the code: https://github.com/openchamber/openchamber/discussions/categories/ideas
+Link it here. That post asks about the problem in your own words; it is not a
+summary of this PR. A discussion opened after the implementation, describing
+what you already built, closes together with the PR behind it, because it
+arrives after the only moment when talking could have changed anything.
+Without a discussion at all, a large PR gets parked with `needs-discussion`
+until the product side is settled. See CONTRIBUTING.md.
 
 Keep one change per PR. Unrelated fixes in the same diff wait for the biggest one.
 Size labels count changed lines without tests, lockfiles, translation catalogs
