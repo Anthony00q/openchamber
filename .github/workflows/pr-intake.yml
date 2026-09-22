@@ -193,7 +193,23 @@ jobs:
             const hasDiscussion = discussionLink.test(pr.body ?? "");
             const parkingExempt = ["pinned", "help wanted", "security"];
             const currentLabelNames = pr.labels.map((label) => label.name);
-            const isTeam = ["OWNER", "MEMBER", "COLLABORATOR"].includes(pr.author_association);
+            // `author_association` reports MEMBER only when the caller can see the
+            // author's org membership, and this token cannot see private members,
+            // so a maintainer with hidden membership reads as CONTRIBUTOR here.
+            // Repository permission is the fact that matters and does not depend
+            // on the viewer.
+            const hasRepoAccess = async (login) => {
+              if (["OWNER", "MEMBER", "COLLABORATOR"].includes(pr.author_association)) return true;
+              try {
+                const { data } = await github.rest.repos.getCollaboratorPermissionLevel({ owner, repo, username: login });
+                return ["admin", "write", "maintain"].includes(data.permission) ||
+                  ["admin", "write", "maintain"].includes(data.role_name ?? "");
+              } catch (error) {
+                if (error.status === 403 || error.status === 404) return false;
+                throw error;
+              }
+            };
+            const isTeam = await hasRepoAccess(pr.user.login);
             const parkingRuleApplies =
               !isTeam &&
               isLarge &&
