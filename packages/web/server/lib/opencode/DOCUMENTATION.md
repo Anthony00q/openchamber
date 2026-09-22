@@ -372,7 +372,7 @@ ConPTY or Console Window Host behavior.
 
 ## Public exports (shutdown-runtime.js)
 - `createGracefulShutdownRuntime(dependencies)`: creates graceful shutdown runtime for managed OpenCode and web server teardown sequencing.
-- Shutdown stops guest services (extension child processes) first via the injected `stopAllGuestServices` dependency, best-effort: every exit path that reaches `gracefulShutdown` (daemon signal handlers, `POST /api/system/shutdown`, embedded `stop()`) stops them, so a graceful host quit leaves no guest running. A hard kill (SIGKILL, OOM, power loss) never reaches here and still leaves them, because the guest registry is memory-only with no boot reaper. The daemon-mode paths never reach `stop()`, which is why the call lives here and not only there.
+- Daemon signals, `POST /api/system/shutdown`, and embedded `stop()` share one shutdown promise. Guest admission closes synchronously before any await. Cleanup stops the relay reconciliation timer, guest viewers, realtime proxy, relay host, dictation worker and session runtimes before draining guest services, including pending starts. Each cleanup is best-effort and runs once per shutdown, including after partial startup. A hard kill still requires the separate crash/SIGKILL recovery work; no persistent registry or boot reaper is provided here.
 - After stopping owned runtimes and OpenCode, HTTP shutdown closes active connections as well as the listener. A remaining SSE response must not hold Desktop open until its fallback deadline. Upgraded sockets remain the responsibility of their owning runtime.
 - Returned API:
   - `gracefulShutdown(options?)`

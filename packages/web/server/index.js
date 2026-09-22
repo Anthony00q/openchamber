@@ -96,7 +96,7 @@ import { createPermissionAutoAcceptRuntime } from './lib/permission-auto-accept/
 import { createMessageQueueRuntime } from './lib/message-queue/runtime.js';
 import { createRoutingRuntime } from './lib/routing/runtime.js';
 import { createGracefulShutdownRuntime } from './lib/opencode/shutdown-runtime.js';
-import { stopAllGuestServices } from './lib/guests/service.js';
+import { beginGuestServiceHost, beginGuestServiceShutdown, stopAllGuestServices } from './lib/guests/service.js';
 import { findInstalledGuest } from './lib/guests/catalog.js';
 import { extensionsPersistPath } from './lib/guests/persist.js';
 import { createGuestSurfaceRuntime } from './lib/guests/surface.js';
@@ -593,6 +593,9 @@ let dictationRuntime = null;
 // Built once the HTTP server exists (it hooks `upgrade`); the browser
 // provider router is built earlier and reaches it through this holder.
 let guestSurfaceRuntime = null;
+let realtimeProxyRuntime = null;
+let relayServiceInstance = null;
+let relayReconcileTimer = null;
 let messageStreamRuntime = null;
 const userProvidedOpenCodePassword = hmrStateRuntime.getUserProvidedOpenCodePassword(hmrState);
 const initialOpenCodeAuthState = hmrStateRuntime.resolveOpenCodeAuthFromState({
@@ -1588,12 +1591,19 @@ const gracefulShutdownRuntime = createGracefulShutdownRuntime({
   },
   tunnelAuthController,
   scheduledTasksRuntime,
+  beginGuestServiceShutdown,
   stopAllGuestServices,
+  getGuestSurfaceRuntime: () => guestSurfaceRuntime,
+  getRealtimeProxyRuntime: () => realtimeProxyRuntime,
+  getDictationRuntime: () => dictationRuntime,
+  getRelayService: () => relayServiceInstance,
+  getRelayReconcileTimer: () => relayReconcileTimer,
 });
 
 const gracefulShutdown = (...args) => gracefulShutdownRuntime.gracefulShutdown(...args);
 
 async function main(options = {}) {
+  beginGuestServiceHost();
   const port = Number.isFinite(options.port) && options.port >= 0 ? Math.trunc(options.port) : DEFAULT_PORT;
   const host = typeof options.host === 'string' && options.host.length > 0 ? options.host : undefined;
   const effectiveBindHost = host
@@ -1807,13 +1817,6 @@ async function main(options = {}) {
   }));
   expressApp = app;
   server = http.createServer(app);
-  let realtimeProxyRuntime = { stop: () => {} };
-
-  // The relay service is constructed further below (it depends on the tunnel
-  // runtime's active port). The pairing routes registered here only read the
-  // relay candidate lazily at request time, so a late-bound holder is enough.
-  let relayServiceInstance = null;
-
   // Same pattern for the tunnel runtime: created after the base routes so
   // /api/system/info resolves port + tunnel URL lazily at request time.
   let tunnelRuntimeContextHolder = null;
@@ -2151,7 +2154,7 @@ async function main(options = {}) {
   // --relay` writes a pending relay session straight to the on-disk store, and
   // pending sessions expire without any request hitting us. Poll reconcile so a
   // headless instance picks the relay up (or drops it) within a minute.
-  const relayReconcileTimer = setInterval(() => {
+  relayReconcileTimer = setInterval(() => {
     void relayService.reconcile();
   }, 60_000);
   relayReconcileTimer.unref?.();
@@ -2184,31 +2187,7 @@ async function main(options = {}) {
         port: managed ? openCodePort : null,
       };
     },
-    stop: async (shutdownOptions = {}) => {
-      realtimeProxyRuntime.stop();
-      clearInterval(relayReconcileTimer);
-      try {
-        relayService.stop();
-      } catch {
-        // best-effort teardown of the relay host client
-      }
-      try {
-        dictationRuntime?.stop?.();
-      } catch {
-        // best-effort shutdown of the dictation worker
-      }
-      try {
-        guestSurfaceRuntime?.stop();
-      } catch {
-        // best-effort: viewers are told the host is going away
-      }
-      // Guest services are child processes; leaving before SIGTERM lands
-      // (and the SIGKILL fallback fires) orphans them on the user's machine.
-      await stopAllGuestServices().catch(() => {
-        // best-effort teardown of guest service processes
-      });
-      return gracefulShutdown({ exitProcess: shutdownOptions.exitProcess ?? false });
-    }
+    stop: (shutdownOptions = {}) => gracefulShutdown({ exitProcess: shutdownOptions.exitProcess ?? false }),
   };
 }
 
