@@ -3,6 +3,7 @@ Bug fix or small improvement? Fill in the sections below and open it.
 
 New feature, behavior change, or rework? Link the Ideas discussion where it was
 agreed: https://github.com/openchamber/openchamber/discussions/categories/ideas
+That post describes the problem in your own words, not this PR's summary.
 Without one, a large PR gets parked with
 `needs-discussion` until the product side is settled. See CONTRIBUTING.md.
 

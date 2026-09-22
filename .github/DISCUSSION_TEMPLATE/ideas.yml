@@ -1,0 +1,53 @@
+title: "[Idea] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Write this the way you'd explain it to a friend, in your own words. Short is good.
+
+        We read every idea here, so what we need is the problem, not a specification. A post that opens with what the feature does and how it's built gives us nothing to discuss: the decision has already been made by then, and the only thing left is yes or no.
+
+        If an AI agent drafted this for you, read it back first. If it doesn't sound like a person describing an annoyance, rewrite it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do, and what gets in the way?
+      description: The situation, not the solution. When does it happen, how often, what do you do about it today?
+      placeholder: |
+        I write prompts for a long-running agent session. Half the time I phrase something loosely, the agent goes the wrong way, and I lose a few minutes re-explaining. I've started writing prompts in a notes app first, which is silly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: want
+    attributes:
+      label: What would you like to happen instead?
+      description: The shape of what you want, not a design. It's fine to not know how it should look.
+      placeholder: |
+        Something in the composer that cleans up what I typed before it goes out, so I can see the better version and edit it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Anything that shows what you mean
+      description: A screenshot of where it hurts today, a rough mockup, a link to another tool doing it, a session where it went wrong. Optional, but it's usually the fastest way to be understood.
+
+  - type: dropdown
+    id: build
+    attributes:
+      label: Would you want to build it?
+      options:
+        - Just want it to exist
+        - I'd like to build it if we agree on the shape
+        - I already have a PR open for it
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        Already have a PR open? Say so above and link it, but still describe the problem here in your own words. The PR shows what you built; this post is where we work out whether it's the right thing to build.

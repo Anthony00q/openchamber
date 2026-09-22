@@ -8,9 +8,12 @@ merged, and a typical merged PR is around 200 lines.
 New features, changes to how something behaves for users, or reworks of how a
 module is put together: start an
 [Ideas discussion](https://github.com/openchamber/openchamber/discussions/categories/ideas)
-first and describe what changes for the user. Product decisions happen there,
-before anyone writes code, so you don't spend a week on something we can't take.
-Once it's agreed, build it and link the discussion from the PR.
+first. Start with the problem, in your own words: what you were trying to do,
+what got in the way, what you'd like to happen instead. A screenshot or a rough
+mockup helps more than a specification, and a post that opens with what the
+feature does and how it's built leaves nothing to discuss. Product decisions
+happen there, before anyone writes code, so you don't spend a week on something
+we can't take. Once it's agreed, build it and link the discussion from the PR.
 
 A large PR with no discussion behind it gets a `needs-discussion` label and a
 comment asking for one. It stays parked until the discussion exists. Nobody is
