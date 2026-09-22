@@ -114,6 +114,8 @@ const createRuntime = (overrides = {}, stateOverrides = {}, envOverrides = {}) =
     clearResolvedOpenCodeBinary: vi.fn(),
     buildAugmentedPath: vi.fn(() => '/home/user/.bun/bin:/usr/local/bin:/usr/bin'),
     buildManagedOpenCodePath: vi.fn(() => '/home/user/.bun/bin:/usr/local/bin:/usr/bin'),
+    // Never let a test touch the real `~/.local/share/opencode/opencode.db`.
+    topUpV1SessionMigration: vi.fn(() => ({ status: 'skipped', missing: 0, revisited: 0, reason: 'no-database' })),
     getManagedOpenCodeShellEnvSnapshot: vi.fn(() => ({
       PATH: '/home/user/.bun/bin:/usr/local/bin:/usr/bin',
       SHELL_ONLY: 'yes',
@@ -158,7 +160,7 @@ describe('OpenCode lifecycle', () => {
   it('records an authoritative ready terminal event for external startup', async () => {
     globalThis.fetch = vi.fn(async () => ({
       ok: true,
-      json: async () => ({ healthy: true }),
+      json: async () => ({ version: '2.0.8', pid: 1, urls: [], paths: { tmp: '/tmp' } }),
     }));
     const runtime = createRuntime({
       env: {
@@ -190,7 +192,7 @@ describe('OpenCode lifecycle', () => {
   it('recovers an external OPENCODE_HOST connection using its configured endpoint', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
-      json: async () => ({ healthy: true }),
+      json: async () => ({ version: '2.0.8', pid: 1, urls: [], paths: { tmp: '/tmp' } }),
     }));
     globalThis.fetch = fetchMock;
     const runtime = createRuntime({}, {
@@ -206,7 +208,7 @@ describe('OpenCode lifecycle', () => {
     await runtime.restartOpenCode();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://seamus:4095/global/health',
+      'http://seamus:4095/api/info',
       expect.objectContaining({ method: 'GET' }),
     );
     expect(runtime.testState.openCodePort).toBe(4095);
@@ -240,7 +242,7 @@ describe('OpenCode lifecycle', () => {
   it('warms recently used directories after a successful bootstrap', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
-      json: async () => ({ healthy: true }),
+      json: async () => ({ version: '2.0.8', pid: 1, urls: [], paths: { tmp: '/tmp' } }),
     }));
     globalThis.fetch = fetchMock;
     const runtime = createRuntime({
@@ -260,10 +262,10 @@ describe('OpenCode lifecycle', () => {
 
     const warmupUrls = fetchMock.mock.calls
       .map(([url]) => String(url))
-      .filter((url) => url.includes('/session/status'));
+      .filter((url) => url.includes('/api/session?'));
     expect(warmupUrls).toEqual([
-      'http://127.0.0.1:45678/session/status?directory=%2Ftmp%2Fworktree-a',
-      'http://127.0.0.1:45678/session/status?directory=%2Ftmp%2Fproject-b',
+      'http://127.0.0.1:45678/api/session?directory=%2Ftmp%2Fworktree-a&limit=1',
+      'http://127.0.0.1:45678/api/session?directory=%2Ftmp%2Fproject-b&limit=1',
     ]);
   });
 
@@ -876,6 +878,28 @@ describe('OpenCode lifecycle', () => {
     expect(spawnMock).toHaveBeenCalledTimes(2);
     await server.close();
   });
+
+  it('tops up the v1 session migration before spawning managed OpenCode', async () => {
+    const calls = [];
+    const topUpV1SessionMigration = vi.fn(() => {
+      calls.push('top-up');
+      return { status: 'scheduled', missing: 3, revisited: 0 };
+    });
+    spawnMock.mockImplementation(() => {
+      calls.push('spawn');
+      const child = createMockChild();
+      queueMicrotask(() => child.stdout.emit('data', 'opencode server listening on http://127.0.0.1:45678\n'));
+      return child;
+    });
+    globalThis.fetch = vi.fn(async () => ({ ok: false }));
+
+    const runtime = createRuntime({ topUpV1SessionMigration });
+    await runtime.startOpenCode();
+
+    expect(topUpV1SessionMigration).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(['top-up', 'spawn']);
+  });
+
 });
 
 describe('killProcessOnPort on Windows', () => {

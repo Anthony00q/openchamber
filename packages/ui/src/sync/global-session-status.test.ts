@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
-import type { Event } from "@opencode-ai/sdk/v2/client"
+import type { SyncEvent } from "@/lib/opencode/events"
 import {
   applyGlobalSessionStatusEvent,
   applyGlobalSessionStatusEvents,
@@ -22,7 +22,8 @@ describe("global session status index", () => {
 
   test("a parent directory snapshot cannot settle a worktree session merely contained in its list", () => {
     const sessions = ["/repo", "/tree"].map((directory) => ({
-      id: directory, slug: directory, directory, projectID: "project", title: "Session", version: "1",
+      id: directory, directory, projectID: "project", title: "Session", cost: 0,
+      tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
       time: { created: 1, updated: 1 },
     }))
     applyGlobalSessionStatusSnapshot("/tree", { "/tree": { type: "busy" } })
@@ -39,7 +40,7 @@ describe("global session status index", () => {
         sessionID: "session-a",
         status: { type: "retry", attempt: 2, message: "waiting" },
       },
-    } as Event)
+    } as SyncEvent)
 
     expect(useGlobalSessionStatusStore.getState().statusById.get("session-a")?.status).toEqual({
       type: "retry",
@@ -52,13 +53,13 @@ describe("global session status index", () => {
     applyGlobalSessionStatusEvent("/repo", {
       type: "session.status",
       properties: { sessionID: "session-a", status: { type: "busy" } },
-    } as Event)
+    } as SyncEvent)
     const before = activeSessionIds()
 
     applyGlobalSessionStatusEvent("/other-repo", {
       type: "session.status",
       properties: { sessionID: "session-a", status: { type: "retry", attempt: 2, message: "waiting" } },
-    } as Event)
+    } as SyncEvent)
 
     expect(activeSessionIds()).toBe(before)
   })
@@ -67,13 +68,13 @@ describe("global session status index", () => {
     applyGlobalSessionStatusEvent("/repo", {
       type: "session.status",
       properties: { sessionID: "session-a", status: { type: "busy" } },
-    } as Event)
+    } as SyncEvent)
     const active = activeSessionIds()
 
     applyGlobalSessionStatusEvent("/repo", {
       type: "session.idle",
       properties: { sessionID: "session-a" },
-    } as Event)
+    } as SyncEvent)
     const idle = activeSessionIds()
     expect(idle).not.toBe(active)
     expect(idle?.has("session-a")).toBe(false)
@@ -81,7 +82,7 @@ describe("global session status index", () => {
     applyGlobalSessionStatusEvent("/repo", {
       type: "session.status",
       properties: { sessionID: "session-a", status: { type: "busy" } },
-    } as Event)
+    } as SyncEvent)
     expect(activeSessionIds()).not.toBe(idle)
     expect(activeSessionIds()?.has("session-a")).toBe(true)
   })
@@ -91,13 +92,13 @@ describe("global session status index", () => {
     applyGlobalSessionStatusEvent("/repo", {
       type: "session.status",
       properties: { sessionID: "session-a", status: { type: "busy" } },
-    } as Event)
+    } as SyncEvent)
     const active = activeSessionIds()
 
     applyGlobalSessionStatusEvent("/repo", {
       type: "session.deleted",
       properties: { sessionID: "session-a" },
-    } as Event)
+    } as SyncEvent)
 
     expect(activeSessionIds()).not.toBe(active)
     expect(activeSessionIds().has("session-a")).toBe(false)
@@ -108,26 +109,26 @@ describe("global session status index", () => {
     applyGlobalSessionStatusEvent("/repo", {
       type: "session.status",
       properties: { sessionID: "session-a", status: { type: "busy" } },
-    } as Event)
+    } as SyncEvent)
     const busyRank = useSessionOrderingStore.getState().rankById.get("session-a")
 
     applyGlobalSessionStatusEvent("/repo", {
       type: "session.status",
       properties: { sessionID: "session-a", status: { type: "retry", attempt: 1, message: "wait", next: 1 } },
-    } as Event)
+    } as SyncEvent)
     expect(useSessionOrderingStore.getState().rankById.get("session-a")).toBe(busyRank)
 
     applyGlobalSessionStatusEvent("/repo", {
       type: "session.idle",
       properties: { sessionID: "session-a" },
-    } as Event)
+    } as SyncEvent)
     const idleRank = useSessionOrderingStore.getState().rankById.get("session-a")
     expect(idleRank).toBeGreaterThan(busyRank ?? 0)
 
     applyGlobalSessionStatusEvent("/repo", {
       type: "session.error",
       properties: { sessionID: "session-a" },
-    } as Event)
+    } as SyncEvent)
     expect(useSessionOrderingStore.getState().rankById.get("session-a")).toBe(idleRank)
   })
 
@@ -144,7 +145,7 @@ describe("global session status index", () => {
     const before = activeSessionIds()
 
     applyGlobalSessionStatusSnapshot("/repo", {
-      "session-a": { type: "retry" },
+      "session-a": { type: "retry", attempt: 1, message: "wait", next: 1 },
     }, ["session-a"])
 
     expect(activeSessionIds()).toBe(before)
@@ -174,7 +175,7 @@ describe("global session status index", () => {
     applyGlobalSessionStatusEvent("/repo", {
       type: "session.status",
       properties: { sessionID: "session-a", status: { type: "busy" } },
-    } as Event)
+    } as SyncEvent)
 
     replaceGlobalSessionStatusById(new Map())
 
@@ -199,7 +200,7 @@ describe("global session status index", () => {
     const events = Array.from({ length: 1_000 }, (_, index) => ({
       type: "session.status",
       properties: { sessionID: `session-${index}`, status: { type: "busy" } },
-    } as Event))
+    } as SyncEvent))
 
     applyGlobalSessionStatusEvents("/repo", events)
 
@@ -217,11 +218,11 @@ describe("global session status index", () => {
       {
         type: "session.status",
         properties: { sessionID: "session-a", status: { type: "busy" } },
-      } as Event,
+      } as SyncEvent,
       {
         type: "session.deleted",
         properties: { sessionID: "session-a" },
-      } as Event,
+      } as SyncEvent,
     ])
 
     expect(useGlobalSessionStatusStore.getState().statusById.has("session-a")).toBe(false)

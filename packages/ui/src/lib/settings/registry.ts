@@ -375,7 +375,6 @@ export const SETTINGS_REGISTRY = {
   autoSaveEnabled: field({ scope: 'profile', parse: parseBoolean, ui: uiStore('autoSaveEnabled', (v) => useUIStore.getState().setAutoSaveEnabled(v)) }),
   autoCreateWorktree: field({ scope: 'profile', parse: parseBoolean }),
   sessionTabsEnabled: field({ scope: 'profile', surfaces: ['web', 'desktop', 'vscode'], parse: parseBoolean, ui: uiStore('sessionTabsEnabled', (v) => useUIStore.getState().setSessionTabsEnabled(v)) }),
-  showOpenCodeRestartConfirm: field({ scope: 'profile', parse: parseBoolean, ui: uiStore('showOpenCodeRestartConfirm', (v) => useUIStore.getState().setShowOpenCodeRestartConfirm(v)) }),
   allowPromptingSubagentSessions: field({ scope: 'profile', parse: parseBoolean, ui: uiStore('allowPromptingSubagentSessions', (v) => useUIStore.getState().setAllowPromptingSubagentSessions(v)) }),
 
   // ── Composer (profile) ──
@@ -490,7 +489,6 @@ export const SETTINGS_REGISTRY = {
   responseStyleEnabled: field({ scope: 'profile', parse: parseBoolean }),
   responseStylePreset: field({ scope: 'profile', parse: parseOneOf(RESPONSE_STYLE_PRESETS) }),
   responseStyleCustomInstructions: field({ scope: 'profile', parse: parseTextUpTo(50_000) }),
-  optimizeSystemPrompt: field({ scope: 'profile', parse: parseBoolean }),
 
   // The server serves the PWA manifest from these, so they are facts about
   // the instance even though only the installed web app shows them.

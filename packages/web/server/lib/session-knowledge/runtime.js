@@ -112,8 +112,20 @@ export const createSessionKnowledgeRuntime = (dependencies) => {
     agentMemoryRuntime,
     resolveProjectId,
     isAgentMemoryEnabled,
-    openCodeFetch = null,
+    // Pins and the delivered-signature cursor live in OpenChamber's own session
+    // metadata store: OpenCode 2.x accepts session metadata only at create time.
+    readSessionMetadata = null,
+    persistSessionMetadata = null,
   } = dependencies;
+
+  const requireMetadataStore = () => {
+    if (typeof readSessionMetadata !== 'function' || typeof persistSessionMetadata !== 'function') {
+      throw new Error('project knowledge needs a session metadata store');
+    }
+  };
+
+  /** The session shape the readers below expect, built from our own store. */
+  const readStoredSession = async (sessionId) => ({ metadata: await readSessionMetadata(sessionId) });
 
   /**
    * Everything the session should be carrying, read fresh. A failure in one
@@ -247,44 +259,32 @@ export const createSessionKnowledgeRuntime = (dependencies) => {
     return { text: buildKnowledgeText(collected), signature };
   };
 
-  const readSession = async (sessionId, directory) => (
-    openCodeFetch(`/session/${encodeURIComponent(sessionId)}`, { directory })
-  );
-
   /**
    * What this session still owes, read from its own stored signature.
    */
   const resolvePendingForSession = async (sessionId, directory) => {
-    const session = await readSession(sessionId, directory).catch(() => null);
+    const session = await readStoredSession(sessionId).catch(() => null);
     return resolvePending(directory, readDeliveredSignature(session), readPins(session));
   };
 
   const collectSummaryForSession = async (sessionId, directory) => {
-    const session = await readSession(sessionId, directory).catch(() => null);
+    const session = await readStoredSession(sessionId).catch(() => null);
     return collectSummary(directory, readPins(session));
   };
 
   const setPin = async (sessionId, directory, kind, id, pinned) => {
-    const fresh = await readSession(sessionId, directory);
-    const metadata = isRecord(fresh?.metadata) ? fresh.metadata : {};
-    const openchamber = isRecord(metadata.openchamber) ? metadata.openchamber : {};
-    const pins = readPins(fresh);
+    requireMetadataStore();
+    const pins = readPins(await readStoredSession(sessionId));
     const key = kind === 'note' ? 'notes' : 'plans';
     const next = new Set(pins[key]);
     if (pinned) next.add(id);
     else next.delete(id);
-    await openCodeFetch(`/session/${encodeURIComponent(sessionId)}`, {
-      directory,
-      method: 'PATCH',
-      body: {
-        metadata: {
-          ...metadata,
-          openchamber: {
-            ...openchamber,
-            [PINS_METADATA_KEY]: { ...pins, [key]: [...next] },
-            [KNOWLEDGE_METADATA_KEY]: '',
-          },
-        },
+    // Clearing the delivered signature is what makes the next send carry the
+    // changed pin set; the merge patch leaves neighbouring state alone.
+    await persistSessionMetadata(sessionId, directory, {
+      openchamber: {
+        [PINS_METADATA_KEY]: { ...pins, [key]: [...next] },
+        [KNOWLEDGE_METADATA_KEY]: '',
       },
     });
     return { ...pins, [key]: [...next] };
@@ -300,18 +300,9 @@ export const createSessionKnowledgeRuntime = (dependencies) => {
    * drop whatever changed in between.
    */
   const recordDelivered = async (sessionId, directory, signature) => {
-    const fresh = await readSession(sessionId, directory);
-    const metadata = isRecord(fresh?.metadata) ? fresh.metadata : {};
-    const openchamber = isRecord(metadata.openchamber) ? metadata.openchamber : {};
-    await openCodeFetch(`/session/${encodeURIComponent(sessionId)}`, {
-      directory,
-      method: 'PATCH',
-      body: {
-        metadata: {
-          ...metadata,
-          openchamber: { ...openchamber, [KNOWLEDGE_METADATA_KEY]: signature },
-        },
-      },
+    requireMetadataStore();
+    await persistSessionMetadata(sessionId, directory, {
+      openchamber: { [KNOWLEDGE_METADATA_KEY]: signature },
     });
   };
 

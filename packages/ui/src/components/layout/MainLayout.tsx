@@ -15,7 +15,6 @@ import { HelpDialog } from '../ui/HelpDialog';
 import { OpenCodeStatusDialog } from '../ui/OpenCodeStatusDialog';
 import { SessionSidebar } from '@/components/session/SessionSidebar';
 import { SessionDialogs } from '@/components/session/SessionDialogs';
-import { SessionWorktreeMoveConfirmDialog } from '@/components/session/sidebar/SessionWorktreeMoveConfirmDialog';
 import { ScheduledTasksDialog } from '@/components/session/ScheduledTasksDialog';
 import { ArchiveView } from '@/components/views/ArchiveView';
 import { WorktreesView } from '@/components/views/WorktreesView';
@@ -24,11 +23,6 @@ import { MultiRunLauncher } from '@/components/multirun';
 
 import { useUIStore } from '@/stores/useUIStore';
 import { useSessionUIStore } from '@/sync/session-ui-store';
-import {
-  cancelSessionTreeMove,
-  confirmSessionTreeMove,
-  useSessionTreeMoveConfirmation,
-} from '@/lib/worktrees/sessionWorktreeMove';
 import { useUpdatePolling } from '@/hooks/useUpdatePolling';
 import { useTerminalSessionKeepalive } from '@/hooks/useTerminalSessionKeepalive';
 import { useDeviceInfo } from '@/lib/device';
@@ -99,7 +93,6 @@ export const MainLayout: React.FC = () => {
 
     useUpdatePolling();
 
-    const sessionTreeMoveConfirmation = useSessionTreeMoveConfirmation();
 
     React.useEffect(() => {
         const previous = useUIStore.getState().isMobile;
@@ -118,12 +111,6 @@ export const MainLayout: React.FC = () => {
                 <HelpDialog />
                 <OpenCodeStatusDialog />
                 <SessionDialogs />
-                <SessionWorktreeMoveConfirmDialog
-                    value={sessionTreeMoveConfirmation}
-                    onMoveSessionOnly={() => confirmSessionTreeMove(false)}
-                    onMoveAllChanges={() => confirmSessionTreeMove(true)}
-                    onCancel={cancelSessionTreeMove}
-                />
 
                 {/* Persistent top-left controls (toggle + project actions) that
                     stay put while the sidebar/header animate beneath them. */}

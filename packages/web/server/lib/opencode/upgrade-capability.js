@@ -42,9 +42,12 @@ export const resolveOpenCodeUpgradeCapability = ({
     };
   }
 
+  // OpenCode 2.x has no server-side upgrade route, so OpenChamber cannot run
+  // the update for a managed binary either; the user updates it the way they
+  // installed it. The toast stays informational.
   return {
-    supported: true,
+    supported: false,
     manager: 'opencode',
-    reason: null,
+    reason: 'no-upgrade-route',
   };
 };

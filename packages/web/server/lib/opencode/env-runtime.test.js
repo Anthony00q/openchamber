@@ -556,6 +556,23 @@ describe('OpenCode env runtime', () => {
     });
   });
 
+  it('resolves an npm-installed OpenCode 2.x cmd shim to its packaged Windows executable', () => {
+    setPlatform('win32');
+    const npmDir = createTempDir('openchamber-opencode-npm-v2-');
+    const shim = path.join(npmDir, 'opencode.cmd');
+    const nativeBinary = path.join(npmDir, 'node_modules', '@opencode', 'cli', 'bin', 'opencode.exe');
+    fs.mkdirSync(path.dirname(nativeBinary), { recursive: true });
+    fs.writeFileSync(nativeBinary, '');
+    fs.writeFileSync(shim, '@ECHO off\r\n"%dp0%\\node_modules\\@opencode\\cli\\bin\\opencode.exe" %*\r\n');
+    const { runtime } = createRuntime({});
+
+    expect(runtime.resolveManagedOpenCodeLaunchSpec(shim)).toEqual({
+      binary: nativeBinary,
+      args: [],
+      wrapperType: 'native-wrapper',
+    });
+  });
+
   it('resolves npm OpenCode cmd shims to the packaged Windows executable', () => {
     setPlatform('win32');
     const npmDir = createTempDir('openchamber-opencode-npm-');

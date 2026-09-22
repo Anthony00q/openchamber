@@ -8,7 +8,7 @@ There are **two distinct session data scopes** in the UI:
 
 1. **Directory-scoped sync stores**
    - Owned by the sync layer child stores created in `sync-context.tsx`
-   - Source for per-directory live session/message/part/permission/question state
+   - Source for per-directory live session/message/part/permission/form state
    - Backed by SSE / directory-scoped polling
    - Read via hooks like `useSessions()`, `useDirectorySync()`, `getSyncSessions()`, `getDirectoryState()`
 
@@ -42,7 +42,7 @@ So:
 
 | Layer / Store | Owns | Scope |
 |---|---|---|
-| `ChildStoreManager` and child directory stores | Priority-scheduled directory bootstrap plus `session`, `message`, `part`, `permission`, `question`, etc. | One runtime and one store per directory |
+| `ChildStoreManager` and child directory stores | Priority-scheduled directory bootstrap plus `session`, `message`, `part`, `permission`, `form`, etc. | One runtime and one store per directory |
 | `SessionMessageLoader` | Initial message loading, pagination, prefetch, retries, load state, and optimistic reconciliation | One runtime, directory, and session ID |
 | `global-session-status.ts` | Incremental non-idle session status index reconciled from events and authoritative directory snapshots, plus a reference-stable active-ID membership collection maintained from the same mutations | All known directories in the active runtime |
 | `session-ordering.ts` | Ephemeral lifecycle rank used by every user-visible session list | All known sessions in the active runtime |
@@ -63,6 +63,102 @@ Office and OpenDocument packages are metadata-validated before asynchronous extr
 The composer compares normalized attachment MIME types with the selected model's declared input modalities. It warns when a newly attached file or an existing attachment after a model change requires an unsupported modality, but does not block sending. Missing modality metadata remains unknown and does not produce a warning.
 
 Attachment drafts stay in memory for the page's lifetime, including composer remounts, independently of text persistence. `selectAttachmentDraft` saves the outgoing list and restores the rendered composer's runtime, directory, and session before paint. Switching cancels unfinished attachment reads. Send and queue recovery pass their captured draft identity so a late failure restores files to the source rather than the currently open session. Clearing or deleting a draft releases only its files. Opening a new-session draft leaves the outgoing session's files available for a return visit.
+
+## Catalog changes apply live
+
+OpenCode v2 watches its own config files and rebuilds agents, commands, skills,
+MCP servers and plugins by itself, announcing each rebuilt slice
+(`config.updated`, `agent.updated`, `command.updated`, `skill.updated`,
+`plugin.updated`, `credential.*`). `events.ts` translates all of them into one
+`catalog.updated` sync event carrying a `kind`, and `reloadCatalog` re-reads
+that slice. Nothing in the UI asks the user to apply or restart anything: the
+only setting OpenCode cannot pick up on its own is which binary runs, and
+Settings → OpenChamber → OpenCode CLI owns that restart.
+
+One saved file produces a burst of events, so the kinds are collected and
+re-read once the burst settles (250 ms). A `config` rebuild first clears the
+client's config cache, otherwise the refresh would be answered from the copy
+cached seconds earlier. A re-read that returns an identical list keeps the
+objects already in the stores, so nothing re-renders.
+
+**The model list.** OpenCode 2.0.8 removed the `catalog.updated` storm and
+replaced it with `provider.updated` and `model.updated`, which it publishes
+only when the list they name actually changed; `events.ts` translates them into
+the `provider` and `model` catalog kinds. The config change that declares a
+provider in `opencode.json` and a credential change (a login or logout) still
+trigger a re-read as well, because OpenCode recomputes those two snapshots from
+integration and credential events only: a provider plugin that fetches its
+models from the provider after a login (Copilot, LM Studio) lands later and
+announces nothing. That is why the Settings and composer stores read the list a
+second time `PROVIDER_REREAD_AFTER_CREDENTIAL_MS` after a credential change.
+
+| Kind | Sync child stores | Settings/composer stores (`stores/catalogRefresh.ts`) |
+|---|---|---|
+| `agent` | `agent` per directory | agents store + config-store agents |
+| `command` | `command` per directory | commands store |
+| `skill` | — | skills store + skills catalog |
+| `plugin` | — | plugins store |
+| `config` | `config` and `provider` per directory (plus `emitSyncConfigChanged`) | agents, commands, skills, MCP config, plugins, config-store providers |
+| `provider` / `model` / `credential` | `provider` per directory | config-store providers (model-metadata cache invalidated; the current list stays until the new one lands; `credential` reads twice) |
+| `project` | global project list | — |
+
+## Compaction records
+
+A compaction is one `compaction` message. `session.compaction.started` inserts
+it as `running`; `session.compaction.delta` appends to its `summary` while
+OpenCode writes it (the event names only the session, so the reducer finds the
+newest running compaction itself); `session.compaction.ended` / `failed`
+settle it. The settled event carries no input id, so the reducer keeps the
+running record's id and creation time instead of adding a second record, the
+way OpenCode's own message store does. The timeline notice shows the summary
+as it grows and collapses it behind a toggle once settled.
+
+## A location's services going away
+
+OpenCode caches the service graph that serves a directory and drops it after
+an hour of inactivity, or when something asks it to reload. It announces that
+as `location.shutdown` for the directory. Session records and messages live in
+OpenCode's database and stay valid; the live state read from that graph does
+not, so `handleEvent` bootstraps the *selected* directory again (reason
+`location-shutdown`, forced) instead of patching it. Background directories are
+deliberately left alone: re-reading them would recreate the services OpenCode
+just evicted and turn every idle directory into an hourly refresh loop. They
+are re-read when selected or on the next `server.connected`. The pending
+permissions and forms OpenCode rejected on the way out and the turns it
+interrupted arrive as their own events.
+
+## Committing a revert
+
+A staged revert is a marker (`session.revert.messageID`); the transcript
+keeps the reverted messages and hides them. Sending or compacting past the
+marker commits it: OpenCode deletes the boundary message and everything after
+it in one `session.revert.committed` event, with no `message.removed` per
+record. `events.ts` translates it into a `session.revert.committed` sync
+event, which the reducer applies by trimming messages and parts from the
+boundary and dropping the marker in one step, followed by the plain
+`revert: null` patch the global session list needs. The loaded window is
+always the transcript's tail, so a boundary the window does not hold is
+older than everything loaded: the reducer empties the window when the store's
+own marker names the same boundary and leaves it alone otherwise. A local send
+past a revert has already trimmed optimistically, so the event is a no-op for
+it; a commit from another client is applied by the event alone. Every commit
+also invalidates the session message loader, including a commit that changes
+no visible records. This retires in-flight reads, clears deleted optimistic
+shadows and prefetch coverage, and prevents an older response or the next empty
+fetch from restoring deleted messages. The remaining visible records stay in place
+while the loader establishes fresh coverage. Their optimistic shadows remain
+until an authoritative snapshot confirms them.
+
+## An interruption whose reason is `shutdown`
+
+`session.execution.interrupted` carries a reason. `user`, `inactivity` and
+`superseded` end the turn: the session records an `interrupted` outcome and
+settles idle, which also runs the local interrupted-turn marking below.
+`shutdown` is OpenCode itself going away mid-turn; it keeps the execution
+claim and resumes the drain after restart, records no outcome and leaves the
+assistant message open. The translator emits nothing for it, so the session
+stays as it was until the reconnect status snapshot or the watchdog poll
+reports the authoritative state.
 
 ## Session list rules
 
@@ -96,14 +192,14 @@ message history so a reload cannot undo an unsent picker change.
 - The scheduler runs at most two directory bootstraps concurrently.
 - Selected session/current directory demand outranks active-project, expanded, visible, and background demand.
 - Demand is deduplicated by normalized directory and can be promoted while queued.
-- `useSessionListSync` is the only demand owner, and it publishes only the current directory and the selected session's directory. Known projects and worktrees are never bootstrapped for being known, shown, expanded, or restored as expanded: their rows and sessions come from the global session list, and their live activity comes from the global status index. Every `?directory=` request makes OpenCode create and bootstrap an instance for that directory, so publishing the whole topology created one instance per project at startup. Sidebar notices still request bootstrap manually with `force`.
+- `useSessionListSync` is the only bootstrap-demand owner, and it publishes only the current directory and the selected session's directory. Known projects and worktrees are never bootstrapped for being known, shown, expanded, or restored as expanded: their rows and sessions come from the global session list, their live activity comes from the global status index, and their pending requests come from the cross-directory blocking-request index. On v2 every directory-scoped read makes OpenCode create and initialize a location, so publishing the whole topology created one location per project at startup. Sidebar notices still request bootstrap manually with `force`.
 - A directory that was never bootstrapped reads as `ready` in the sidebar group status, so a list failure or a denied folder permission surfaces only when the user selects it. This is intentional.
+- A system-resume signal, including Capacitor foreground resume, refreshes pending forms and permissions only for the active materialized directory. The refresh is deduplicated while in flight, preserves existing state on fetch failure, and leaves unopened directories untouched; normal stream reconnect recovery remains the broader catch-up path.
+- When a materialized current turn contains a pending/running form tool but that session's pending form record is missing, the mounted chat performs a form-only recovery scoped to that session. It tries at most three times with delays of 0, 500, and 1,500 ms, stops when the chat unmounts or changes sessions, and guards every attempt against runtime changes. This closes cold-start races without adding requests to ordinary session opens or scanning unrelated sessions and directories.
 - A bootstrap holds its scheduler slot only through the authoritative directory session-list fetch. `bootstrapDirectory` returns separate `sessions` and `environment` completions. `getBootstrapState` describes list loading; `getInitializationState` describes configuration and recovery. A complete empty list stops its spinner even while initialization is running. Initialization failure keeps the list and exposes its own retryable notice, including native directory access when the filesystem confirms a permission failure.
-- Every initialization read explicitly selects the requested directory. Status, question, and permission recovery start independently of configuration and optional LSP/VCS enrichment. Each successful read publishes its own fields; a failed read preserves prior data. Optional enrichment failure is logged without failing the workspace's core initialization. MCP status and the command list are deliberately not read during bootstrap: reading MCP state initializes that directory's entire stdio server fleet as an OpenCode side effect, and listing commands enumerates MCP prompts, which touches the same state. The sidebar bootstraps every known project directory, so either read spawned one fleet per project at startup. The MCP and command surfaces fetch on demand through `useMcpStore` and `useCommandsStore` instead, and slash-command dispatch falls back to one live lookup before treating an unmatched name as a plain prompt.
+- Directory initialization uses v2's global active-session snapshot and directory-scoped form, permission, config and location reads. Form and permission reads pass `includeGlobal: false`, so each background slot owns one HTTP request rather than a global-plus-directory pair. Live recovery starts independently of configuration and optional enrichment. Each successful read publishes its own fields; a failed read preserves prior data. Optional enrichment failure is logged without failing the workspace's core initialization. MCP status and the command list are deliberately not read during bootstrap: reading MCP state initializes that directory's entire stdio server fleet as an OpenCode side effect, and listing commands enumerates MCP prompts, which touches the same state. The MCP and command surfaces fetch on demand through `useMcpStore` and `useCommandsStore` instead, and slash-command dispatch falls back to one live lookup before treating an unmatched name as a plain prompt.
 - Session pages and background reads share a three-request budget, with at most two running in either lane. Background work cannot consume the third slot, leaving capacity for lists even when two background reads stall. Queued lists take precedence over background work; active-session status recovery outranks queued metadata within the background lane. Retry backoff holds no network slot. Independent background reads can still progress concurrently.
 - Session pagination retries each failed page at most three times. The directory loader does not replay the whole list after those attempts, so one unavailable page cannot multiply retries or redownload earlier pages while holding its scheduler slot. The VS Code empty-success recovery remains separate.
-- A system-resume signal, including Capacitor foreground resume, refreshes pending questions and permissions only for the active materialized directory. The refresh is deduplicated while in flight, preserves existing state on fetch failure, and leaves unopened directories untouched; normal stream reconnect recovery remains the broader catch-up path.
-- When a materialized current turn contains a pending/running question tool but that session's pending question record is missing, the mounted chat performs a question-only recovery scoped to that session. It tries at most three times with delays of 0, 500, and 1,500 ms, stops when the chat unmounts or changes sessions, and guards every attempt against runtime changes. This closes cold-start races without adding requests to ordinary session opens or scanning unrelated sessions and directories.
 - A mounted directory-store consumer pins that store for its lifetime. Eviction may dispose only unmounted directories, so optimistic actions and realtime events cannot move to a replacement store while visible React consumers remain subscribed to an older identity.
 - Selected, active-project, expanded, and visible bootstrap demand also protects a store from eviction. This keeps virtualized off-screen directories alive while their owner still needs them; background demand remains evictable so the complete known topology does not make the cache unbounded.
 - Reconfiguration and runtime switching invalidate stale generations. A stale completion must not publish state into the new runtime.
@@ -122,7 +218,7 @@ Directory session lists record whether their current snapshot is empty, persiste
 
 The roots request is authoritative for root completeness. The broader child-session request has independent completeness: a successful empty response clears stale children, while a failed request preserves known children and their required ancestors without turning the failure into an empty snapshot.
 
-The persisted session snapshot keeps up to 50 sessions selected by `time.updated`/`time.created`, not ID ordering. Non-empty updates coalesce to the latest runtime-directory snapshot and flush on lifecycle suspension; runtime switches reject stale pending writes. Successful empty results persist an empty v2 tombstone synchronously so legacy data cannot reappear on restart. If localStorage quota prevents the full snapshot, persistence retries with progressively smaller recent snapshots and removes stale current/legacy values rather than leaving an old list indefinitely.
+The persisted session snapshot keeps up to 50 sessions selected by `time.updated`/`time.created`, not ID ordering. On read, every cached record is parsed for the fields the stores dereference before bootstrap (`id`, `directory`, `projectID`, `title`, `time.created`/`updated`) and records that fail are dropped: localStorage on `openchamber-ui://app` is shared by every OpenChamber build, so a record another version wrote is untrusted input, not a `Session`. Non-empty updates coalesce to the latest runtime-directory snapshot and flush on lifecycle suspension; runtime switches reject stale pending writes. Successful empty results persist an empty v2 tombstone synchronously so legacy data cannot reappear on restart. If localStorage quota prevents the full snapshot, persistence retries with progressively smaller recent snapshots and removes stale current/legacy values rather than leaving an old list indefinitely.
 
 ### Directory-scoped session list
 
@@ -146,7 +242,7 @@ Persisted sidebar state is never reconciled destructively from the first success
 
 Session materialization recency is keyed by runtime and directory. Foreground loads promote navigation recency. Prefetch reserves only unused per-directory capacity before HTTP starts and inserts speculative entries behind visited sessions. A prefetch cache hit does not promote recency, and a full cache skips uncached speculation. Otherwise the sidebar's neighbor prefetch displaces visited sessions and causes repeated HTTP on every navigation cycle near the limit. Prefetch pagination metadata has a global count ceiling and is removed with session eviction, directory disposal, loader runtime reconfiguration, and loader disposal.
 
-`SessionCacheRetention`, owned by `SessionMessageLoader`, evicts whole session histories and never trims them. A cached transcript is either fully present or gone. A settled session nobody is looking at keeps its history for a five-minute idle grace and is then dropped, so a quick return needs no request while a long-abandoned session frees its messages, parts, and derived caches. Twenty materialized sessions per directory on web/Electron and six on VS Code, hosted mobile, and Capacitor are a soft safety net: past that count the least recently visited unprotected session is evicted immediately. Selected or externally viewed sessions, busy/retrying sessions, pending questions/permissions, optimistic sends, in-flight loads, explicit history readers, and the transcript still rendered through a deferred switch are protected and may overflow the limit. Protection ending restarts the idle grace from that moment.
+`SessionCacheRetention`, owned by `SessionMessageLoader`, evicts whole session histories and never trims them. A cached transcript is either fully present or gone. A settled session nobody is looking at keeps its history for a five-minute idle grace and is then dropped, so a quick return needs no request while a long-abandoned session frees its messages, parts, and derived caches. Twenty materialized sessions per directory on web/Electron and six on VS Code, hosted mobile, and Capacitor are a soft safety net: past that count the least recently visited unprotected session is evicted immediately. Selected or externally viewed sessions, busy/retrying sessions, pending forms/permissions, optimistic sends, in-flight loads, explicit history readers, and the transcript still rendered through a deferred switch are protected and may overflow the limit. Protection ending restarts the idle grace from that moment.
 
 Selection changes and directory message/status/blocking-request publications schedule one coalesced retention pass per directory, and one timer per directory wakes the pass when the earliest idle grace expires. Part-only streaming updates do not schedule retention. Switching runtimes and disposing directories cancel the old cleanup ownership. Eviction resets the loader entry and marks it evicted: messages that later arrive by event for that session are renderable but are not history coverage, so the next navigation fetches the transcript again and merges it with those events instead of presenting them as the whole history.
 
@@ -216,7 +312,9 @@ Cross-directory selectors subscribe to the narrow child-store field they aggrega
 
 Directories that are not bootstrapped get their initial activity from the host instead: `host-session-status-seed.ts` fetches `/api/sessions/status`, the cross-project map the OpenChamber host keeps from its single upstream event stream, after each global session load. One request, no OpenCode instance creation. The seed is additive only. It adds busy entries (retry collapses to busy; the next live event restores details) for sessions the client has not observed itself, resolves each session's directory from the global session cache, skips entries the host last updated more than 30 minutes ago because nothing reconciles the host map after a stream gap, and never clears anything: the host payload carries no directory, so absence proves nothing. A live event that arrived first wins. In VS Code the webview shim answers the same route from the extension host's activity watcher, whose phases collapse busy and retry and settle themselves, so every entry it reports is current. The remaining gap is intentional and runtime-specific: on desktop with an external OpenCode, a turn that started before the OpenChamber host and has not emitted a status event since shows no dot until its next step.
 
-Pending permissions and questions get the same treatment in `global-blocking-requests.ts`: the dispatcher feeds it `permission.asked`/`permission.replied`, `question.asked`/`question.replied`/`question.rejected`, and `session.deleted` for every directory, and the host seed adds the `pending` map the server keeps from its own stream (`getPendingBlockingRequestsSnapshot` in `session-runtime.js`; dropped on reply, deletion, and OpenCode restart, so it carries no age cutoff). The index is additive from the seed and never cleared by absence. Directory stores stay the source for open directories and for row badges; the index serves the tray's approval list and any surface without a mounted row. In-app permission and question toasts for a directory without a store are shown from `handleEvent` directly, except in VS Code, whose extension host owns the auto-accept path. VS Code's `/api/sessions/status` shim reports no pending requests.
+Pending permissions and forms get the same treatment in `global-blocking-requests.ts`: the dispatcher feeds it `permission.asked`/`permission.replied`, `form.created`/`form.settled`, and `session.deleted` for every directory, and the host seed adds the `pending` map the server keeps from its own stream (`getPendingBlockingRequestsSnapshot` in `session-runtime.js`; dropped on reply, deletion, and OpenCode restart, so it carries no age cutoff). The index keeps only the fields its consumers render (`id`/`sessionID`/`action`/`resources` for a permission, `id`/`sessionID`/`title` for a form), which is also everything the host can carry. It is additive from the seed and never cleared by absence. Directory stores stay the source for open directories and for row badges; the index serves the tray's approval list and any surface without a mounted row. In-app permission and form toasts for a directory without a store are shown from `handleEvent` directly, except in VS Code, whose extension host owns the auto-accept path. VS Code's `/api/sessions/status` shim reports no pending requests.
+
+An MCP elicitation arrives as a `form.created` whose `sessionID` is the `global` sentinel (`LOCATION_SCOPED_FORM_SESSION_ID`): no session record exists for it, so event routing does not treat it as a session address — it is filed by its own directory tag and never enters the session routing index, otherwise a second directory's elicitation would land in the first one's store. The directory store keeps it under `form["global"]`, bootstrap's directory-scoped `form.list` returns it like any pending form, `useScopedBlockingForms` surfaces it from every session of that directory, and reply/cancel resolve the directory from the store that holds it.
 
 Turn-complete and error notifications are recorded before the directory-store lookup in `handleEvent`, so an unopened directory still gets its unread dot. The subtask check reads the directory store when the directory is open and the global session cache otherwise. Event routing likewise consults the global session cache: a session-addressed event with no directory is routed to the directory the cache records for that session before any active-session or single-store fallback, so another project's events cannot land in the one open store.
 
@@ -301,7 +399,7 @@ A `session.error` event is the only account of a turn OpenCode stopped, and
 it can arrive with no assistant message to attach to. `session-error-log.ts`
 keeps the last 20 of them in memory (`recordSessionError`, fed from the
 event pipeline next to the error notification) and `summarizeOpenCodeError`
-reads the `{ name, data: { message } }` payload. The chat shows the newest
+reads the `{ type, message }` structured error the event carries. The chat shows the newest
 error for the open session under its last message while that turn is the
 latest one (`SessionErrorNotice`), and also names a user message that an idle
 session has left unanswered for five seconds, since an accepted send that
@@ -341,9 +439,9 @@ When `session.idle` or `session.error` settles a session but the trailing assist
 
 A completed assistant message is authoritative for its own tool parts. During materialization, a `pending` or `running` tool under `time.completed` becomes `error`/`Interrupted` with an end time. This handles stale persisted tool state during reload. The merge preserves a terminal part already observed live, and a later terminal server snapshot can replace the local interrupted marker.
 
-When a session is authoritatively settled — `session.idle`/`session.error` event, or an authoritative status snapshot that lowers a previously busy session — and the trailing assistant message is still *unfinished* (`time.completed` missing) with no pending question/permission, the turn is treated as interrupted (managed OpenCode process died mid-turn; the server never finalizes the message or parts, see openchamber#2577 / anomalyco/opencode#19023). The unfinished assistant message is completed locally with `MessageAbortedError`, including text-only turns and turns whose tools had already finished, so the chat shows a visible interrupted state. Any active parts are also finalized as `error`/`Interrupted` with an end time, so tool timers stop and cards render the error state. The mark is gated on an explicit idle status (absent status is "unknown", never judged), never applies while the session is busy (including question/permission waits), and a later terminal event can supersede it while a stale unfinished refresh cannot regress the locally finalized message or parts. A successful authoritative snapshot records explicit idle for previously unknown candidates, and message hydration retries this reconciliation after the transcript arrives; a failed status fetch leaves the session unknown. Recovery rejects responses after a runtime or SDK switch, request invalidation, or directory-store disposal before publishing local or global state.
+When a session is authoritatively settled — `session.idle`/`session.error` event, or an authoritative status snapshot that lowers a previously busy session — and the trailing assistant message is still *unfinished* (`time.completed` missing) with no pending form/permission, the turn is treated as interrupted (managed OpenCode process died mid-turn; the server never finalizes the message or parts, see openchamber#2577 / anomalyco/opencode#19023). The unfinished assistant message is completed locally with an `aborted` structured error, including text-only turns and turns whose tools had already finished, so the chat shows a visible interrupted state. Any active parts are also finalized as `error`/`Interrupted` with an end time, so tool timers stop and cards render the error state. The mark is gated on an explicit idle status (absent status is "unknown", never judged), never applies while the session is busy (including form/permission waits), and a later terminal event can supersede it while a stale unfinished refresh cannot regress the locally finalized message or parts. Supersession is concrete: a `message.patched` that carries `time.completed` without an error drops the local `aborted` mark, and a server snapshot whose assistant record is completed replaces a record this client still holds open or marked. Before judging a turn after a message load, recovery re-reads the tail once under the settled idle status: the messages were fetched before the status, so a turn that finished between the two reads would otherwise look interrupted while its completion event still sits in the pipeline's flush frame. A successful authoritative snapshot records explicit idle for previously unknown candidates, and message hydration retries this reconciliation after the transcript arrives; a failed status fetch leaves the session unknown. Recovery rejects responses after a runtime or SDK switch, request invalidation, or directory-store disposal before publishing local or global state.
 
-Directory stores also own session-keyed sidecar notification channels for permissions, questions, and message materialization. High-frequency realtime part events annotate the exact session/message before committing, so visible records, user history, renderability, and sidebar permission and question rows are not notified by unrelated sessions. Structural message replacements notify only changed subscribed session buckets; unannotated bulk part replacement conservatively resets active message subscribers so bootstrap, pagination, rollback, and legacy writers cannot leave stale projections.
+Directory stores also own session-keyed sidecar notification channels for permissions, forms, and message materialization. High-frequency realtime part events annotate the exact session/message before committing, so visible records, user history, renderability, and sidebar permission and question rows are not notified by unrelated sessions. Structural message replacements notify only changed subscribed session buckets; unannotated bulk part replacement conservatively resets active message subscribers so bootstrap, pagination, rollback, and legacy writers cannot leave stale projections.
 
 Message sidecar consumers also filter targeted updates by purpose before notifying React. Suspended live-tail text/reasoning changes do not rebuild visible message records, but structural Task session identity changes bypass suspension so a parent can link a newly created subagent immediately. Assistant-only part changes do not rebuild user input history, and targeted updates that preserve authoritative part buckets do not recheck a session that is already renderable. Message replacements, removed final part buckets, and conservative resets always notify.
 
@@ -401,7 +499,7 @@ explanation.
 
 ## Session action rules
 
-- Archive, restore and delete return booleans and id lists through the store contract shared by sidebar rows, the bulk bar and the mobile sheet. The reason behind a failure is recorded separately in `session-action-failures.ts` at the catch site and taken once by the surface that reports it, so the toast can quote the OpenCode status, error class and log `ref` (`OpencodeRequestError` from `lib/opencode/upstreamError.ts`) instead of a bare "failed". Rename fails loudly the same way and closes its form.
+- Archive, restore and delete return booleans and id lists through the store contract shared by sidebar rows, the bulk bar and the mobile sheet. The reason behind a failure is recorded separately in `session-action-failures.ts` at the catch site and taken once by the surface that reports it, so the toast can quote the OpenCode status, error class and log `ref` (`OpencodeApiError` from `lib/opencode/client.ts`, which keeps `tag`, `detail` and `ref` from the tagged body) instead of a bare "failed". Rename fails loudly the same way and closes its form.
 
 Session actions live in `session-actions.ts` and are the canonical place for SDK-calling session mutations that affect global session lists.
 
@@ -430,9 +528,9 @@ Examples of global-store updates performed in `session-actions.ts`:
 - `deleteSession()` / `deleteSessions()` -> wait for server confirmation or `404`, then remove the session and its persisted state
 - `moveSessionToDirectory()` -> move the session between directory stores and update the global directory index
 
-### Blocking-request (question/permission) reply routing
+### Blocking-request (form/permission) reply routing
 
-`respondToQuestion`, `rejectQuestion`, `respondToPermission`, and `dismissPermission` route the reply through `resolveDirectoryForBlockingRequest`. The directory chosen decides which OpenCode instance resolves the pending request, so it must be the **session record's own server-confirmed directory** (ownership), never the containing child-store key (containment): a project store legitimately holds its worktree sessions, and a reply addressed to the parent instance makes the server answer `QuestionNotFoundError` while the question stays pending in the worktree instance — the session is then stuck on the running question tool with no recovery. When a reply/reject comes back not-found, the stale request is removed locally and a `settled-running-tool` tail materialization is enqueued so the trailing tool part converges to the server's actual state instead of leaving the UI on "asking question" forever.
+`replyToForm`, `cancelForm`, `respondToPermission`, and `dismissPermission` route the reply through `resolveDirectoryForBlockingRequest`. The directory chosen decides which OpenCode instance resolves the pending request, so it must be the **session record's own server-confirmed directory** (ownership), never the containing child-store key (containment): a project store legitimately holds its worktree sessions, and a reply addressed to the parent instance makes the server answer `FormNotFoundError` while the form stays pending in the worktree instance — the session is then stuck on the running form tool with no recovery. When a reply/reject comes back not-found, the stale request is removed locally and a `settled-running-tool` tail materialization is enqueued so the trailing tool part converges to the server's actual state instead of leaving the UI on "asking question" forever.
 
 ### Restore (unarchive) contract
 
@@ -578,17 +676,18 @@ Keep this in sync with `handleDirectoryEvent` in `sync-context.tsx`:
 
 | Event type | Fields to clone |
 |---|---|
-| `session.created/updated/deleted` | `session`, `permission`, `todo`, `part`; archived/deleted sessions also clone `question` |
-| `session.diff` | `session_diff` |
-| `session.status` | `session_status` |
-| `todo.updated` | `todo` |
+| `session.created/patched/deleted` | `session`, `permission`, `form`, `part`, `sessionEventRevision`, `sessionDeletedRevision` (an archive patch also clears caches) |
+| `session.status/idle/error` | `session_status` |
 | `message.updated` | `message` |
+| `message.patched` | `message` |
 | `message.removed` | `message`, `part` |
-| `message.part.updated/removed/delta` | `part` |
+| `message.part.updated/delta`, `message.tool.transition`, `message.parts.replaced` | `part` |
 | `vcs.branch.updated` | (none — mutates `draft.vcs` directly) |
 | `permission.asked/replied` | `permission` |
-| `question.asked/replied/rejected` | `question` |
-| `lsp.updated` | `lsp` |
+| `form.created/settled` | `form` |
+| `openchamber.notification`, `openchamber.permission-auto-accept` | (none — side effects only) |
+
+These are `SyncEvent`s from `packages/ui/src/lib/opencode/events.ts`, not OpenCode wire events: the event pipeline translates every OpenCode 2.x wire event (`session.text.delta`, `session.tool.called`, `session.step.ended`, ...) into this vocabulary before coalescing. Wire-level knowledge lives only in that translator; the reducer applies patches and tool-state transitions against the store.
 
 ### Directory-less session events
 
@@ -616,7 +715,7 @@ read `useSyncRuntime()`. `useDirectoryStore(directory)` reads the current
 directory through `runtime.currentDirectory` with `useSyncExternalStore`, so a
 consumer that passes its own directory gets a constant snapshot and is not
 re-rendered by a cross-project switch. This is what keeps sidebar rows
-(permissions, question counts, session lookups) out of the switch commit: a
+(permissions, form counts, session lookups) out of the switch commit: a
 row must not pay for the chat changing directory.
 
 ### Session switch commit

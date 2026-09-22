@@ -345,9 +345,6 @@
         "vscode"
       ]
     },
-    "showOpenCodeRestartConfirm": {
-      "scope": "profile"
-    },
     "allowPromptingSubagentSessions": {
       "scope": "profile"
     },
@@ -546,9 +543,6 @@
       "scope": "profile"
     },
     "responseStyleCustomInstructions": {
-      "scope": "profile"
-    },
-    "optimizeSystemPrompt": {
       "scope": "profile"
     },
     "pwaAppName": {

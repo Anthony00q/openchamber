@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { Session } from '@opencode-ai/sdk/v2';
+import type { Session } from '@/lib/opencode/model';
 import type { WorktreeMetadata } from '@/types/worktree';
 import { createSessionOwnershipIndex } from '../sessions/sessionOwnership';
 import { deriveTimelineActivityItems } from './activitySections';
@@ -7,7 +7,7 @@ import { resolveSidebarSessionLocations } from './sessionLocation';
 
 const projects = [{ id: 'repo', normalizedPath: '/repo', label: 'Repo' }];
 const session = (id: string, directory: string): Session => ({
-  id, directory, slug: id, title: id, projectID: 'opencode-repo', version: '1',
+  id, directory, title: id, projectID: 'opencode-repo', cost: 0, tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
   time: { created: 1, updated: 1, archived: 0 },
 });
 

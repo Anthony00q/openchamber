@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { Session } from '@opencode-ai/sdk/v2';
+import type { Session } from '@/lib/opencode/model';
 
 import {
   createSessionOwnershipIndex,
@@ -15,11 +15,10 @@ const ownershipSession = (
   } = {},
 ): SessionOwnershipRecord => ({
   id,
-  slug: id,
   projectID: options.projectID ?? options.project?.id ?? 'project',
   directory: options.directory ?? '/workspace',
   title: id,
-  version: '1',
+  cost: 0, tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
   time: { created: 1, updated: 1 },
   project: options.project,
 });

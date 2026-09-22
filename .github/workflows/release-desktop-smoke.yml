@@ -78,7 +78,7 @@ jobs:
       - name: Get bundled OpenCode CLI version
         id: opencode_cli_version
         run: |
-          VERSION=$(node -p "require('./package.json').dependencies['@opencode-ai/sdk']")
+          VERSION=$(node -p "require('./packages/electron/package.json').opencodeCli.version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Cache bundled OpenCode CLI artifact
@@ -223,7 +223,7 @@ jobs:
         id: opencode_cli_version
         shell: bash
         run: |
-          VERSION=$(node -p "require('./package.json').dependencies['@opencode-ai/sdk']")
+          VERSION=$(node -p "require('./packages/electron/package.json').opencodeCli.version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Cache bundled OpenCode CLI artifact
@@ -327,7 +327,7 @@ jobs:
         id: versions
         shell: bash
         run: |
-          echo "opencode_cli=$(node -p "require('./package.json').dependencies['@opencode-ai/sdk']")" >> "$GITHUB_OUTPUT"
+          echo "opencode_cli=$(node -p "require('./packages/electron/package.json').opencodeCli.version")" >> "$GITHUB_OUTPUT"
           echo "app=$(node -p "require('./packages/electron/package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Cache bundled OpenCode CLI artifact

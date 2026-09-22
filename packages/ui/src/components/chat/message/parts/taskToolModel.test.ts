@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import type { Message, Part } from '@opencode-ai/sdk/v2';
+import type { Message, Part } from '@/lib/opencode/model';
 
 import {
     buildTaskSummaryEntriesFromSession,
@@ -25,20 +25,20 @@ describe('taskToolModel', () => {
         expect(readTaskSessionIdFromOutput(output)).toBe('child-1');
     });
 
-    test('projects tool calls while excluding nested task and todo bookkeeping', () => {
+    test('projects tool calls while excluding nested subagent calls', () => {
         const message = {
             info: { id: 'message-1', role: 'assistant' } as Message,
             parts: [
-                { id: 'read-1', type: 'tool', tool: 'read', state: { status: 'completed', input: { filePath: 'a.ts' } } },
-                { id: 'task-1', type: 'tool', tool: 'task', state: { status: 'running' } },
-                { id: 'todo-1', type: 'tool', tool: 'todowrite', state: { status: 'completed' } },
+                { id: 'read-1', type: 'tool', tool: 'read', state: { status: 'completed', input: { path: 'a.ts' } } },
+                { id: 'subagent-1', type: 'tool', tool: 'subagent', state: { status: 'running' } },
+                { id: 'subagent-1', type: 'tool', tool: 'subagent', state: { status: 'completed' } },
             ] as unknown as Part[],
         };
 
         expect(buildTaskSummaryEntriesFromSession([message])).toEqual([{
             id: 'read-1',
             tool: 'read',
-            state: { status: 'completed', title: undefined, input: { filePath: 'a.ts' } },
+            state: { status: 'completed', input: { path: 'a.ts' } },
         }]);
     });
 

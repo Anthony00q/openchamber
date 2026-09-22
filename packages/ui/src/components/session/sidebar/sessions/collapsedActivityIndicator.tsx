@@ -19,7 +19,7 @@ export function CollapsedActivityIndicator({
   className?: string;
 }): React.ReactNode {
   const { t } = useI18n();
-  if (state === 'permission' || state === 'question') {
+  if (state === 'permission' || state === 'form') {
     const label = state === 'permission'
       ? t('sessions.sidebar.session.status.permissionRequired')
       : t('sessions.sidebar.session.status.questionPending');

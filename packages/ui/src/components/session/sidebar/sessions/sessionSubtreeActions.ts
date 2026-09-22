@@ -1,4 +1,4 @@
-import type { Session } from '@opencode-ai/sdk/v2';
+import type { Session } from '@/lib/opencode/model';
 import { toast } from '@/components/ui';
 import { takeSessionActionFailure } from '@/sync/session-action-failures';
 import { describeSessionActionError } from './sessionActionError';

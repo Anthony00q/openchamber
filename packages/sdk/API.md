@@ -116,7 +116,7 @@ type GuestSessionItem = {
   sessionId: string;
   sessionTitle: string;
   directory: string | null;  // the session's project directory
-  messages?: Array<{ id: string; role: 'user' | 'assistant'; text: string; createdAt: number }>; // oldest first; only with payload ["messages"] and the conversation grant
+  messages?: Array<{ id: string; role: 'user' | 'assistant'; text: string; createdAt: number }>; // oldest first; only with payload ["messages"] and the conversation grant. Same messages the Markdown export writes: the conversation plus context the user attached (`user`); OpenCode's own plumbing messages are left out
   truncated?: boolean;     // the oldest messages were dropped so the item stays under 2 000 000 serialized chars
 };
 ```
@@ -199,7 +199,7 @@ Snapshots carry `state: 'loading' | 'ready' | 'error'`; session snapshots also c
 
 Projects contain `id`, `name`, `directory`. Worktrees contain `directory`, `name`, `branch`, and `status: 'ready' | 'pending' | 'invalid' | 'missing'`. Session records contain `id`, `title`, `projectId`, `directory`, `parentId`, `createdAt`, `updatedAt`, `archivedAt`, `worktree`, `activity`, `outcome`, and `items`. Item references contain only this extension's `id` and optional `data`.
 
-`activity` is `unknown`, `idle`, `running`, `retrying`, `waiting-permission`, or `waiting-question`. `outcome` is the last observed `completed` or `failed` turn, or `null` when unknown or working. Outcomes are in memory for the latest 2,000 observed sessions, reset on runtime switch, and are not reconstructed from persisted history. A later idle event preserves an observed failure until another run starts. `completed` never means the extension's task is Done. Blocking-request contents and approve/reply actions are not exposed.
+`activity` is `unknown`, `idle`, `running`, `retrying`, `waiting-permission`, or `waiting-question` (the agent put a form to the user and is waiting on the answer). `outcome` is the last observed `completed` or `failed` turn, or `null` when unknown or working. Outcomes are in memory for the latest 2,000 observed sessions, reset on runtime switch, and are not reconstructed from persisted history. A later idle event preserves an observed failure until another run starts. `completed` never means the extension's task is Done. Blocking-request contents and approve/reply actions are not exposed.
 
 ### Extension storage
 

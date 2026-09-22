@@ -51,7 +51,7 @@ const WRITE_TOKEN_SCRIPT = [
 
 // Module resolution walks up from the project files, so one link above every project is enough.
 // Only the plugin is linked, so project code does not quietly resolve our other packages.
-const LINK_PLUGIN_SCRIPT = `${IMAGE_ONLY_PATH} mkdir -p "$1/node_modules/@opencode-ai" && ln -sfn "$2" "$1/node_modules/@opencode-ai/plugin"`;
+const LINK_PLUGIN_SCRIPT = `${IMAGE_ONLY_PATH} mkdir -p "$1/node_modules/@opencode" && ln -sfn "$2" "$1/node_modules/@opencode/plugin"`;
 
 const pause = (milliseconds) => new Promise((resolve) => { setTimeout(resolve, milliseconds); });
 

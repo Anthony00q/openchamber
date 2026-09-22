@@ -83,7 +83,7 @@ export const nodeContainsSessionId = (node: SessionNode, sessionId: string | nul
   return false;
 };
 
-export type QuestionBadgeSessionScope = {
+export type FormBadgeSessionScope = {
   directory: string;
   sessionIDs: string[];
 };
@@ -121,11 +121,11 @@ export const getSessionWorktreeMenuDisabled = ({
  * stay correct for worktree/subtask sessions without bootstrapping their
  * directory stores.
  */
-export const selectQuestionBadgeSessionScopes = (
+export const selectFormBadgeSessionScopes = (
   node: SessionNode,
   isExpanded: boolean,
   fallbackDirectory: string | null,
-): QuestionBadgeSessionScope[] => {
+): FormBadgeSessionScope[] => {
   const sessionIDsByDirectory = new Map<string, string[]>();
   const visit = (current: SessionNode): void => {
     const directory = resolveGlobalSessionDirectory(current.session)

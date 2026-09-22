@@ -12,8 +12,12 @@ the user can want independently:
 - `openchamber_web` — looking at and interacting with the page in OpenChamber's
   browser panel. Enabled while `agentWebToolEnabled` is not `false`.
 
-Both default to on, are toggled in Settings → General → OpenCode CLI, and apply
-on the next managed OpenCode restart. Each tool carries only its own actions and
+Both default to on, are toggled in Settings → General → OpenCode CLI, and take
+effect in the running OpenCode within a couple of seconds — OpenChamber rewrites
+the managed config file OpenCode watches (see
+`lib/opencode/managed-config-file.js`). Installs where the user's own
+environment sets `OPENCODE_CONFIG` fall back to `OPENCODE_CONFIG_CONTENT` and
+still need a restart for a toggle. Each tool carries only its own actions and
 only the parameters those actions use, so turning one off removes its inputs
 from the schema rather than leaving them visible. The plugin is injected only
 when OpenChamber launches and owns the OpenCode process, and not at all when
@@ -28,15 +32,19 @@ both settings are `false`.
 ## Runtime flow
 
 1. The OpenChamber HTTP listener binds and publishes its authoritative port.
-2. `prepareManagedOpenCodeEnv()` materializes the plugin under
-   `<openchamber-data-dir>/agent-tool/` and appends its `file://` URL to
-   `OPENCODE_CONFIG_CONTENT` without replacing existing plugin entries.
-3. A random per-child token and callback URL are added only to the managed
-   OpenCode child environment. The URL points at loopback, except when the
-   listener is bound to one concrete address (`--host <ip>`): that socket does
-   not answer on loopback, so the URL uses the bound address instead.
+2. `materializePlugin()` writes the plugin under
+   `<openchamber-data-dir>/agent-tool/` and returns its directory; the managed
+   config layer lists that directory in `<data-dir>/opencode.managed.json` and
+   rewrites the file whenever a tool setting changes.
+3. `createChildEnv()` adds a random per-child token and the callback URL to the
+   managed OpenCode child environment. They are present even while every tool
+   is off, so a tool switched on later can call back without a restart. The URL
+   points at loopback, except when the listener is bound to one concrete
+   address (`--host <ip>`): that socket does not answer on loopback, so the URL
+   uses the bound address instead.
 4. The plugin calls `POST /api/openchamber/agent-tool` with its typed input and
-   OpenCode's authoritative session directory.
+   the session id OpenCode gives the tool; OpenChamber resolves the session's
+   directory on its own side.
 5. The route delegates the fixed action allowlist directly to the shared
    OpenChamber control service. The CLI uses the same service through its
    authenticated HTTP adapter, so Goal Mode ordering, wait behavior,
@@ -90,7 +98,12 @@ both settings are `false`.
 - Inputs map to a fixed action and parameter allowlist. There is no arbitrary
   CLI, shell, route, or URL forwarding.
 - Session/worktree deletion and project-path registration are not exposed.
-- An aborted tool request propagates an abort signal into the shared service.
+- A cancelled turn aborts the session's in-flight actions. OpenCode 2 gives a
+  plugin tool no abort signal and the plugin's request stays open, so the
+  server tracks in-flight actions per session and `abortSession(sessionID)` is
+  called from the event dispatch in `server/index.js` when the stream reports
+  `session.idle` with `aborted: true`; the abort signal then reaches the
+  shared service as before. A dropped HTTP request still aborts as well.
 
 ## Result contract
 

@@ -597,7 +597,7 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     page: 'routing',
     titleKey: 'settings.routing.token.label',
     descriptionKey: 'settings.routing.token.info',
-    keywords: ['jev', 'typesafe', 'api key', 'token', 'routing'],
+    keywords: ['jev', 'typesafe', 'api key', 'token', 'routing', 'zen', 'free'],
     isAvailable: (ctx) => !ctx.isVSCode && ctx.routingAvailable,
   },
   {
@@ -755,14 +755,6 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     isAvailable: (ctx) => ctx.isDesktop,
   },
   {
-    id: 'behavior.system-prompt-optimization',
-    page: 'behavior',
-    titleKey: 'settings.behavior.page.section.systemPromptOptimization',
-    descriptionKey: 'settings.behavior.page.systemPromptOptimization.info',
-    keywords: ['system prompt', 'tokens', 'context', 'optimize', 'minimal'],
-    isAvailable: (ctx) => !ctx.isVSCode,
-  },
-  {
     id: 'behavior.system-prompt',
     page: 'behavior',
     titleKey: 'settings.behavior.page.section.systemPrompt',
@@ -829,10 +821,17 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     keywords: ['prompt', 'instructions'],
   },
   {
+    id: 'agents.steps',
+    page: 'agents',
+    titleKey: 'settings.agents.page.field.steps',
+    descriptionKey: 'settings.agents.page.field.stepsTooltip',
+    keywords: ['steps', 'loop', 'tool calls'],
+  },
+  {
     id: 'agents.permissions',
     page: 'agents',
     titleKey: 'settings.agents.page.section.toolPermissions',
-    keywords: ['tools', 'permissions', 'allow', 'ask', 'deny'],
+    keywords: ['tools', 'permissions', 'rules', 'allow', 'ask', 'deny'],
   },
   {
     id: 'commands.create',
@@ -857,6 +856,19 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     page: 'commands',
     titleKey: 'settings.agents.page.field.overrideModel',
     keywords: ['model', 'provider'],
+  },
+  {
+    id: 'commands.variant',
+    page: 'commands',
+    titleKey: 'settings.agents.page.field.variant',
+    keywords: ['variant', 'reasoning', 'thinking'],
+  },
+  {
+    id: 'commands.subagent',
+    page: 'commands',
+    titleKey: 'settings.commands.page.field.subagent',
+    descriptionKey: 'settings.commands.page.field.subagentTooltip',
+    keywords: ['subagent', 'background', 'child session'],
   },
   {
     id: 'commands.template',
@@ -892,7 +904,7 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     id: 'mcp.advanced',
     page: 'mcp',
     titleKey: 'settings.mcp.page.advanced.title',
-    keywords: ['oauth', 'headers', 'timeout'],
+    keywords: ['oauth', 'headers', 'timeout', 'code mode', 'codemode'],
   },
   {
     id: 'plugins.create',

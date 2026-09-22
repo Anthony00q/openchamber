@@ -42,16 +42,16 @@ describe('OpenCode upgrade capability', () => {
     });
   });
 
-  it('allows OpenCode to upgrade a managed non-bundled binary', () => {
+  it('never offers to upgrade a managed non-bundled binary: OpenCode 2 has no upgrade route', () => {
     expect(resolveOpenCodeUpgradeCapability({
       isExternal: false,
       hasManagedProcess: true,
       activeBinary: '/Users/alice/.opencode/bin/opencode',
       isBundledBinary: () => false,
     })).toEqual({
-      supported: true,
+      supported: false,
       manager: 'opencode',
-      reason: null,
+      reason: 'no-upgrade-route',
     });
   });
 });

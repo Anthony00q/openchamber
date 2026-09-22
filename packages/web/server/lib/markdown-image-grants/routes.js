@@ -128,9 +128,20 @@ const parseDefinitionDestination = (value) => {
   return match ? unescapeMarkdownDestination(match[0]) : '';
 };
 
+/**
+ * v2 messages are flat records: an assistant one carries `content[]` and a user
+ * one a single `text`. Both are read here, because an image link can come from
+ * either side of the conversation.
+ */
+const messageTextParts = (message) => {
+  if (Array.isArray(message?.content)) return message.content;
+  if (typeof message?.text === 'string') return [{ type: 'text', text: message.text }];
+  return [];
+};
+
 const collectMarkdownLinesOutsideCode = (message) => {
   const lines = [];
-  for (const part of Array.isArray(message?.parts) ? message.parts : []) {
+  for (const part of messageTextParts(message)) {
     if (part?.type !== 'text' || typeof part.text !== 'string') continue;
     let fence = null;
     for (const line of part.text.split('\n')) {
@@ -193,7 +204,7 @@ const markdownImageSources = (message) => {
 
 const fetchMessage = async ({ sessionId, messageId, directory, buildOpenCodeUrl, getOpenCodeAuthHeaders }) => {
   const url = new URL(buildOpenCodeUrl(
-    `/session/${encodeURIComponent(sessionId)}/message/${encodeURIComponent(messageId)}`,
+    `/api/session/${encodeURIComponent(sessionId)}/message/${encodeURIComponent(messageId)}`,
     '',
   ));
   url.searchParams.set('directory', directory);
@@ -209,8 +220,10 @@ const fetchMessage = async ({ sessionId, messageId, directory, buildOpenCodeUrl,
   });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`OpenCode returned ${response.status}`);
-  const message = await response.json().catch(() => null);
-  return message?.info && Array.isArray(message.parts) ? message : null;
+  // v2 answers `/api/*` with `{ location, data }` and the record is flat.
+  const body = await response.json().catch(() => null);
+  const message = body && typeof body === 'object' && 'data' in body && 'location' in body ? body.data : body;
+  return message && typeof message === 'object' && typeof message.id === 'string' ? message : null;
 };
 
 const inspectImage = async ({ source, directory, approvedTempRoot, fsPromises, path }) => {
@@ -289,7 +302,8 @@ export const registerMarkdownImageGrantRoutes = (app, dependencies) => {
           buildOpenCodeUrl,
           getOpenCodeAuthHeaders,
         });
-        if (!message || message.info?.id !== messageId || message.info?.role !== 'assistant') {
+        // v2 messages are flat records with a `type` discriminator.
+        if (!message || message.id !== messageId || message.type !== 'assistant') {
           return res.status(404).json({ error: 'Assistant message not found' });
         }
         // Assistant text is authoritative: a remote client cannot mint grants for unreferenced paths.

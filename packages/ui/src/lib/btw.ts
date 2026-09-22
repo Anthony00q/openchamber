@@ -1,4 +1,4 @@
-import type { Message, Part, Session } from '@opencode-ai/sdk/v2';
+import type { Message, Part, Session } from '@/lib/opencode/model';
 import { opencodeClient } from '@/lib/opencode/client';
 import * as sessionActions from '@/sync/session-actions';
 import { withBtwSessionLink, withBtwSessionMarker, withoutBtwSessionLink, withoutBtwSessionMarker } from '@/lib/sessionBtwMetadata';
@@ -189,20 +189,18 @@ export async function startBtwSession(input: StartBtwInput): Promise<Session> {
     if (getRuntimeKey() !== expectedRuntimeKey) throw new Error('runtime changed');
     // Fork at the parent's last completed assistant turn rather than at HEAD,
     // so a `/btw` typed mid-turn does not inherit a half-finished one.
-    const forkPointMessageID = findLastCompletedAssistantMessageID(
-      getSyncMessages(input.parentSessionId, input.directory),
-    );
-    const forked = await opencodeClient.forkSession(
-      input.parentSessionId,
-      forkPointMessageID ?? undefined,
-      input.directory,
-    );
+    const parentMessages = getSyncMessages(input.parentSessionId, input.directory);
+    const forkPointMessageID = findLastCompletedAssistantMessageID(parentMessages);
+    // No completed turn to fork at means take the whole parent transcript,
+    // which is what an omitted `before` asks for.
+    const forked = await opencodeClient.forkSession(input.parentSessionId, {
+      before: forkPointMessageID ?? undefined,
+      directory: input.directory,
+    });
 
     // The server may canonicalize the worktree path; the prompt must use the
     // same directory identity as the forked session.
-    // SAFETY: the SDK Session type omits the server's `directory` field; this
-    // widening only reads it, with the requested directory as the fallback.
-    const sessionDirectory = (forked as Session & { directory?: string | null }).directory ?? input.directory;
+    const sessionDirectory = forked.directory || input.directory;
     try {
       if (getRuntimeKey() !== expectedRuntimeKey) throw new Error('runtime changed');
       registerSessionDirectory(forked.id, sessionDirectory);
@@ -220,12 +218,12 @@ export async function startBtwSession(input: StartBtwInput): Promise<Session> {
         if (getRuntimeKey() !== expectedRuntimeKey) throw new Error('runtime changed');
       }
       // Locate the inherited-history boundary by identity, not by ID ordering.
-      const newestCloned = await opencodeClient.getSessionMessages(forked.id, 1, sessionDirectory);
+      const newestCloned = await opencodeClient.getSessionMessages(forked.id, { limit: 1 }, sessionDirectory);
       // A `null` boundary makes the panel show every inherited message, so an
       // empty read must not be taken as "the fork inherited nothing" when we
       // know it did: having picked a fork point proves the parent had turns.
       // Retain the known fork point as a fallback marker.
-      const boundaryMessageID = newestCloned[newestCloned.length - 1]?.info.id
+      const boundaryMessageID = newestCloned.items[newestCloned.items.length - 1]?.info.id
         ?? forkPointMessageID
         ?? null;
 

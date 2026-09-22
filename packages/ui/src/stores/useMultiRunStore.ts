@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Session } from '@opencode-ai/sdk/v2';
+import type { Session } from '@/lib/opencode/model';
 import { routeMessage, useSessionUIStore } from '@/sync/session-ui-store';
 import { devtools } from 'zustand/middleware';
 import type { CreateMultiRunParams, CreateMultiRunResult } from '@/types/multirun';
@@ -219,10 +219,11 @@ export const useMultiRunStore = create<MultiRunStore>()(
               });
 
               try {
-                const createRun = (runDirectory: string) => createMultiRunSession(client, {
+                const createRun = (runDirectory: string) => createMultiRunSession({
                   title: sessionTitle, directory: runDirectory,
                   identity: { group: membershipGroup, groupSlug, runGroup, providerID: model.providerID,
                     modelID: model.modelID, index: count > 1 ? index : undefined, role: 'run' },
+                  selection: { model: { providerID: model.providerID, id: model.modelID, variant: model.variant }, agent },
                 }, assertCurrent);
                 if (!shouldIsolateRuns) {
                   const session = await createRun(directory);

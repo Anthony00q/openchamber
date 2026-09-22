@@ -48,7 +48,7 @@ export const spaceHistoryPath = (spaceId) => `${spaceWorkPath(spaceId)}/.opencha
 // The tools volume: a plain npm project, mounted read-only.
 export const TOOLS_MOUNT_PATH = '/opt/openchamber-tools';
 export const TOOLS_BIN_PATH = `${TOOLS_MOUNT_PATH}/node_modules/.bin`;
-export const TOOLS_PLUGIN_PATH = `${TOOLS_MOUNT_PATH}/node_modules/@opencode-ai/plugin`;
+export const TOOLS_PLUGIN_PATH = `${TOOLS_MOUNT_PATH}/node_modules/@opencode/plugin`;
 // The filler writes this file last. A volume without it was never filled to the end.
 export const TOOLS_MARKER_PATH = `${TOOLS_MOUNT_PATH}/.filled`;
 

@@ -11,7 +11,7 @@ import {
   RiEdit2Line,
   RiFolderAddLine,
 } from '@remixicon/react';
-import type { Session } from '@opencode-ai/sdk/v2/client';
+import type { Session } from '@/lib/opencode/model';
 import {
   DndContext,
   type DragEndEvent,

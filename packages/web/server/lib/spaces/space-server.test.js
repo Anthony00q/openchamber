@@ -90,8 +90,8 @@ describe('space server channel: plugin link', () => {
     await channel.linkPlugin(ID);
 
     expect(calls[0].argv).toEqual([
-      '/bin/sh', '-c', 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; mkdir -p "$1/node_modules/@opencode-ai" && ln -sfn "$2" "$1/node_modules/@opencode-ai/plugin"',
-      'sh', `/spaces/${ID}`, '/opt/openchamber-tools/node_modules/@opencode-ai/plugin',
+      '/bin/sh', '-c', 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin; mkdir -p "$1/node_modules/@opencode" && ln -sfn "$2" "$1/node_modules/@opencode/plugin"',
+      'sh', `/spaces/${ID}`, '/opt/openchamber-tools/node_modules/@opencode/plugin',
     ]);
   });
 });

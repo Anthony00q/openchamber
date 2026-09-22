@@ -84,6 +84,7 @@ const routingUpdatedSchema = z.object({
   available: z.boolean(),
   autoReady: z.boolean(),
   tokenPresent: z.boolean(),
+  jevSource: z.enum(['typesafe', 'zen-free']),
 });
 
 const routingDecisionSchema = z.object({

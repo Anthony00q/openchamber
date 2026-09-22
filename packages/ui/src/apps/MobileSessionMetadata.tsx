@@ -383,18 +383,13 @@ export const MobileSessionMetadataButton = React.memo(function MobileSessionMeta
     void fetchAllQuotas();
   }, [dropdownProviderIds, fetchAllQuotas, isQuotaLoading, open, quotaResults, quotaRefreshErrors]);
 
+  // v2 records the model on the assistant reply (a user message carries none).
   const latestMessageModel = React.useMemo(() => {
     for (let i = activeSessionMessages.length - 1; i >= 0; i -= 1) {
-      const message = activeSessionMessages[i] as typeof activeSessionMessages[number] & {
-        model?: { providerID?: string; modelID?: string };
-      };
-      if (message.role !== 'user') continue;
-      const providerID = typeof message.model?.providerID === 'string' && message.model.providerID.trim().length > 0
-        ? message.model.providerID
-        : undefined;
-      const modelID = typeof message.model?.modelID === 'string' && message.model.modelID.trim().length > 0
-        ? message.model.modelID
-        : undefined;
+      const message = activeSessionMessages[i];
+      if (message.role !== 'assistant') continue;
+      const providerID = message.providerID.trim();
+      const modelID = message.modelID.trim();
       if (providerID && modelID) return { providerID, modelID };
     }
     return null;

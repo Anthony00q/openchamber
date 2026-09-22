@@ -3,13 +3,13 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
-import { removeProviderConfig, getProviderSources, upsertProviderConfig } from './opencodeConfig';
-import { getProviderAuth, removeProviderAuth } from './opencodeAuth';
+import { getProviderSources, upsertProviderConfig } from './opencodeConfig';
+import { getProviderAuth } from './opencodeAuth';
+import { asSessionId, asSessionIdList, asSessionMetadata, asTimestamp, type JsonValue, type SessionStateStore } from './openchamberSessionState';
 import { fetchQuotaForProvider, listConfiguredQuotaProviders } from './quotaProviders';
 import { credentialStatus, deleteCredential, importCursorCredential, normalizeCredential, readCredential, validateCredential, writeCredential, type ManagedProvider } from './quotaCredentials';
 import { getSessionActivitySnapshot } from './sessionActivityWatcher';
 import { getOpenCodeUpgradeStatus, upgradeManagedOpenCode } from './opencode-upgrade-runtime';
-import { buildDeferredRestartResponse } from './config-mutation-response';
 import { normalizeWindowsDriveLetter, pathsEqualWithNormalizedDriveLetter } from './pathUtils';
 import { resolveWorkspaceFolders } from './workspaceResolver';
 import type { BridgeContext, BridgeResponse } from './bridge';
@@ -22,6 +22,7 @@ type BridgeMessageInput = {
 
 type SystemRuntimeDeps = {
   resolveUserPath: (value: string, baseDirectory: string) => string;
+  sessionState: SessionStateStore;
   fetchModelsMetadata: () => Promise<unknown>;
   updateCheckUrl: string;
   clientReloadDelayMs: number;
@@ -256,7 +257,8 @@ export async function handleSystemBridgeMessage(
           return { id, type, success: true, data: { version: null, error: 'OpenCode manager unavailable' } };
         }
         const base = `${apiUrl.replace(/\/+$/, '')}/`;
-        const response = await fetch(new URL('global/health', base).toString(), {
+        // OpenCode 2.0.8 replaced `/api/health` with `/api/info`.
+        const response = await fetch(new URL('api/info', base).toString(), {
           method: 'GET',
           headers: { Accept: 'application/json', ...ctx?.manager?.getOpenCodeAuthHeaders() },
         });
@@ -280,8 +282,7 @@ export async function handleSystemBridgeMessage(
     }
 
     case 'api:opencode/upgrade': {
-      const target = (payload as { target?: unknown } | undefined)?.target;
-      return { id, type, success: true, data: await upgradeManagedOpenCode(ctx?.manager, target) };
+      return { id, type, success: true, data: await upgradeManagedOpenCode(ctx?.manager) };
     }
 
     case 'api:session-activity:get': {
@@ -417,51 +418,45 @@ export async function handleSystemBridgeMessage(
       }
     }
 
-    case 'api:provider/auth:delete': {
-      const { providerId, scope, directory } = (payload || {}) as { providerId?: string; scope?: string; directory?: string };
-      if (!providerId) {
-        return { id, type, success: false, error: 'Provider ID is required' };
-      }
-      const normalizedScope = typeof scope === 'string' ? scope : 'auth';
-      const workingDirectory = typeof directory === 'string' && directory.trim().length > 0
-        ? directory.trim()
-        : ctx?.manager?.getWorkingDirectory();
-      try {
-        let removed = false;
-        if (normalizedScope === 'auth') {
-          removed = removeProviderAuth(providerId);
-        } else if (normalizedScope === 'user' || normalizedScope === 'project' || normalizedScope === 'custom') {
-          removed = removeProviderConfig(providerId, workingDirectory, normalizedScope);
-        } else if (normalizedScope === 'all') {
-          const authRemoved = removeProviderAuth(providerId);
-          const userRemoved = removeProviderConfig(providerId, workingDirectory, 'user');
-          const projectRemoved = workingDirectory
-            ? removeProviderConfig(providerId, workingDirectory, 'project')
-            : false;
-          const customRemoved = removeProviderConfig(providerId, workingDirectory, 'custom');
-          removed = authRemoved || userRemoved || projectRemoved || customRemoved;
-        } else {
-          return { id, type, success: false, error: 'Invalid scope' };
-        }
+    // OpenChamber-owned session state. OpenCode 2.x has no route that sets
+    // `time.archived` or rewrites metadata after creation; the web server keeps
+    // both in files, and the extension host keeps the same files (see
+    // openchamberSessionState.ts). The proxy runtime folds them back onto
+    // session reads.
+    case 'api:sessions/archive': {
+      const { ids, archivedAt } = (payload || {}) as { ids?: JsonValue; archivedAt?: JsonValue };
+      const targets = asSessionIdList(ids);
+      if (targets.length === 0) return { id, type, success: false, error: 'ids must be a non-empty array of session ids' };
+      return { id, type, success: true, data: await deps.sessionState.archive(targets, asTimestamp(archivedAt)) };
+    }
 
-        return {
-          id,
-          type,
-          success: true,
-          data: {
-            removed,
-            ...(removed
-              ? buildDeferredRestartResponse(`Provider ${providerId} disconnected successfully. Restart OpenCode to apply.`)
-              : {
-                success: true,
-                requiresReload: false,
-                message: `Provider ${providerId} was not configured.`,
-              }),
-          },
-        };
+    case 'api:sessions/unarchive': {
+      const { ids } = (payload || {}) as { ids?: JsonValue };
+      const targets = asSessionIdList(ids);
+      if (targets.length === 0) return { id, type, success: false, error: 'ids must be a non-empty array of session ids' };
+      return { id, type, success: true, data: await deps.sessionState.unarchive(targets) };
+    }
+
+    case 'api:sessions/metadata:get': {
+      const sessionId = asSessionId(((payload || {}) as { sessionId?: JsonValue }).sessionId);
+      if (!sessionId) return { id, type, success: false, error: 'a session id is required' };
+      try {
+        return { id, type, success: true, data: { metadata: await deps.sessionState.getMetadata(sessionId) } };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        return { id, type, success: false, error: errorMessage };
+        return { id, type, success: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    }
+
+    case 'api:sessions/metadata:set': {
+      const body = (payload || {}) as { sessionId?: JsonValue; patch?: JsonValue };
+      const sessionId = asSessionId(body.sessionId);
+      if (!sessionId) return { id, type, success: false, error: 'a session id is required' };
+      const patch = asSessionMetadata(body.patch);
+      if (!patch) return { id, type, success: false, error: 'patch must be an object' };
+      try {
+        return { id, type, success: true, data: { metadata: await deps.sessionState.setMetadata(sessionId, patch) } };
+      } catch (error) {
+        return { id, type, success: false, error: error instanceof Error ? error.message : String(error) };
       }
     }
 

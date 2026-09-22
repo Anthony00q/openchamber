@@ -2,7 +2,7 @@ import { afterAll, describe, expect, test } from 'bun:test';
 import { Window } from 'happy-dom';
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import type { TextPart } from '@opencode-ai/sdk/v2';
+import type { TextPart } from '@/lib/opencode/model';
 
 type OperationCounts = {
   innerHTMLWrites: number;

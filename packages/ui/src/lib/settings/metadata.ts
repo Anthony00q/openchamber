@@ -41,7 +41,7 @@ export interface SettingsRuntimeContext {
   isWeb: boolean;
   isDesktop: boolean;
   isMobile: boolean;
-  /** Whether this server build has Jev routing (`OPENCHAMBER_ROUTING_ENABLE`). */
+  /** Whether this runtime has Jev routing, which needs the OpenChamber server. */
   routingAvailable: boolean;
 }
 

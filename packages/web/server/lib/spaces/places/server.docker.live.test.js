@@ -51,7 +51,7 @@ setTimeout(() => finish({ error: 'timeout' }), 30000);
 })().catch((error) => finish({ error: String(error) }));
 `;
 
-const HELLO_TOOL = `import { tool } from "@opencode-ai/plugin"
+const HELLO_TOOL = `import { tool } from "@opencode/plugin"
 export default tool({
   description: "Says hello",
   args: { name: tool.schema.string() },
@@ -141,10 +141,10 @@ describe.skipIf(!LIVE_DOCKER_ENABLED)('server inside a space: docker (live)', ()
     expect(JSON.parse(created.body).directory).toBe(repo);
   });
 
-  it('lists a project tool that imports @opencode-ai/plugin, without waiting for a download that cannot happen', async () => {
+  it('lists a project tool that imports @opencode/plugin, without waiting for a download that cannot happen', async () => {
     await shell(`mkdir -p ${repo}/.opencode/tool && cat > ${repo}/.opencode/tool/hello.ts`, HELLO_TOOL);
     // Only the plugin is linked above the projects, not the whole tools node_modules.
-    expect(await shell(`ls /spaces/${spec.id}/node_modules /spaces/${spec.id}/node_modules/@opencode-ai`)).toBe(`/spaces/${spec.id}/node_modules:\n@opencode-ai\n\n/spaces/${spec.id}/node_modules/@opencode-ai:\nplugin\n`);
+    expect(await shell(`ls /spaces/${spec.id}/node_modules /spaces/${spec.id}/node_modules/@opencode`)).toBe(`/spaces/${spec.id}/node_modules:\n@opencode\n\n/spaces/${spec.id}/node_modules/@opencode:\nplugin\n`);
     // The instance of the earlier tests loaded before the tool existed.
     await server.request(spec.id, { method: 'POST', path: `/api/instance/dispose?directory=${encodeURIComponent(repo)}`, headers: { Cookie: cookie } });
 

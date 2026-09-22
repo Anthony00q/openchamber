@@ -1,4 +1,4 @@
-import type { Message, Part } from "@opencode-ai/sdk/v2/client"
+import type { Message, Part } from "@/lib/opencode/model"
 import { mergeMessages } from "./optimistic"
 import type { SessionMaterializationReason } from "./event-reducer"
 import { sortMessagesChronologically } from "./message-ordering"
@@ -300,11 +300,14 @@ export function materializeSessionSnapshots(
   for (let index = 0; index < currentMessages.length; index += 1) {
     const existing = currentMessages[index]
     const incoming = incomingByID.get(existing.id)
+    // A completion the server reports supersedes a turn this client still
+    // holds open, and the local interruption mark (`interruptedTurnToolParts`)
+    // it may have put on it. Any other existing record wins over the snapshot.
     if (
       existing.role !== "assistant"
-      || existing.error?.name !== "MessageAbortedError"
       || incoming?.role !== "assistant"
       || incoming.time.completed === undefined
+      || (existing.time.completed !== undefined && existing.error?.type !== "aborted")
     ) continue
     if (reconciledCurrentMessages === currentMessages) reconciledCurrentMessages = [...currentMessages]
     reconciledCurrentMessages[index] = incoming

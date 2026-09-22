@@ -223,7 +223,23 @@ export const PluginsSidebar: React.FC<PluginsSidebarProps> = ({
     );
   };
 
-  const renderFile = (file: PluginFile) => (
+  // A plugin package directory (or a v1 `plugin/` file) is OpenCode's to load
+  // and OpenChamber's only to show: nothing to open, nothing to delete here.
+  const renderFile = (file: PluginFile) => file.kind === 'package' ? (
+    <SettingsSidebarItem
+      key={file.id}
+      title={file.fileName}
+      metadata={t('settings.plugins.sidebar.kind.package')}
+      selected={false}
+      onSelect={() => {}}
+      icon={
+        <Icon
+          name="folder"
+          className="h-4 w-4 flex-shrink-0 text-muted-foreground/70"
+        />
+      }
+    />
+  ) : (
     <SettingsSidebarItem
       key={file.id}
       title={file.fileName}

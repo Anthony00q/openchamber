@@ -1,3 +1,12 @@
+/**
+ * OpenCode 2.x answers `/api/*` with `{ location, data }`. Unwrapping it here
+ * keeps every session read in this module reading the record itself.
+ */
+const unwrapOpenCodeRecord = (body) => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
+  return 'data' in body && 'location' in body ? body.data : body;
+};
+
 export const createNotificationTriggerRuntime = (deps) => {
   const {
     readSettingsFromDisk,
@@ -14,6 +23,9 @@ export const createNotificationTriggerRuntime = (deps) => {
     isAnyInteractiveClientVisible,
     buildOpenCodeUrl,
     getOpenCodeAuthHeaders,
+    // OpenChamber's own session metadata (the goal lives there, not on the
+    // OpenCode record). Optional: without it no goal can suppress a push.
+    readSessionMetadata = null,
   } = deps;
   let getIsSessionAutoAccepting = deps.getIsSessionAutoAccepting;
   const setGetIsSessionAutoAccepting = (resolver) => {
@@ -161,6 +173,38 @@ export const createNotificationTriggerRuntime = (deps) => {
     return typeof parentID === 'string' && parentID.length > 0 ? parentID : null;
   };
 
+  // v2 splits one assistant turn over two events: `session.step.started`
+  // names the agent and model, `session.step.ended` carries the finish. The
+  // translator hands both over as `message.updated` on the same message id,
+  // so the start is remembered here and folded into the finish, which is the
+  // event the "ready" push is built from. Bounded: a session emits a handful
+  // of steps and the map is per process.
+  const ASSISTANT_STEP_CACHE_LIMIT = 500;
+  const assistantStepMeta = new Map();
+  const rememberAssistantStep = (info) => {
+    if (!info || info.role !== 'assistant') return;
+    const id = String(info.id ?? '');
+    const agent = String(info.agent ?? info.mode ?? '');
+    const modelID = String(info.modelID ?? '');
+    if (!id || (!agent && !modelID)) return;
+    assistantStepMeta.delete(id);
+    assistantStepMeta.set(id, { agent, modelID });
+    while (assistantStepMeta.size > ASSISTANT_STEP_CACHE_LIMIT) {
+      assistantStepMeta.delete(assistantStepMeta.keys().next().value);
+    }
+  };
+  const withRememberedStep = (info) => {
+    const remembered = info ? assistantStepMeta.get(String(info.id ?? '')) : undefined;
+    if (!remembered) return info;
+    const merged = { ...info };
+    if (!merged.agent && !merged.mode) {
+      merged.agent = remembered.agent;
+      merged.mode = remembered.agent;
+    }
+    if (!merged.modelID) merged.modelID = remembered.modelID;
+    return merged;
+  };
+
   const maybeCacheSessionParentFromPayload = (payload) => {
     const sessionId = extractSessionIdFromPayload(payload);
     if (typeof sessionId !== 'string' || sessionId.length === 0) return;
@@ -177,7 +221,7 @@ export const createNotificationTriggerRuntime = (deps) => {
     if (cached !== undefined) return cached;
 
     try {
-      const base = buildOpenCodeUrl(`/session/${encodeURIComponent(sessionId)}`, '');
+      const base = buildOpenCodeUrl(`/api/session/${encodeURIComponent(sessionId)}`, '');
       const url = directory ? `${base}?directory=${encodeURIComponent(directory)}` : base;
       const response = await fetch(url, {
         method: 'GET',
@@ -190,7 +234,7 @@ export const createNotificationTriggerRuntime = (deps) => {
       if (!response.ok) {
         return undefined;
       }
-      const session = await response.json().catch(() => null);
+      const session = unwrapOpenCodeRecord(await response.json().catch(() => null));
       if (!session || typeof session !== 'object') {
         return undefined;
       }
@@ -281,19 +325,11 @@ export const createNotificationTriggerRuntime = (deps) => {
   // A session with an ACTIVE goal suppresses per-turn ready notifications;
   // the session-goal runtime sends its own notification when the goal
   // settles. Fetch failures fall through to normal notification behavior.
-  const hasActiveSessionGoal = async (sessionId, directory) => {
-    if (!sessionId) return false;
+  const hasActiveSessionGoal = async (sessionId) => {
+    if (!sessionId || typeof readSessionMetadata !== 'function') return false;
     try {
-      const base = buildOpenCodeUrl(`/session/${encodeURIComponent(sessionId)}`, '');
-      const url = directory ? `${base}?directory=${encodeURIComponent(directory)}` : base;
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { Accept: 'application/json', ...getOpenCodeAuthHeaders() },
-        signal: AbortSignal.timeout(2000),
-      });
-      if (!response.ok) return false;
-      const session = await response.json().catch(() => null);
-      const goal = session?.metadata?.openchamber?.goal;
+      const metadata = await readSessionMetadata(sessionId);
+      const goal = metadata?.openchamber?.goal;
       return Boolean(goal && typeof goal === 'object' && goal.status === 'active');
     } catch {
       return false;
@@ -309,6 +345,12 @@ export const createNotificationTriggerRuntime = (deps) => {
 
     const sessionId = extractSessionIdFromPayload(payload);
     const notificationDirectory = extractDirectoryFromPayload(payload);
+    // A user abort arrives as `session.idle` with `aborted: true`: the turn
+    // did not finish, so there is nothing to announce as ready.
+    if (payload.type === 'session.idle' && payload.properties?.aborted === true) {
+      return;
+    }
+
     if ((payload.type === 'session.idle' || payload.type === 'session.error') && sessionId) {
       const error = payload.properties?.error;
       const errorText = typeof error?.message === 'string'
@@ -331,8 +373,10 @@ export const createNotificationTriggerRuntime = (deps) => {
     }
 
     if (payload.type === 'message.updated') {
-      const info = payload.properties?.info;
+      rememberAssistantStep(payload.properties?.info);
+      const info = withRememberedStep(payload.properties?.info);
       if (info?.role === 'assistant' && info?.finish === 'stop' && sessionId) {
+        payload = { ...payload, properties: { ...payload.properties, info } };
         const settings = await readSettingsFromDisk();
 
         if (settings.notifyOnSubtasks === false) {
@@ -353,7 +397,7 @@ export const createNotificationTriggerRuntime = (deps) => {
         // While a goal drives the session, per-turn "ready" notifications are
         // noise produced by the goal loop itself — the goal's own settle
         // notification (complete/blocked/budget) is the final word instead.
-        if (await hasActiveSessionGoal(sessionId, notificationDirectory)) {
+        if (await hasActiveSessionGoal(sessionId)) {
           return;
         }
 
@@ -504,7 +548,7 @@ export const createNotificationTriggerRuntime = (deps) => {
       return;
     }
 
-    if (payload.type === 'question.asked' && sessionId) {
+    if (payload.type === 'form.created' && sessionId) {
       const existingTimer = pushQuestionDebounceTimers.get(sessionId);
       if (existingTimer) {
         clearTimeout(existingTimer);
@@ -522,9 +566,14 @@ export const createNotificationTriggerRuntime = (deps) => {
           return;
         }
 
-        const firstQuestion = payload.properties?.questions?.[0];
-        const header = typeof firstQuestion?.header === 'string' ? firstQuestion.header.trim() : '';
-        const questionText = typeof firstQuestion?.question === 'string' ? firstQuestion.question.trim() : '';
+        // v2 replaced questions with forms: the form's title is the ask, and
+        // the first field carries the detail a question used to put in its body.
+        const form = payload.properties?.form;
+        const header = typeof form?.title === 'string' ? form.title.trim() : '';
+        const firstField = Array.isArray(form?.fields) ? form.fields[0] : null;
+        const fieldTitle = typeof firstField?.title === 'string' ? firstField.title.trim() : '';
+        const fieldDescription = typeof firstField?.description === 'string' ? firstField.description.trim() : '';
+        const questionText = fieldDescription || fieldTitle;
 
         let title = /plan\s*mode/i.test(header)
           ? 'Switch to plan mode'
@@ -604,7 +653,15 @@ export const createNotificationTriggerRuntime = (deps) => {
 
     if (payload.type === 'permission.asked' && sessionId) {
       const requestId = payload.properties?.id ?? payload.properties?.requestID ?? payload.properties?.requestId;
-      const permission = payload.properties?.permission;
+      // v2 describes a permission request as an action plus the resources it
+      // touches; the v1 single `permission` string is gone.
+      const permissionAction = typeof payload.properties?.action === 'string' ? payload.properties.action.trim() : '';
+      const permissionResource = Array.isArray(payload.properties?.resources)
+        ? String(payload.properties.resources[0] ?? '').trim()
+        : '';
+      const permissionMessage = typeof payload.properties?.message === 'string' ? payload.properties.message.trim() : '';
+      const permission = permissionMessage
+        || (permissionAction && permissionResource ? `${permissionAction}: ${permissionResource}` : permissionAction);
       const requestKey = typeof requestId === 'string' ? `${sessionId}:${requestId}` : null;
       if (requestKey && notifiedPermissionRequests.has(requestKey)) {
         return;
@@ -713,7 +770,7 @@ export const createNotificationTriggerRuntime = (deps) => {
   const sendGoalSettlePush = async ({ sessionId, directory, status, title, body }) => {
     let sessionName = '';
     try {
-      const base = buildOpenCodeUrl(`/session/${encodeURIComponent(sessionId)}`, '');
+      const base = buildOpenCodeUrl(`/api/session/${encodeURIComponent(sessionId)}`, '');
       const url = directory ? `${base}?directory=${encodeURIComponent(directory)}` : base;
       const response = await fetch(url, {
         method: 'GET',
@@ -721,7 +778,7 @@ export const createNotificationTriggerRuntime = (deps) => {
         signal: AbortSignal.timeout(2000),
       });
       if (response.ok) {
-        const session = await response.json().catch(() => null);
+        const session = unwrapOpenCodeRecord(await response.json().catch(() => null));
         if (typeof session?.title === 'string') sessionName = session.title.trim();
       }
     } catch {

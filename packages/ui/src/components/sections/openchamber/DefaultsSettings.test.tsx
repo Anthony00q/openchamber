@@ -22,7 +22,7 @@ type ConfigState = {
   setSettingsDefaultAgent: () => void;
   selectionSource: 'auto';
   agentSelectionSource: 'auto';
-  agents: Array<{ name: string; model?: { providerID: string; modelID: string } }>;
+  agents: Array<{ name: string; model?: { providerID: string; id: string } }>;
   currentAgentName: string | undefined;
 };
 

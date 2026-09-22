@@ -54,6 +54,7 @@ import { WALKTHROUGH_ACTION_CLASS } from '@/components/views/walkthrough/walkthr
 import { useWalkthroughStore } from '@/stores/useWalkthroughStore';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useSessionMessages } from '@/sync/sync-context';
+import { opencodeClient } from '@/lib/opencode/client';
 import { getFirstChangedModifiedLineFromPatch } from './diffPatchUtils';
 import { parseDiffFromFile, type FileDiffMetadata } from '@pierre/diffs';
 
@@ -200,14 +201,6 @@ const getFirstChangedModifiedLine = (original: string, modified: string): number
     }
 
     return 1;
-};
-
-const listTurnDiffs = (value: unknown): TurnSnapshotDiff[] => {
-    if (!Array.isArray(value)) return [];
-    return value.filter((diff): diff is TurnSnapshotDiff => {
-        if (!diff || typeof diff !== 'object') return false;
-        return typeof (diff as TurnSnapshotDiff).file === 'string';
-    });
 };
 
 const statusToGitCode = (status?: string): string => {
@@ -1207,14 +1200,36 @@ export const DiffView: React.FC<DiffViewProps> = ({
         });
     }, []);
 
-    const lastTurnDiffs = React.useMemo(() => {
-        for (let index = sessionMessages.length - 1; index >= 0; index -= 1) {
-            const message = sessionMessages[index] as { role?: string; summary?: { diffs?: unknown } };
-            if (message.role !== 'user') continue;
-            return listTurnDiffs(message.summary?.diffs);
-        }
-        return [];
-    }, [sessionMessages]);
+    // v1 read the last turn's diffs off a working-tree snapshot on the user
+    // message. v2 computes them on request from the turn's snapshots
+    // (`GET /api/session/:id/diff`), merged per file, so a file edited three
+    // times in one turn is one diff. Refetched whenever the transcript moves
+    // (a turn ending is what changes the answer).
+    const [lastTurnDiffs, setLastTurnDiffs] = React.useState<TurnSnapshotDiff[]>([]);
+    const lastMessageId = sessionMessages.length > 0 ? sessionMessages[sessionMessages.length - 1].id : '';
+    React.useEffect(() => {
+        if (activeDiffScope !== 'turn' || !currentSessionId || !visible) return;
+        let cancelled = false;
+        void opencodeClient.getSessionTurnDiff(currentSessionId, { directory: rootDirectory ?? undefined })
+            .then((files) => {
+                if (cancelled) return;
+                setLastTurnDiffs(files.map((entry) => ({
+                    file: entry.file,
+                    patch: entry.patch,
+                    status: entry.status,
+                    additions: entry.additions,
+                    deletions: entry.deletions,
+                })));
+            })
+            .catch((error) => {
+                if (cancelled) return;
+                console.warn('[diff-view] turn diff unavailable:', error instanceof Error ? error.message : error);
+                setLastTurnDiffs([]);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [activeDiffScope, currentSessionId, lastMessageId, rootDirectory, visible]);
 
     const lastTurnDiffData = React.useMemo(() => {
         const map = new Map<string, DiffData>();

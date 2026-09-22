@@ -17,21 +17,58 @@ animation. Do not restore separate draft and session composer branches:
 remounting the editor loses focus and interrupts the transition. Keep the
 existing mobile fixed-position rules unchanged.
 
-`ComposerFloatingPanel` is the shared frame for `BtwPanel` and
-`QueuedMessageChips`. They mount inside the composer form, outside both the
+`ComposerFloatingPanel` is the shared frame for `BtwPanel`, `PermissionDock`,
+`FormDock` and `QueuedMessageChips`. They mount inside the composer form, outside both the
 full editor and collapsed mobile pill, with one absolute `bottom-full`
 anchor, input-column width, gap, and glass surface. Appearing, disappearing,
 or collapsing a panel does not resize the transcript or composer.
 The frame also owns the header row through its `header` and `compact` props;
 callers supply controls and content, not their own header padding.
 
+`FormDock` is the agent's question (a v2 form request) for the composer's
+session, one field per step with a segment row, Back / Next, and Submit in
+place of Next on the last step; `when`-gated fields join or leave the steps
+as answers change, an `external` field is an information step, Enter in a
+text box moves to the next step and Cmd/Ctrl+Enter submits. Submit is
+enabled only once every question is answered; a submit with a required
+question still open jumps to it. It shows the
+oldest pending form and counts the rest in its header. The BTW sheet keeps
+the inline `FormCard` for its child session's forms; both render a field
+through `FormFieldControl`.
+
+`formCardState.ts` decides what both surfaces show and send, mirroring
+OpenCode's `Form.validateAnswer`: fields are evaluated in declaration order,
+a `when` clause reads only the answers of active earlier fields (an
+unanswered target is false for `eq` and `neq` alike, so hiding a field hides
+its whole chain of dependents), and the reply carries only active fields.
+An `external` field must be answered `true` or the server refuses the whole
+reply: the dock acknowledges it when its step opens, the card (all fields on
+screen) from the start, and an unacknowledged link counts as missing.
+
+An MCP elicitation is a form OpenCode files under the session id `global`
+(`LOCATION_SCOPED_FORM_SESSION_ID` in `sync-context.tsx`): it belongs to the
+directory, not to a turn. `useScopedBlockingForms` appends the directory's
+`global` forms after the session subtree's own, so the dock (and the BTW
+sheet's inline card) offer it from every session of that directory, and the
+reply resolves its directory from the store that holds the form.
+
+`PermissionDock` is the agent's permission requests for the composer's
+session, its subagents' included, in the same frame: one dot per pending
+request with the current one solid, the request's tool in the header, and
+Deny / Always allow / Allow once through the shared response hook, so
+Alt+Enter, Alt+Shift+Enter and Alt+Backspace answer the current request. A
+pending permission hides the form dock, the queue chips and the suggestion.
+The BTW sheet keeps the inline `PermissionCard` for its child session's
+requests; both render the request through `PermissionRequestContent` and
+`PermissionActions`.
+
 `SessionSuggestionChip` is not a frame: it renders as the composer's own top
 row, inside the box and inside the mobile pill, so the surface stays one
-shape. Visibility priority is BTW, then a nonempty queue, then suggestion.
-Every BTW frame, including its collapsed strip, creation state, and pending
-draft, hides the other two. Composer content also hides suggestion;
-new-session drafts hide both queue and suggestion. Hiding the queue does not
-pause its delivery.
+shape. Visibility priority is BTW, then a pending form, then a nonempty
+queue, then suggestion. Every BTW frame, including its collapsed strip,
+creation state, and pending draft, hides the other three. Composer content
+also hides suggestion; new-session drafts hide form, queue and suggestion.
+Hiding the queue does not pause its delivery.
 
 The queue header toggles an `aria-expanded` disclosure with the current count.
 Its open/closed state is one persisted preference in `useUIStore`

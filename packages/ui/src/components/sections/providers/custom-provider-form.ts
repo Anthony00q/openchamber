@@ -4,13 +4,18 @@
  * can be defined from Settings without code changes.
  */
 
+/**
+ * OpenCode 2 names a provider's SDK in `package`, and an AI SDK package carries
+ * the `aisdk:` prefix. `@ai-sdk/openai-compatible` is the default because that
+ * is what a self-hosted OpenAI-shaped endpoint needs.
+ */
 export const CUSTOM_PROVIDER_PROTOCOLS = {
-  'openai-chat': '@ai-sdk/openai-compatible',
-  'openai-responses': '@ai-sdk/openai',
-  'anthropic-messages': '@ai-sdk/anthropic',
+  'openai-chat': 'aisdk:@ai-sdk/openai-compatible',
+  'openai-responses': 'aisdk:@ai-sdk/openai',
+  'anthropic-messages': 'aisdk:@ai-sdk/anthropic',
 } as const;
 export type CustomProviderProtocol = keyof typeof CUSTOM_PROVIDER_PROTOCOLS;
-export type CustomProviderNpm = (typeof CUSTOM_PROVIDER_PROTOCOLS)[CustomProviderProtocol];
+export type CustomProviderPackage = (typeof CUSTOM_PROVIDER_PROTOCOLS)[CustomProviderProtocol];
 export const CUSTOM_PROVIDER_ID = '__custom_provider__';
 const PROVIDER_ID_PATTERN = /^[a-z0-9][a-z0-9-_]*$/;
 const BASE_URL_PATTERN = /^https?:\/\//;
@@ -61,14 +66,14 @@ export type HeaderFieldErrors = {
 };
 
 export type CustomProviderConfig = {
-  npm: CustomProviderNpm;
+  package: CustomProviderPackage;
   name: string;
   env?: string[];
-  options: {
+  settings: {
     baseURL: string;
-    headers?: Record<string, string>;
   };
-  models: Record<string, { name: string }>;
+  headers?: Record<string, string>;
+  models: Record<string, { modelID: string; name: string }>;
 };
 
 export type CustomProviderPersistPlan = {
@@ -104,8 +109,32 @@ export type ProviderLikeForCustomForm = {
   id: string;
   name?: string;
   env?: string[];
+  /** v2 spelling. */
+  package?: string;
+  settings?: Record<string, unknown> | null;
+  headers?: Record<string, string> | null;
+  /** v1 spelling, still read from older config entries. */
   options?: Record<string, unknown> | null;
-  models?: Array<{ id?: string; name?: string; api?: { npm?: string } }> | Record<string, unknown>;
+  models?:
+    | Array<{ id?: string; modelID?: string; name?: string; package?: string; api?: { npm?: string } }>
+    | Record<string, unknown>;
+};
+
+/** The SDK package of a provider or of one of its models, either spelling. */
+const readPackage = (
+  source: { package?: string; api?: { npm?: string } } | null | undefined,
+): string | undefined => {
+  if (!source) return undefined;
+  if (typeof source.package === 'string' && source.package) return source.package;
+  const npm = source.api?.npm;
+  return typeof npm === 'string' && npm ? `aisdk:${npm}` : undefined;
+};
+
+/** The provider's request settings, v2 `settings` first, v1 `options` after. */
+const readSettings = (provider: ProviderLikeForCustomForm): Record<string, unknown> => {
+  if (provider.settings && typeof provider.settings === 'object') return provider.settings;
+  if (provider.options && typeof provider.options === 'object') return provider.options;
+  return {};
 };
 
 let rowCounter = 0;
@@ -134,10 +163,12 @@ export const createEmptyCustomProviderForm = (): CustomProviderFormState => ({
   headers: [createHeaderRow()],
 });
 
-function protocolFromNpm(npm: string | undefined): CustomProviderProtocol {
-  switch (npm) {
+function protocolFromPackage(pkg: string | undefined): CustomProviderProtocol {
+  switch (pkg) {
+    case 'aisdk:@ai-sdk/openai':
     case '@ai-sdk/openai':
       return 'openai-responses';
+    case 'aisdk:@ai-sdk/anthropic':
     case '@ai-sdk/anthropic':
       return 'anthropic-messages';
     default:
@@ -159,9 +190,14 @@ function parseEnvApiKey(apiKey: string): { env?: string; key?: string } {
 }
 
 export function isCustomOpenAICompatibleProvider(provider: ProviderLikeForCustomForm): boolean {
-  const options = provider.options && typeof provider.options === 'object' ? provider.options : null;
-  const baseURL = typeof options?.baseURL === 'string' ? options.baseURL.trim() : '';
+  const settings = readSettings(provider);
+  const baseURL = typeof settings.baseURL === 'string' ? settings.baseURL.trim() : '';
   if (baseURL && BASE_URL_PATTERN.test(baseURL)) {
+    return true;
+  }
+
+  const knownPackages = new Set<string>(Object.values(CUSTOM_PROVIDER_PROTOCOLS));
+  if (knownPackages.has(readPackage(provider) ?? '')) {
     return true;
   }
 
@@ -175,10 +211,9 @@ export function isCustomOpenAICompatibleProvider(provider: ProviderLikeForCustom
     if (!model || typeof model !== 'object') {
       return false;
     }
-    const api = 'api' in model && model.api && typeof model.api === 'object'
-      ? model.api as { npm?: unknown }
-      : null;
-    return typeof api?.npm === 'string' && new Set<string>(Object.values(CUSTOM_PROVIDER_PROTOCOLS)).has(api.npm);
+    // SAFETY: only the two package spellings are read off the entry; anything
+    // else stays untouched.
+    return knownPackages.has(readPackage(model as { package?: string; api?: { npm?: string } }) ?? '');
   });
 }
 
@@ -225,46 +260,56 @@ export function resolveProviderConfigScope(
 }
 
 export function providerToCustomFormState(provider: ProviderLikeForCustomForm): CustomProviderFormState {
-  const options = provider.options && typeof provider.options === 'object' ? provider.options : {};
-  const baseURL = typeof options.baseURL === 'string' ? options.baseURL : '';
-  const headersRaw = options.headers && typeof options.headers === 'object' && !Array.isArray(options.headers)
-    ? options.headers as Record<string, unknown>
-    : {};
-  const headerRows = Object.entries(headersRaw)
+  const settings = readSettings(provider);
+  const baseURL = typeof settings.baseURL === 'string' ? settings.baseURL : '';
+  const headersSource = provider.headers && typeof provider.headers === 'object'
+    ? provider.headers
+    : (settings.headers && typeof settings.headers === 'object' && !Array.isArray(settings.headers)
+      ? settings.headers as Record<string, unknown>
+      : {});
+  const headerRows = Object.entries(headersSource)
     .filter((entry): entry is [string, string] => typeof entry[0] === 'string' && typeof entry[1] === 'string')
     .map(([key, value]) => ({ row: nextRow(), key, value }));
 
   const modelEntries = Array.isArray(provider.models)
     ? provider.models
     : (provider.models && typeof provider.models === 'object'
-      ? Object.entries(provider.models).map(([id, value]) => ({
-          id,
-          name: value && typeof value === 'object' && 'name' in value && typeof (value as { name?: unknown }).name === 'string'
-            ? (value as { name: string }).name
-            : id,
-        }))
+      ? Object.entries(provider.models).map(([id, value]) => {
+          const entry = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+          return {
+            id,
+            modelID: typeof entry.modelID === 'string' ? entry.modelID : id,
+            name: typeof entry.name === 'string' ? entry.name : id,
+            package: typeof entry.package === 'string' ? entry.package : undefined,
+          };
+        })
       : []);
 
   const models = modelEntries.length > 0
-    ? modelEntries.map((model) => ({
-        row: nextRow(),
-        id: typeof model?.id === 'string' ? model.id : '',
-        name: typeof model?.name === 'string' ? model.name : (typeof model?.id === 'string' ? model.id : ''),
-      }))
+    ? modelEntries.map((model) => {
+        const id = typeof model?.modelID === 'string' && model.modelID
+          ? model.modelID
+          : (typeof model?.id === 'string' ? model.id : '');
+        return {
+          row: nextRow(),
+          id,
+          name: typeof model?.name === 'string' ? model.name : id,
+        };
+      })
     : [createModelRow()];
 
   const envName = Array.isArray(provider.env)
     ? provider.env.find((entry) => typeof entry === 'string' && entry.trim().length > 0)?.trim()
     : undefined;
 
-  const modelWithApi = modelEntries.find(
-    (model): model is { id?: string; name?: string; api?: { npm?: string } } => 'api' in model,
-  );
+  const modelPackage = modelEntries
+    .map((model) => readPackage(model))
+    .find((pkg) => Boolean(pkg));
 
   return {
     providerID: provider.id,
     name: typeof provider.name === 'string' && provider.name.trim() ? provider.name : provider.id,
-    protocol: protocolFromNpm(modelWithApi?.api?.npm),
+    protocol: protocolFromPackage(readPackage(provider) ?? modelPackage),
     baseURL,
     apiKey: envName ? `{env:${envName}}` : '',
     models,
@@ -330,8 +375,12 @@ export function validateCustomProvider(input: ValidateCustomProviderInput): Vali
   });
 
   const modelsValid = modelErrors.every((entry) => !entry.id && !entry.name);
+  // v2 keeps the model id inside the entry too; the catalog reads `modelID`.
   const modelConfig = Object.fromEntries(
-    input.form.models.map((model) => [model.id.trim(), { name: model.name.trim() }]),
+    input.form.models.map((model) => {
+      const modelID = model.id.trim();
+      return [modelID, { modelID, name: model.name.trim() }];
+    }),
   );
 
   const seenHeaders = new Set<string>();
@@ -383,33 +432,52 @@ export function validateCustomProvider(input: ValidateCustomProviderInput): Vali
       providerID,
       name,
       apiKey: key,
-      config: {
-        npm: CUSTOM_PROVIDER_PROTOCOLS[input.form.protocol],
+      config: buildCustomProviderConfig({
+        protocol: input.form.protocol,
         name,
-        ...(env ? { env: [env] } : {}),
-        options: {
-          baseURL,
-          ...(Object.keys(headerConfig).length > 0 ? { headers: headerConfig } : {}),
-        },
+        env,
+        baseURL,
+        headers: headerConfig,
         models: modelConfig,
-      },
+      }),
     },
   };
 }
 
+function buildCustomProviderConfig(input: {
+  protocol: CustomProviderProtocol;
+  name: string;
+  env?: string;
+  baseURL: string;
+  headers: Record<string, string>;
+  models: Record<string, { modelID: string; name: string }>;
+}): CustomProviderConfig {
+  const config: CustomProviderConfig = {
+    package: CUSTOM_PROVIDER_PROTOCOLS[input.protocol],
+    name: input.name,
+    settings: { baseURL: input.baseURL },
+    models: input.models,
+  };
+  if (input.env) config.env = [input.env];
+  if (Object.keys(input.headers).length > 0) config.headers = input.headers;
+  return config;
+}
+
 /**
- * Builds the OpenCode auth.set request body when a literal API key is present.
+ * Builds the `integration.connect.key` request body when a literal API key is
+ * present. OpenCode v2 stores provider keys as integration credentials; there
+ * is no `auth.json` to write any more.
  */
-export function buildAuthSetRequest(plan: CustomProviderPersistPlan): {
-  providerID: string;
-  auth: { type: 'api'; key: string };
+export function buildIntegrationKeyRequest(plan: CustomProviderPersistPlan): {
+  integrationID: string;
+  key: string;
 } | null {
   if (!plan.apiKey) {
     return null;
   }
   return {
-    providerID: plan.providerID,
-    auth: { type: 'api', key: plan.apiKey },
+    integrationID: plan.providerID,
+    key: plan.apiKey,
   };
 }
 

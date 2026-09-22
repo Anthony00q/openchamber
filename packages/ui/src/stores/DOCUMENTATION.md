@@ -19,6 +19,21 @@ Do not put high-frequency local component state here just because it is convenie
 
 There are multiple store categories in this directory.
 
+### Catalog refresh
+
+`catalogRefresh.ts` re-reads the lists Settings and the composer show — agents,
+commands, skills, MCP servers, plugins, providers — when OpenCode reports that
+it rebuilt a catalog. The sync layer calls it from `reloadCatalog`; see
+`packages/ui/src/sync/DOCUMENTATION.md` for the kind-to-list table. There is no
+pending-restart queue: config mutations take effect as soon as OpenCode has
+re-read the file, and only the OpenCode binary path restarts the server.
+
+Plugin catalogs carry `loadedDirectory` and `loadedRuntimeKey`, the owner of
+the installed list. The editor waits for that directory's catalog before hydrating a draft;
+plugin IDs alone are not unique across projects. Catalog requests and their
+TTL caches are scoped by runtime and directory. A response for a superseded
+owner cannot replace the catalog or finish the current owner's loading state.
+
 ### Feature cache / query stores
 
 PR status reads share the aggregate background-network budget as well as their PR-specific cap. Command discovery gates each scope/config read, including body decoding, rather than only gating the initial SDK list. Command reads have a bounded deadline and abort on runtime reset. Reset clears server-derived command caches and invalidates late reads and mutation responses while preserving unsaved command drafts.
@@ -41,6 +56,20 @@ and generation checks prevent their completions from changing the next runtime.
 request, including JSON body delivery. Compact usage cards and Settings display
 refresh errors alongside retained data. The mobile popover makes at most one
 refresh attempt per opening, so a failed first load cannot create a retry loop.
+
+`useSmallModelStore` answers one question: can OpenChamber's background model
+(the Small Model) run right now? `GET /api/small-model` says `available: false`
+on, for instance, a fresh install on OpenCode's free tier, where chat works but
+a stateless generation has nothing to run on. Session renaming, the session goal
+and the walkthrough depend on it, so their entry points read the store through
+`hooks/useSmallModelAvailability` and show a disabled control with the reason
+instead of failing after the click. Cached per runtime + directory for a
+minute, refetched only while the control that asks is open; a config change
+(provider login, settings save) or a runtime switch drops every answer. A failed
+or malformed fetch keeps the previous answer: an unreachable server is not
+evidence that the model went away. Callers with a graceful fallback (a note kept
+verbatim, a reply spoken in full) do not consult it; they silence the 404 on
+`requestSmallModel` instead.
 
 ### UI state stores
 
@@ -376,6 +405,32 @@ Each of them therefore keeps two things:
   `skillsByDirectory`, `serversByDirectory`, `directoryScoped`);
 - a flat mirror (`agents`, `commands`, `skills`, `mcpServers`, `providers`) that
   tracks the **active** project only.
+
+#### What they hold: OpenCode 2 entity shapes
+
+The mutation payloads these stores send are the v2 entities documented in
+`packages/web/server/lib/opencode/DOCUMENTATION.md` ("Entity routes (v2
+shapes)"). Agents carry `system`, `steps`, `request.body.temperature` /
+`top_p`, a joined `provider/model#variant` string and an ordered `permissions`
+rule list; commands carry `template` and `subagent`; MCP servers carry
+`disabled`, `codemode` and `timeout: { startup, catalog, execution }`.
+
+Two rules follow from the routes:
+
+- **The list is not the config.** `opencodeClient.listAgents` answers OpenCode's
+  RESOLVED `AgentInfo` (built-in defaults and global config already merged), and
+  the v2 `CommandInfo` carries only a name and a description. Anything that
+  edits, duplicates or renames an entity reads its own stored entry instead:
+  `useAgentsStore.fetchAgentEntity` / `fetchAgentPermissions`, and the
+  per-command `…/config` read inside `useCommandsStore.loadCommands`.
+- **`request` and `permissions` are replaced wholesale by a PATCH.** A caller
+  must send the full block it wants persisted; sending only the field it changed
+  drops the rest.
+
+Config reads also report `legacy: true` when the entity's file still uses v1
+spellings, and mutations answer with the `path` they wrote. The stores surface
+`legacy` and `path` on the entity so a page can show the quiet note; no file is
+ever moved.
 
 Thinking variants keep the effective value in `currentVariant` so existing send
 paths capture a stable configuration. `currentVariantSelection` says where that

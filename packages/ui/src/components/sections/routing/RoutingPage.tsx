@@ -183,6 +183,7 @@ export const RoutingPage: React.FC = () => {
   const available = useRoutingStore((state) => state.available);
   const autoReady = useRoutingStore((state) => state.autoReady);
   const tokenPresent = useRoutingStore((state) => state.tokenPresent);
+  const jevSource = useRoutingStore((state) => state.jevSource);
   const serverConfig = useRoutingStore((state) => state.config);
   const builtins = useRoutingStore((state) => state.builtins);
   const loaded = useRoutingStore((state) => state.loaded);
@@ -345,9 +346,7 @@ export const RoutingPage: React.FC = () => {
   const enabledCount = draft?.categories.filter((category) => category.enabled).length ?? 0;
   const removedBuiltins = builtins.filter((builtin) => !draft?.categories.some((category) => category.id === builtin.id));
 
-  const readinessText = !tokenPresent
-    ? t('settings.routing.status.noToken')
-    : !draft?.enabled
+  const readinessText = !draft?.enabled
       ? t('settings.routing.status.disabled')
       : !draft.fallback
         ? t('settings.routing.status.noFallback')
@@ -368,10 +367,12 @@ export const RoutingPage: React.FC = () => {
         <p className={SETTINGS_DESCRIPTION_CLASS}>{t('settings.routing.unavailable')}</p>
       ) : (
         <>
-          <SettingsSection title={t('settings.routing.token.title')} divider={false}>
+          <SettingsSection title={t('settings.routing.access.title')} divider={false}>
             <div className={SETTINGS_FIELDS_STACK_CLASS}>
+              <p className={SETTINGS_HELPER_CLASS}>{t('settings.routing.access.intro')}</p>
+              {/* Which endpoint is answering right now, and — on the free one — whose promotion it is and that it ends. */}
               <p className={SETTINGS_HELPER_CLASS}>
-                {tokenPresent ? t('settings.routing.token.present') : t('settings.routing.token.missing')}
+                {jevSource === 'typesafe' ? t('settings.routing.access.usingKey') : t('settings.routing.access.usingFree')}
               </p>
               <SettingsFieldRow
                 settingsItem="routing.token"

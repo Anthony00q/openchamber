@@ -51,11 +51,12 @@ describe('OpenCode upgrade routes', () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
-  it('reports bundled update ownership through the capability contract', async () => {
-    globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ healthy: true, version: '1.18.8' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    }));
+  it('never announces a newer version for a bundled binary: it updates with the desktop app', async () => {
+    globalThis.fetch = vi.fn(async (url) => {
+      if (String(url).includes('registry.npmjs.org')) return jsonResponse({ version: '2.0.3' });
+      if (String(url).includes('api.github.com')) return jsonResponse({ tag_name: 'v2.0.3' });
+      return jsonResponse({ version: '1.18.8', pid: 1, urls: [], paths: { tmp: '/tmp' } });
+    });
     const { app } = createApp();
 
     const response = await request(app)
@@ -65,7 +66,7 @@ describe('OpenCode upgrade routes', () => {
     expect(response.body).toEqual({
       available: false,
       currentVersion: '1.18.8',
-      latestVersion: null,
+      latestVersion: '2.0.3',
       upgrade: {
         supported: false,
         manager: 'openchamber',
@@ -74,124 +75,35 @@ describe('OpenCode upgrade routes', () => {
     });
   });
 
-  it('names the latest release as the upgrade target when the caller sends none', async () => {
-    const requests = [];
-    globalThis.fetch = vi.fn(async (url, init) => {
-      requests.push({ url: String(url), body: init?.body ? JSON.parse(init.body) : null });
-      if (String(url).includes('registry.npmjs.org')) {
-        return jsonResponse({ version: '1.18.23' });
-      }
-      if (String(url).includes('api.github.com')) {
-        return jsonResponse({ tag_name: 'v1.18.23' });
-      }
-      return jsonResponse({ success: true, version: '1.18.23' });
-    });
-    const { app } = createApp({ getOpenCodeUpgradeCapability: () => supportedCapability });
-
-    await request(app)
-      .post('/api/opencode/upgrade')
-      .send({})
-      .expect(200, { success: true, version: '1.18.23', restarted: true });
-
-    const upgradeRequest = requests.find((entry) => entry.url.includes('/global/upgrade'));
-    expect(upgradeRequest?.body).toEqual({ target: '1.18.23' });
-  });
-
-  it('keeps an explicitly requested target instead of resolving the latest release', async () => {
-    const requests = [];
-    globalThis.fetch = vi.fn(async (url, init) => {
-      requests.push({ url: String(url), body: init?.body ? JSON.parse(init.body) : null });
-      return jsonResponse({ success: true, version: '1.18.20' });
-    });
-    const { app } = createApp({ getOpenCodeUpgradeCapability: () => supportedCapability });
-
-    await request(app)
-      .post('/api/opencode/upgrade')
-      .send({ target: '1.18.20' })
-      .expect(200);
-
-    expect(requests).toHaveLength(1);
-    expect(requests[0].url).toContain('/global/upgrade');
-    expect(requests[0].body).toEqual({ target: '1.18.20' });
-  });
-
-  it('fails without calling the updater when the latest release cannot be resolved', async () => {
-    globalThis.fetch = vi.fn(async (url) => {
-      if (String(url).includes('/global/upgrade')) {
-        throw new Error('the updater must not be called without a target');
-      }
-      return new Response('nope', { status: 503 });
-    });
+  it('tells the user to run OpenCode\'s own installer, and contacts nothing', async () => {
+    // v1 exposed `POST /global/upgrade` and OpenChamber drove it from Settings.
+    // OpenCode 2 has no upgrade route, so the honest answer is what to do next.
+    globalThis.fetch = vi.fn();
     const { app, dependencies } = createApp({ getOpenCodeUpgradeCapability: () => supportedCapability });
 
     const response = await request(app)
       .post('/api/opencode/upgrade')
       .send({})
-      .expect(502);
+      .expect(409);
 
-    expect(response.body.success).toBe(false);
-    expect(response.body.code).toBe('OPENCODE_UPGRADE_TARGET_UNRESOLVED');
-    expect(response.body.error).toContain('Could not determine which OpenCode version to install');
+    expect(response.body).toMatchObject({
+      success: false,
+      code: 'OPENCODE_UPGRADE_UNSUPPORTED',
+    });
+    expect(response.body.error).toMatch(/installer/i);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
     expect(dependencies.refreshOpenCodeAfterConfigChange).not.toHaveBeenCalled();
   });
 
-  it('surfaces the rejection OpenCode reported instead of the bare HTTP status', async () => {
-    globalThis.fetch = vi.fn(async (url) => {
-      if (String(url).includes('/global/upgrade')) {
-        return jsonResponse(
-          { name: 'BadRequest', data: { message: 'Expected a semantic version', kind: 'Payload' } },
-          400,
-        );
-      }
-      return jsonResponse({ version: '1.18.23' });
-    });
+  it('ignores an explicitly requested target, because there is nothing to drive', async () => {
+    globalThis.fetch = vi.fn();
     const { app } = createApp({ getOpenCodeUpgradeCapability: () => supportedCapability });
 
     await request(app)
       .post('/api/opencode/upgrade')
-      .send({})
-      .expect(400, { success: false, error: 'Expected a semantic version' });
-  });
+      .send({ target: '2.1.0' })
+      .expect(409);
 
-  it('serializes supported upgrades and preserves the in-flight lock', async () => {
-    let releaseUpgrade;
-    const upstreamResponse = new Promise((resolve) => {
-      releaseUpgrade = () => resolve(jsonResponse({ success: true, version: '1.18.9' }));
-    });
-    const upgradeCalls = vi.fn();
-    globalThis.fetch = vi.fn((url) => {
-      if (String(url).includes('/global/upgrade')) {
-        upgradeCalls();
-        return upstreamResponse;
-      }
-      return Promise.resolve(jsonResponse({ version: '1.18.9' }));
-    });
-    const { app, dependencies } = createApp({ getOpenCodeUpgradeCapability: () => supportedCapability });
-
-    const first = request(app)
-      .post('/api/opencode/upgrade')
-      .send({})
-      .expect(200, {
-        success: true,
-        version: '1.18.9',
-        restarted: true,
-      })
-      .then((response) => response);
-    await vi.waitFor(() => {
-      expect(upgradeCalls).toHaveBeenCalledTimes(1);
-    });
-
-    await request(app)
-      .post('/api/opencode/upgrade')
-      .send({})
-      .expect(409, {
-        success: false,
-        code: 'OPENCODE_UPGRADE_IN_PROGRESS',
-        error: 'An OpenCode upgrade is already in progress.',
-      });
-
-    releaseUpgrade();
-    await first;
-    expect(dependencies.refreshOpenCodeAfterConfigChange).toHaveBeenCalledTimes(1);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 });

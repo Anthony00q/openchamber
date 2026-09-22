@@ -56,10 +56,10 @@ type GroupProps = Pick<SessionGroupSectionProps,
   | 'collapsedGroups' | 'hideDirectoryControls' | 'mobileVariant' | 'alwaysShowActions'
   | 'activeProjectId' | 'notifyOnSubtasks' | 'expandedParents' | 'editTitle'
   | 'editingRowKey'
-  | 'copiedSessionId' | 'folderRename' | 'setFolderRenameDraft' | 'clearFolderRename'
+  | 'folderRename' | 'setFolderRenameDraft' | 'clearFolderRename'
   | 'setEditingId' | 'setEditingRowKey' | 'setEditTitle' | 'toggleParent' | 'allowReselect'
   | 'onSessionSelected' | 'resetSessionSearch' | 'deleteSessionConfirm'
-  | 'setDeleteSessionConfirm' | 'startFolderRename' | 'setCopiedSessionId'
+  | 'setDeleteSessionConfirm' | 'startFolderRename'
   | 'startSessionWorktreeMenuLoad'
 > & { pinnedSessionIds: Set<string>; sessionOrderIndex: Map<string, number> };
 
