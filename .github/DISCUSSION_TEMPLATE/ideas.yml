@@ -4,11 +4,13 @@ body:
   - type: markdown
     attributes:
       value: |
-        Write this the way you'd explain it to a friend, in your own words. Short is good.
+        **Discussions are for people, and they happen before the code.** The point of this place is to work out *what* to build and *how it should behave* while that's still an open question. Once you've written the implementation, that question is closed: a post describing what you already built isn't a discussion, it's a report, and there's nothing left for anyone to decide.
 
-        We read every idea here, so what we need is the problem, not a specification. A post that opens with what the feature does and how it's built gives us nothing to discuss: the decision has already been made by then, and the only thing left is yes or no.
+        So a generated summary of finished code posted here gets closed, and so does the PR behind it. Not because it's AI-written, we all use AI. Because it arrives after the only moment when talking would have changed anything, and it asks a maintainer to rubber-stamp a decision you made alone.
 
-        If an AI agent drafted this for you, read it back first. If it doesn't sound like a person describing an annoyance, rewrite it.
+        Write it while you're still annoyed and haven't built anything: what you were trying to do, what got in your way, what you'd want instead. One honest paragraph in your own words. That we can actually discuss.
+
+        Have an idea of how you'd implement it, or something already sketched out on a branch? Bring it, that's genuinely useful. Bring it as a question though: here's how I'd do it, does that shape work for you? A branch you're willing to change is a proposal. A PR with a finished report attached is not.
 
   - type: textarea
     id: problem
@@ -50,4 +52,4 @@ body:
   - type: markdown
     attributes:
       value: |
-        Already have a PR open? Say so above and link it, but still describe the problem here in your own words. The PR shows what you built; this post is where we work out whether it's the right thing to build.
+        Already opened a PR before reading this? Link it above and still describe the problem here in your own words, as a question rather than a summary. The PR shows what you built; this post is where we work out whether it's the right thing to build.

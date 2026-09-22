@@ -8,12 +8,18 @@ merged, and a typical merged PR is around 200 lines.
 New features, changes to how something behaves for users, or reworks of how a
 module is put together: start an
 [Ideas discussion](https://github.com/openchamber/openchamber/discussions/categories/ideas)
-first. Start with the problem, in your own words: what you were trying to do,
-what got in the way, what you'd like to happen instead. A screenshot or a rough
-mockup helps more than a specification, and a post that opens with what the
-feature does and how it's built leaves nothing to discuss. Product decisions
-happen there, before anyone writes code, so you don't spend a week on something
-we can't take. Once it's agreed, build it and link the discussion from the PR.
+first, and start it before the code. Say what you were trying to do, what got
+in your way, and what you'd want instead, in your own words. A screenshot or a
+rough mockup helps more than a specification.
+
+A post describing something you already built is a report, not a discussion:
+the decision is made by then, and it gets closed along with the PR behind it.
+Not because it was drafted by an AI, we all use AI, but because it arrives
+after the only moment when talking would have changed anything. If you have an
+idea of how you'd implement it, or a branch already sketched out, bring it as a
+question: here's how I'd do it, does that shape work? A branch you're willing
+to change is a proposal. Once the shape is agreed, build it and link the
+discussion from the PR.
 
 A large PR with no discussion behind it gets a `needs-discussion` label and a
 comment asking for one. It stays parked until the discussion exists. Nobody is
