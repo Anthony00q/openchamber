@@ -26,6 +26,22 @@ decision, with no discussion behind it and no maintainer go-ahead, is not
 getting reviewed, whatever shape the code is in. That "yes, go ahead" is the
 thing that makes it worth your evening.
 
+**What counts as a product decision?** Anything where two reasonable people
+could disagree about whether it should exist or how it should behave. In
+practice: a new button, panel, setting or command; a changed default; a
+shortcut or gesture that now does something else; different wording, ordering
+or grouping in the UI; anything that turns existing behavior on or off for
+everyone. Also removing or working around behavior the code marks as
+deliberate: if a comment says something is skipped on purpose, then "is that
+actually a bug?" is a product question, and it comes first.
+
+Not a product decision: a crash, wrong data, something that doesn't work the
+way it plainly says it does, a performance fix that keeps behavior identical.
+Those are bugs. Just open the PR.
+
+Not sure? Ask in the discussion first. It costs you one paragraph and saves
+you the whole pull request.
+
 A large PR with no discussion behind it gets a `needs-discussion` label and a
 comment asking for one. It stays parked until the discussion exists. Nobody is
 shooing you away, we just can't review a product decision inside a 3,000-line

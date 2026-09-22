@@ -151,3 +151,21 @@ Before creating or updating a pull request, read `CONTRIBUTING.md` and
 current evidence for the final PR HEAD; do not make the reviewer reconstruct
 intent, affected surfaces, validation, visual behavior, or failure and
 rollback considerations from the diff alone.
+
+A change that carries a **product decision** needs an agreed
+[Ideas discussion](https://github.com/openchamber/openchamber/discussions/categories/ideas)
+before the code, linked from the pull request. Without the maintainer's go-ahead
+such a pull request is not reviewed, and a discussion opened afterwards to
+describe finished work is closed along with it. A product decision is anything
+where two reasonable people could disagree about whether it should exist or how
+it should behave: a new button, panel, setting or command; a changed default; a
+shortcut or gesture that now does something else; different wording, ordering or
+grouping in the UI; anything that turns existing behavior on or off for everyone.
+Removing or bypassing behavior the code marks as deliberate is one too, and there
+the first question is whether it is a defect at all. A crash, wrong data,
+behavior that contradicts what it plainly claims, or a performance fix that keeps
+behavior identical is a bug: open the pull request. When the call is unclear, ask
+in a discussion before building.
+
+This applies to work done for the maintainer as well: raise the product question
+in the session instead of deciding it inside the diff.
