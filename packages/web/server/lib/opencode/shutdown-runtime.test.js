@@ -1,45 +1,51 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import http from 'node:http';
+import net from 'node:net';
+import { once } from 'node:events';
 
 import { createGracefulShutdownRuntime } from './shutdown-runtime.js';
 
-const createRuntime = (server, overrides = {}) => createGracefulShutdownRuntime({
-  process: { exit: vi.fn() },
-  shutdownTimeoutMs: 1000,
-  getExitOnShutdown: () => false,
-  getIsShuttingDown: () => false,
-  setIsShuttingDown: vi.fn(),
-  syncToHmrState: vi.fn(),
-  openCodeWatcherRuntime: { stop: vi.fn() },
-  sessionRuntime: { dispose: vi.fn() },
-  scheduledTasksRuntime: { stop: vi.fn() },
-  getHealthCheckInterval: () => null,
-  clearHealthCheckInterval: vi.fn(),
-  getTerminalRuntime: () => null,
-  setTerminalRuntime: vi.fn(),
-  getMessageStreamRuntime: () => null,
-  setMessageStreamRuntime: vi.fn(),
-  shouldSkipOpenCodeStop: () => true,
-  getOpenCodePort: () => null,
-  getOpenCodeProcess: () => null,
-  setOpenCodeProcess: vi.fn(),
-  killProcessOnPort: vi.fn(),
-  waitForPortRelease: vi.fn(async () => true),
-  getServer: () => server,
-  getUiAuthController: () => null,
-  setUiAuthController: vi.fn(),
-  getActiveTunnelController: () => null,
-  setActiveTunnelController: vi.fn(),
-  tunnelAuthController: { clearActiveTunnel: vi.fn() },
-  beginGuestServiceShutdown: vi.fn(),
-  stopAllGuestServices: vi.fn(),
-  getGuestSurfaceRuntime: () => null,
-  getRealtimeProxyRuntime: () => null,
-  getDictationRuntime: () => null,
-  getRelayService: () => null,
-  getRelayReconcileTimer: () => null,
-  ...overrides,
-});
+const createRuntime = (server, overrides = {}) => {
+  const runtime = createGracefulShutdownRuntime({
+    process: { exit: vi.fn() },
+    shutdownTimeoutMs: 1000,
+    getExitOnShutdown: () => false,
+    getIsShuttingDown: () => false,
+    setIsShuttingDown: vi.fn(),
+    syncToHmrState: vi.fn(),
+    openCodeWatcherRuntime: { stop: vi.fn() },
+    sessionRuntime: { dispose: vi.fn() },
+    scheduledTasksRuntime: { stop: vi.fn() },
+    getHealthCheckInterval: () => null,
+    clearHealthCheckInterval: vi.fn(),
+    getTerminalRuntime: () => null,
+    setTerminalRuntime: vi.fn(),
+    getMessageStreamRuntime: () => null,
+    setMessageStreamRuntime: vi.fn(),
+    shouldSkipOpenCodeStop: () => true,
+    getOpenCodePort: () => null,
+    getOpenCodeProcess: () => null,
+    setOpenCodeProcess: vi.fn(),
+    killProcessOnPort: vi.fn(),
+    waitForPortRelease: vi.fn(async () => true),
+    getServer: () => server,
+    getUiAuthController: () => null,
+    setUiAuthController: vi.fn(),
+    getActiveTunnelController: () => null,
+    setActiveTunnelController: vi.fn(),
+    tunnelAuthController: { clearActiveTunnel: vi.fn() },
+    beginGuestServiceShutdown: vi.fn(),
+    stopAllGuestServices: vi.fn(),
+    getGuestSurfaceRuntime: () => null,
+    getRealtimeProxyRuntime: () => null,
+    getDictationRuntime: () => null,
+    getRelayService: () => null,
+    getRelayReconcileTimer: () => null,
+    ...overrides,
+  });
+  if (server instanceof http.Server) runtime.trackServerConnections(server);
+  return runtime;
+};
 
 describe('graceful shutdown runtime', () => {
   afterEach(() => {
@@ -70,6 +76,7 @@ describe('graceful shutdown runtime', () => {
       response.writeHead(200, { 'content-type': 'text/event-stream' });
       response.write('data: fixture\n\n');
     });
+    const runtime = createRuntime(server);
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
     const request = http.get(`http://127.0.0.1:${server.address().port}`);
     request.on('error', () => {});
@@ -78,12 +85,104 @@ describe('graceful shutdown runtime', () => {
     const closed = new Promise((resolve) => response.once('close', resolve));
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      await createRuntime(server).gracefulShutdown({ exitProcess: false });
+      await runtime.gracefulShutdown({ exitProcess: false });
       expect(warning).not.toHaveBeenCalledWith('Server close timeout reached, forcing shutdown');
       await closed;
     } finally {
       request.destroy();
       server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  it.each([false, true])('closes upgraded sockets without the HTTP timeout (handshake completed: %s)', async (completeHandshake) => {
+    const server = http.createServer();
+    const runtime = createRuntime(server);
+    const sockets = new Set();
+    server.on('upgrade', (_request, socket) => {
+      sockets.add(socket);
+      if (completeHandshake) {
+        socket.write('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n');
+      }
+      // A listener for another WS route can leave the upgrade unanswered.
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const client = net.connect(server.address().port, '127.0.0.1');
+    client.on('error', () => {});
+    client.resume();
+    const clientClosed = once(client, 'close');
+    const upgraded = once(server, 'upgrade');
+    client.write('GET /api/global/event/ws HTTP/1.1\r\nHost: localhost\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n');
+    await upgraded;
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await runtime.gracefulShutdown({ exitProcess: false });
+      expect(warning).not.toHaveBeenCalledWith('Server close timeout reached, forcing shutdown');
+      await clientClosed;
+      const connections = await new Promise((resolve, reject) => {
+        server.getConnections((error, count) => error ? reject(error) : resolve(count));
+      });
+      expect(connections).toBe(0);
+    } finally {
+      for (const socket of sockets) socket.destroy();
+      client.destroy();
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  it('drains processes before closing sockets accepted during cleanup, including after a cleanup failure', async () => {
+    const server = http.createServer();
+    const cleanupStarted = Promise.withResolvers();
+    const finishCleanup = Promise.withResolvers();
+    const sockets = new Set();
+    const clients = [];
+    server.on('upgrade', (_request, socket) => sockets.add(socket));
+    const terminalShutdown = vi.fn(async () => {
+      expect([...sockets].every((socket) => !socket.destroyed)).toBe(true);
+    });
+    const processClose = vi.fn(async () => {
+      expect(terminalShutdown).toHaveBeenCalledOnce();
+      expect([...sockets].every((socket) => !socket.destroyed)).toBe(true);
+    });
+    const runtime = createRuntime(server, {
+      stopAllGuestServices: async () => {
+        cleanupStarted.resolve();
+        await finishCleanup.promise;
+        throw new Error('fixture cleanup failure');
+      },
+      getTerminalRuntime: () => ({ shutdown: terminalShutdown }),
+      shouldSkipOpenCodeStop: () => false,
+      getOpenCodeProcess: () => ({ close: processClose }),
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const shutdown = runtime.gracefulShutdown({ exitProcess: false });
+    expect(runtime.gracefulShutdown({ exitProcess: false })).toBe(shutdown);
+    await cleanupStarted.promise;
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const closed = [];
+      for (let index = 0; index < 8; index += 1) {
+        const client = net.connect(server.address().port, '127.0.0.1');
+        clients.push(client);
+        client.resume();
+        closed.push(once(client, 'close'));
+        const upgraded = once(server, 'upgrade');
+        client.write('GET /api/global/event/ws HTTP/1.1\r\nHost: localhost\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n');
+        await upgraded;
+      }
+      expect(sockets.size).toBe(8);
+      expect(processClose).not.toHaveBeenCalled();
+      finishCleanup.resolve();
+      await shutdown;
+      expect(processClose).toHaveBeenCalledOnce();
+      expect(warning).not.toHaveBeenCalledWith('Server close timeout reached, forcing shutdown');
+      await Promise.all(closed);
+      expect(server.listening).toBe(false);
+    } finally {
+      finishCleanup.resolve();
+      for (const socket of sockets) socket.destroy();
+      for (const client of clients) client.destroy();
+      await shutdown;
       await new Promise((resolve) => server.close(resolve));
     }
   });

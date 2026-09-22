@@ -701,9 +701,10 @@ headers }` or v1 `{ npm, options }`. The stored entry is always a
 ## Public exports (shutdown-runtime.js)
 - `createGracefulShutdownRuntime(dependencies)`: creates graceful shutdown runtime for managed OpenCode and web server teardown sequencing.
 - Daemon signals, `POST /api/system/shutdown`, and embedded `stop()` share one shutdown promise. Guest admission closes synchronously before any await. Cleanup stops the relay reconciliation timer, guest viewers, realtime proxy, relay host, dictation worker and session runtimes before draining guest services, including pending starts. Each cleanup is best-effort and runs once per shutdown, including after partial startup. A hard kill still requires the separate crash/SIGKILL recovery work; no persistent registry or boot reaper is provided here.
-- After stopping owned runtimes and OpenCode, HTTP shutdown closes active connections as well as the listener. A remaining SSE response must not hold Desktop open until its fallback deadline. Upgraded sockets remain the responsibility of their owning runtime.
+- Register TCP connection tracking before the HTTP server starts listening. After stopping owned runtimes and OpenCode, HTTP shutdown closes the listener and all remaining sockets, including WebSocket upgrades and unanswered upgrade requests accepted during cleanup. This prevents client reconnects from holding Desktop open until the HTTP close deadline. Each runtime still owns its protocol cleanup; socket teardown runs afterwards and preserves the existing terminal and process grace periods.
 - Returned API:
   - `gracefulShutdown(options?)`
+  - `trackServerConnections(server)`: call once before listening; closed sockets leave the tracking set, and the server close event removes the connection listener.
 
 ## Public exports (server-startup-runtime.js)
 - `createServerStartupRuntime(dependencies)`: creates runtime for server bind/startup tunnel and process handler wiring.

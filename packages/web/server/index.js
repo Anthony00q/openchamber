@@ -1879,6 +1879,7 @@ async function main(options = {}) {
   }));
   expressApp = app;
   server = http.createServer(app);
+  gracefulShutdownRuntime.trackServerConnections(server);
   // Same pattern for the tunnel runtime: created after the base routes so
   // /api/system/info resolves port + tunnel URL lazily at request time.
   let tunnelRuntimeContextHolder = null;
