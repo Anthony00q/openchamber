@@ -21,6 +21,11 @@ question: here's how I'd do it, does that shape work? A branch you're willing
 to change is a proposal. Once the shape is agreed, build it and link the
 discussion from the PR.
 
+Wait for the answer before you build. A pull request that carries a product
+decision, with no discussion behind it and no maintainer go-ahead, is not
+getting reviewed, whatever shape the code is in. That "yes, go ahead" is the
+thing that makes it worth your evening.
+
 A large PR with no discussion behind it gets a `needs-discussion` label and a
 comment asking for one. It stays parked until the discussion exists. Nobody is
 shooing you away, we just can't review a product decision inside a 3,000-line
@@ -177,9 +182,10 @@ Before opening a pull request:
 
 1. For anything that is not a bug fix or a small improvement, make sure the
    [Ideas discussion](https://github.com/openchamber/openchamber/discussions/categories/ideas)
-   happened first and link it. Opening one after the implementation, to
-   describe what you already built, closes the post and this pull request
-   with it.
+   happened first, that a maintainer said go ahead, and link it. Opening one
+   after the implementation, to describe what you already built, closes the
+   post and this pull request with it; opening the pull request without the
+   go-ahead means nobody reviews it.
 2. Read [`AGENTS.md`](./AGENTS.md), every project skill matching the character
    of the change, and the nearest package README and module `DOCUMENTATION.md`.
 3. Keep the change focused. Separate unrelated cleanup or refactors.

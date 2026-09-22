@@ -8,7 +8,12 @@ summary of this PR. A discussion opened after the implementation, describing
 what you already built, closes together with the PR behind it, because it
 arrives after the only moment when talking could have changed anything.
 Without a discussion at all, a large PR gets parked with `needs-discussion`
-until the product side is settled. See CONTRIBUTING.md.
+until the product side is settled.
+
+A PR that carries a product decision with no discussion behind it and no
+maintainer go-ahead is not getting reviewed. Don't spend the evening on it. A "yes, go ahead"
+from a maintainer in the discussion is what makes the PR worth writing.
+See CONTRIBUTING.md.
 
 Keep one change per PR. Unrelated fixes in the same diff wait for the biggest one.
 Size labels count changed lines without tests, lockfiles, translation catalogs

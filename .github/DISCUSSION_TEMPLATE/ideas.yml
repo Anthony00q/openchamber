@@ -12,6 +12,8 @@ body:
 
         Have an idea of how you'd implement it, or something already sketched out on a branch? Bring it, that's genuinely useful. Bring it as a question though: here's how I'd do it, does that shape work for you? A branch you're willing to change is a proposal. A PR with a finished report attached is not.
 
+        Then wait for the answer before you build. A pull request that carries a product decision, with no discussion behind it and no maintainer go-ahead, is not getting reviewed, whatever shape the code is in.
+
   - type: textarea
     id: problem
     attributes:
