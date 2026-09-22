@@ -1140,6 +1140,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.selectLightThemeAria': 'Wybierz jasny motyw',
   'settings.openchamber.visual.field.selectOrientationPlaceholder': 'Wybierz orientację',
   'settings.openchamber.visual.field.selectThemePlaceholder': 'Wybierz motyw',
+  'settings.openchamber.visual.field.searchThemes': 'Szukaj motywów...',
+  'settings.openchamber.visual.field.noThemesFound': 'Nie znaleziono motywów.',
   'settings.openchamber.visual.field.selectTimeFormatAria': 'Wybierz format czasu',
   'settings.openchamber.visual.field.selectWeekStartAria': 'Wybierz początek tygodnia',
   'settings.openchamber.visual.field.sendAnonymousUsageReports': 'Przesyłaj anonimowe raporty z użytkowania',

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ThemeImportButton } from './ThemeImportButton';
-import { ThemeSelectItem } from './ThemeSelectItem';
+import { ThemePicker } from './ThemePicker';
 
 import { useThemeSystem } from '@/contexts/useThemeSystem';
 import type { ThemeMode } from '@/types/theme';
@@ -677,6 +677,16 @@ export const OpenChamberVisualSettings: React.FC<OpenChamberVisualSettingsProps>
         return themeName.endsWith(suffix) ? themeName.slice(0, -suffix.length) : themeName;
     }, []);
 
+    const lightThemeOptions = React.useMemo(
+        () => lightThemes.map((theme) => ({ id: theme.metadata.id, label: formatThemeLabel(theme.metadata.name, 'light') })),
+        [lightThemes, formatThemeLabel],
+    );
+
+    const darkThemeOptions = React.useMemo(
+        () => darkThemes.map((theme) => ({ id: theme.metadata.id, label: formatThemeLabel(theme.metadata.name, 'dark') })),
+        [darkThemes, formatThemeLabel],
+    );
+
     const shouldShow = (setting: VisibleSetting): boolean => {
         if (setting === 'enterToSend' && isMobile) return false;
         if (!visibleSettings) return true;
@@ -943,39 +953,25 @@ export const OpenChamberVisualSettings: React.FC<OpenChamberVisualSettingsProps>
                                             label={t('settings.openchamber.visual.field.lightTheme')}
                                             settingsItem="appearance.light-theme"
                                         >
-                                            <Select value={selectedLightTheme?.metadata.id ?? ''} onValueChange={setLightThemePreference}>
-                                                <SelectTrigger aria-label={t('settings.openchamber.visual.field.selectLightThemeAria')} size={SETTINGS_SELECT_SIZE} className={SETTINGS_SELECT_TRIGGER_CLASS}>
-                                                    <SelectValue placeholder={t('settings.openchamber.visual.field.selectThemePlaceholder')}>
-                                                        {selectedLightTheme
-                                                            ? formatThemeLabel(selectedLightTheme.metadata.name, 'light')
-                                                            : undefined}
-                                                    </SelectValue>
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {lightThemes.map((theme) => (
-                                                        <ThemeSelectItem key={theme.metadata.id} id={theme.metadata.id} label={formatThemeLabel(theme.metadata.name, 'light')} />
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <ThemePicker
+                                                options={lightThemeOptions}
+                                                value={selectedLightTheme?.metadata.id ?? ''}
+                                                onValueChange={setLightThemePreference}
+                                                placeholder={t('settings.openchamber.visual.field.selectThemePlaceholder')}
+                                                ariaLabel={t('settings.openchamber.visual.field.selectLightThemeAria')}
+                                            />
                                         </SettingsStackedField>
                                         <SettingsStackedField
                                             label={t('settings.openchamber.visual.field.darkTheme')}
                                             settingsItem="appearance.dark-theme"
                                         >
-                                            <Select value={selectedDarkTheme?.metadata.id ?? ''} onValueChange={setDarkThemePreference}>
-                                                <SelectTrigger aria-label={t('settings.openchamber.visual.field.selectDarkThemeAria')} size={SETTINGS_SELECT_SIZE} className={SETTINGS_SELECT_TRIGGER_CLASS}>
-                                                    <SelectValue placeholder={t('settings.openchamber.visual.field.selectThemePlaceholder')}>
-                                                        {selectedDarkTheme
-                                                            ? formatThemeLabel(selectedDarkTheme.metadata.name, 'dark')
-                                                            : undefined}
-                                                    </SelectValue>
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {darkThemes.map((theme) => (
-                                                        <ThemeSelectItem key={theme.metadata.id} id={theme.metadata.id} label={formatThemeLabel(theme.metadata.name, 'dark')} />
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <ThemePicker
+                                                options={darkThemeOptions}
+                                                value={selectedDarkTheme?.metadata.id ?? ''}
+                                                onValueChange={setDarkThemePreference}
+                                                placeholder={t('settings.openchamber.visual.field.selectThemePlaceholder')}
+                                                ariaLabel={t('settings.openchamber.visual.field.selectDarkThemeAria')}
+                                            />
                                         </SettingsStackedField>
 
                                         <div className="flex items-center gap-2 pt-1">
@@ -2160,7 +2156,7 @@ export const OpenChamberVisualSettings: React.FC<OpenChamberVisualSettingsProps>
                                 {shouldShow('largeTextPaste') && (
                                     <SettingsControlGroup
                                         title={t('settings.openchamber.visual.field.largeTextPaste')}
-                                        description={t('settings.openchamber.visual.field.largeTextPasteHint')}
+                                        info={t('settings.openchamber.visual.field.largeTextPasteHint')}
                                         settingsItem="chat.large-text-paste"
                                     >
                                         <SettingsRadioGroup aria-label={t('settings.openchamber.visual.field.largeTextPasteAria')}>
@@ -2179,7 +2175,7 @@ export const OpenChamberVisualSettings: React.FC<OpenChamberVisualSettingsProps>
                                 {shouldShow('enterToSend') && (
                                     <SettingsControlGroup
                                         title={t('settings.openchamber.visual.field.enterToSend')}
-                                        description={t('settings.openchamber.visual.field.enterToSendHint')}
+                                        info={t('settings.openchamber.visual.field.enterToSendHint')}
                                         settingsItem="chat.enter-to-send"
                                     >
                                         <SettingsRadioGroup aria-label={t('settings.openchamber.visual.field.enterToSend')}>

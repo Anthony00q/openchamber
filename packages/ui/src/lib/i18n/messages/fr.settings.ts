@@ -1945,6 +1945,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.selectLightThemeAria': 'Sélectionnez le thème de la lumière',
   'settings.openchamber.visual.field.selectDarkThemeAria': 'Sélectionnez un thème sombre',
   'settings.openchamber.visual.field.selectThemePlaceholder': 'Sélectionner un thème',
+  'settings.openchamber.visual.field.searchThemes': 'Rechercher des thèmes...',
+  'settings.openchamber.visual.field.noThemesFound': 'Aucun thème trouvé.',
   'settings.openchamber.visual.field.timeFormat': 'Format de l\'heure',
   'settings.openchamber.visual.field.weekStartsOn': 'La semaine commence le',
   'settings.openchamber.visual.field.selectTimeFormatAria': 'Sélectionnez le format de l\'heure',

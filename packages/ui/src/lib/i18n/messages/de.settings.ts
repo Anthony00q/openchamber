@@ -1981,6 +1981,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.selectLightThemeAria': 'Helles Design auswählen',
   'settings.openchamber.visual.field.selectDarkThemeAria': 'Dunkles Design auswählen',
   'settings.openchamber.visual.field.selectThemePlaceholder': 'Design auswählen',
+  'settings.openchamber.visual.field.searchThemes': 'Themes durchsuchen...',
+  'settings.openchamber.visual.field.noThemesFound': 'Keine Themes gefunden.',
   'settings.openchamber.visual.field.timeFormat': 'Zeitformat',
   'settings.openchamber.visual.field.weekStartsOn': 'Woche beginnt am',
   'settings.openchamber.visual.field.selectTimeFormatAria': 'Zeitformat auswählen',

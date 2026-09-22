@@ -2031,6 +2031,8 @@ export const settingsDict = {
   "settings.openchamber.visual.field.selectLightThemeAria": "Вибрати світлу тему",
   "settings.openchamber.visual.field.selectDarkThemeAria": "Вибрати темну тему",
   "settings.openchamber.visual.field.selectThemePlaceholder": "Вибрати тему",
+  "settings.openchamber.visual.field.searchThemes": "Пошук тем...",
+  "settings.openchamber.visual.field.noThemesFound": "Тем не знайдено.",
   "settings.openchamber.visual.field.timeFormat": "Формат часу",
   "settings.openchamber.visual.field.weekStartsOn": "Тиждень починається",
   "settings.openchamber.visual.field.selectTimeFormatAria": "Вибрати формат часу",

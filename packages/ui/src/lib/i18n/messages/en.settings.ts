@@ -2054,6 +2054,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.selectLightThemeAria': 'Select light theme',
   'settings.openchamber.visual.field.selectDarkThemeAria': 'Select dark theme',
   'settings.openchamber.visual.field.selectThemePlaceholder': 'Select theme',
+  'settings.openchamber.visual.field.searchThemes': 'Search themes...',
+  'settings.openchamber.visual.field.noThemesFound': 'No themes found.',
   'settings.openchamber.visual.field.timeFormat': 'Time Format',
   'settings.openchamber.visual.field.weekStartsOn': 'Week Starts On',
   'settings.openchamber.visual.field.selectTimeFormatAria': 'Select time format',

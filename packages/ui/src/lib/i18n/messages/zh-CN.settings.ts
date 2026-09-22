@@ -2031,6 +2031,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.selectLightThemeAria': '选择浅色主题',
   'settings.openchamber.visual.field.selectDarkThemeAria': '选择深色主题',
   'settings.openchamber.visual.field.selectThemePlaceholder': '选择主题',
+  'settings.openchamber.visual.field.searchThemes': '搜索主题...',
+  'settings.openchamber.visual.field.noThemesFound': '未找到主题。',
   'settings.openchamber.visual.field.timeFormat': '时间格式',
   'settings.openchamber.visual.field.weekStartsOn': '一周起始日',
   'settings.openchamber.visual.field.selectTimeFormatAria': '选择时间格式',

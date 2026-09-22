@@ -635,12 +635,6 @@ html:not(.dark) .chat-scroll {
   scrollbar-gutter: unset !important;
 }
 
-/* Extensions can cross the overflow threshold as cards expand or the catalog loads. */
-.overlay-scrollbar-target:has(> .extensions-settings-page),
-.extensions-settings-page > .overlay-scrollbar-target {
-  scrollbar-gutter: stable !important;
-}
-
 .overlay-scrollbar-target::-webkit-scrollbar {
   width: 0 !important;
   height: 0 !important;
@@ -671,6 +665,13 @@ html:not(.dark) .chat-scroll {
    Follow overflow, not hover visibility, so showing the thumb never shifts text.
    Direct-child matching prevents nested scrollers from reserving space twice. */
 .overlay-scrollbar-wrapper:has(> .overlay-scrollbar > .overlay-scrollbar__thumb--vertical:not([hidden])) {
+  padding-right: 6px;
+}
+
+/* Settings pages cross the overflow threshold all the time (collapsible
+   sections, catalogs loading), so they reserve the thumb's space up front
+   instead of shifting content the moment a scrollbar appears. */
+.overlay-scrollbar-wrapper--stable-gutter {
   padding-right: 6px;
 }
 

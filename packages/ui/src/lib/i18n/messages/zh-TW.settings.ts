@@ -1938,6 +1938,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.selectLightThemeAria': '選擇淺色主題',
   'settings.openchamber.visual.field.selectDarkThemeAria': '選擇深色主題',
   'settings.openchamber.visual.field.selectThemePlaceholder': '選擇主題',
+  'settings.openchamber.visual.field.searchThemes': '搜尋佈景主題...',
+  'settings.openchamber.visual.field.noThemesFound': '找不到佈景主題。',
   'settings.openchamber.visual.field.timeFormat': '時間格式',
   'settings.openchamber.visual.field.weekStartsOn': '一週起始日',
   'settings.openchamber.visual.field.selectTimeFormatAria': '選擇時間格式',

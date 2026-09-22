@@ -2031,6 +2031,8 @@ export const settingsDict = {
   "settings.openchamber.visual.field.selectLightThemeAria": "Selecionar tema claro",
   "settings.openchamber.visual.field.selectDarkThemeAria": "Selecionar tema escuro",
   "settings.openchamber.visual.field.selectThemePlaceholder": "Selecionar tema",
+  "settings.openchamber.visual.field.searchThemes": "Buscar temas...",
+  "settings.openchamber.visual.field.noThemesFound": "Nenhum tema encontrado.",
   "settings.openchamber.visual.field.timeFormat": "Formato de hora",
   "settings.openchamber.visual.field.weekStartsOn": "A semana começa na",
   "settings.openchamber.visual.field.selectTimeFormatAria": "Selecionar formato de hora",

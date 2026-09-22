@@ -2031,6 +2031,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.selectLightThemeAria': '라이트 테마 선택',
   'settings.openchamber.visual.field.selectDarkThemeAria': '다크 테마 선택',
   'settings.openchamber.visual.field.selectThemePlaceholder': '테마 선택',
+  'settings.openchamber.visual.field.searchThemes': '테마 검색...',
+  'settings.openchamber.visual.field.noThemesFound': '테마를 찾을 수 없습니다.',
   'settings.openchamber.visual.field.timeFormat': '시간 형식',
   'settings.openchamber.visual.field.weekStartsOn': '주 시작 요일',
   'settings.openchamber.visual.field.selectTimeFormatAria': '시간 형식 선택',

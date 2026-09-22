@@ -2064,6 +2064,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.selectLightThemeAria': 'ライトテーマを選択',
   'settings.openchamber.visual.field.selectDarkThemeAria': 'ダークテーマを選択',
   'settings.openchamber.visual.field.selectThemePlaceholder': 'テーマを選択',
+  'settings.openchamber.visual.field.searchThemes': 'テーマを検索...',
+  'settings.openchamber.visual.field.noThemesFound': 'テーマが見つかりません。',
   'settings.openchamber.visual.field.timeFormat': '時刻形式',
   'settings.openchamber.visual.field.weekStartsOn': '週の開始日',
   'settings.openchamber.visual.field.selectTimeFormatAria': '時刻形式を選択',

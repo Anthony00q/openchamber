@@ -1971,6 +1971,8 @@ export const settingsDict = {
   'settings.openchamber.visual.field.selectLightThemeAria': 'Açık tema seç',
   'settings.openchamber.visual.field.selectDarkThemeAria': 'Koyu tema seç',
   'settings.openchamber.visual.field.selectThemePlaceholder': 'Tema seç',
+  'settings.openchamber.visual.field.searchThemes': 'Tema ara...',
+  'settings.openchamber.visual.field.noThemesFound': 'Tema bulunamadı.',
   'settings.openchamber.visual.field.timeFormat': 'Saat Biçimi',
   'settings.openchamber.visual.field.weekStartsOn': 'Hafta Başlangıcı',
   'settings.openchamber.visual.field.selectTimeFormatAria': 'Saat biçimi seç',
