@@ -303,12 +303,8 @@ const scrollIntoView = (container: HTMLElement | null, node: HTMLElement | null)
 
   const containerRect = container.getBoundingClientRect();
   const nodeRect = node.getBoundingClientRect();
-  // Popup entrance transforms scale viewport rectangles, but scrollTop uses
-  // unscaled layout pixels. Keep the selected row clear of the footer.
-  const scale = container.offsetHeight > 0 ? containerRect.height / container.offsetHeight : 1;
-  if (scale <= 0) return;
-  const top = (nodeRect.top - containerRect.top) / scale + container.scrollTop;
-  const bottom = top + nodeRect.height / scale;
+  const top = nodeRect.top - containerRect.top + container.scrollTop;
+  const bottom = top + nodeRect.height;
   const viewTop = container.scrollTop;
   const viewBottom = viewTop + container.clientHeight;
   const viewTopWithHeader = viewTop + STICKY_HEADER_OFFSET;
@@ -385,8 +381,6 @@ interface ModelPickerListProps {
   footerContent?: React.ReactNode | ((activeEntry: ModelPickerEntry | undefined) => React.ReactNode);
   renderVersion?: number;
   tooltipsEnabled?: boolean;
-  /** Reveal the configured model and expand its provider once per mount. */
-  scrollToSelectedOnOpen?: boolean;
 }
 
 export const ModelPickerList: React.FC<ModelPickerListProps> = ({
@@ -429,7 +423,6 @@ export const ModelPickerList: React.FC<ModelPickerListProps> = ({
   footerContent,
   renderVersion,
   tooltipsEnabled = true,
-  scrollToSelectedOnOpen = false,
 }) => {
   const selectionStoreRef = React.useRef<IndexSelectionStore | null>(null);
   if (!selectionStoreRef.current) selectionStoreRef.current = createIndexSelectionStore();
@@ -616,27 +609,7 @@ export const ModelPickerList: React.FC<ModelPickerListProps> = ({
     keyboardOwnsSelectionRef.current = true;
     lastMousePositionRef.current = null;
     scrollIntoView(scrollRef.current, itemRefs.current[initialSelectionIndex]);
-    if (!scrollToSelectedOnOpen || searchQuery.trim()) return;
-    // The dropdown positions itself after mounting its children.
-    const frame = requestAnimationFrame(() => scrollIntoView(scrollRef.current, itemRefs.current[initialSelectionIndex]));
-    return () => cancelAnimationFrame(frame);
-  }, [initialSelectionIndex, searchQuery, selectedModel?.providerID, selectedModel?.modelID, selectionStore, scrollToSelectedOnOpen]);
-
-  const didExpandSelectedRef = React.useRef(false);
-  React.useLayoutEffect(() => {
-    if (!scrollToSelectedOnOpen || didExpandSelectedRef.current) return;
-    if (searchQuery.trim()) {
-      didExpandSelectedRef.current = true;
-      return;
-    }
-    if (!selectedModel) return;
-    const provider = filteredProviders.find((entry) => entry.id === selectedModel.providerID);
-    if (!provider?.models.some((model) => model.id === selectedModel.modelID)) return;
-    // Mark before updating the shared store so StrictMode cannot toggle it back.
-    didExpandSelectedRef.current = true;
-    const sectionKey = `provider:${selectedModel.providerID}`;
-    if (collapsedSections.has(sectionKey)) toggleSection(sectionKey);
-  }, [scrollToSelectedOnOpen, selectedModel, filteredProviders, collapsedSections, toggleSection, searchQuery]);
+  }, [initialSelectionIndex, searchQuery, selectedModel?.providerID, selectedModel?.modelID, selectionStore]);
 
   const selectIndex = React.useCallback((index: number) => {
     selectionStore.set(index);

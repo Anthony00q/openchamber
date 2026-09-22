@@ -157,7 +157,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             tooltipsEnabled={tooltipsEnabled && (isActuallyMobile ? isMobilePanelOpen : isDropdownOpen)}
             isFavorite={(entry) => isFavoriteModel(entry.providerID, entry.modelID)}
             onToggleFavorite={(entry) => toggleFavoriteModel(entry.providerID, entry.modelID)}
-            scrollToSelectedOnOpen
         />
     );
 
@@ -203,10 +202,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     }
 
     return (
-        <DropdownMenu open={isReady && isDropdownOpen} onOpenChange={isReady ? (open) => {
-            if (open) setIsDropdownOpen(true);
-            else closePicker();
-        } : undefined}>
+        <DropdownMenu open={isReady && isDropdownOpen} onOpenChange={isReady ? setIsDropdownOpen : undefined}>
             <DropdownMenuTrigger asChild>
                 <div
                     className={cn(
