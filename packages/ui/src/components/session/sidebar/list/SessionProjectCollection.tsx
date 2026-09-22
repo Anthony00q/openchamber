@@ -330,8 +330,19 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
     [getOrderedGroups, sectionsForSidebarRender],
   );
   const recentActivitySections = React.useMemo(() => {
+    const nodes = new Map(recentSessions.map((session) => [
+      session.id, buildActiveSessionNode(collection.childrenMap, session),
+    ]));
+    const pending = [...nodes.values()];
+    const recentTreeSessions = [];
+    while (pending.length > 0) {
+      const node = pending.pop();
+      if (!node) break;
+      recentTreeSessions.push(node.session);
+      pending.push(...node.children);
+    }
     const locations = resolveSidebarSessionLocations({
-      sessions: recentSessions,
+      sessions: recentTreeSessions,
       projects: topology.projects,
       ownerBySessionId: ownership.bySessionId,
       availableWorktreesByProject: topology.availableWorktreesByProject,
@@ -342,7 +353,7 @@ const VisibleSessionProjects: React.FC<SessionProjectCollectionProps> = ({ topol
     return deriveRecentActivitySections({
       sessions: recentSessions,
       getSessionLocation: (sessionId) => locations.get(sessionId) ?? null,
-      getSessionNode: (session) => buildActiveSessionNode(collection.childrenMap, session),
+      getSessionNode: (session) => nodes.get(session.id) ?? buildActiveSessionNode(collection.childrenMap, session),
       query: view.hasSessionSearchQuery ? view.normalizedSessionSearchQuery : '',
     });
   }, [collection.childrenMap, ownership.bySessionId, recentSessions, topology.availableWorktreesByProject, topology.gitBranches, topology.projects, view.hasSessionSearchQuery, view.homeDirectory, view.normalizedSessionSearchQuery]);

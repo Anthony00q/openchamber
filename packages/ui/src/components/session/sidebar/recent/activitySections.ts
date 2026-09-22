@@ -9,6 +9,7 @@ type SidebarActivityItem = {
   projectId: string | null;
   groupDirectory: string | null;
   secondaryMeta: { projectLabel?: string | null; branchLabel?: string | null } | null;
+  getSecondaryMeta?: (sessionId: string) => SidebarActivityItem['secondaryMeta'];
 };
 
 type RecentActivitySection = {
@@ -66,6 +67,18 @@ export const deriveRecentSessions = (
   });
 };
 
+const attachRecentWorktrees = (
+  node: SessionNode,
+  getSessionLocation: (sessionId: string) => RecentSessionLocation | null,
+): SessionNode => {
+  const worktree = getSessionLocation(node.session.id)?.worktree ?? null;
+  const children = node.children.map((child) => attachRecentWorktrees(child, getSessionLocation));
+  if (worktree === node.worktree && children.every((child, index) => child === node.children[index])) {
+    return node;
+  }
+  return { ...node, worktree, children };
+};
+
 export const deriveRecentActivitySections = ({
   sessions,
   getSessionLocation,
@@ -83,15 +96,20 @@ export const deriveRecentActivitySections = ({
     const location = getSessionLocation(session.id);
     const node = getSessionNode?.(session) ?? { session, children: [], worktree: null };
     return [{
-      // Recent rows carry the location's worktree the same way Timeline rows
-      // do, so the row can derive its branch fallback and PR lookup key.
-      node: location?.worktree ? { ...node, worktree: location.worktree } : node,
+      node: attachRecentWorktrees(node, getSessionLocation),
       projectId: location?.projectId ?? null,
       groupDirectory: location?.groupDirectory ?? session.directory ?? null,
       secondaryMeta: location ? {
         projectLabel: location.projectLabel,
         branchLabel: location.branchLabel,
       } : null,
+      getSecondaryMeta: (sessionId: string) => {
+        const childLocation = getSessionLocation(sessionId);
+        return childLocation ? {
+          projectLabel: childLocation.projectLabel,
+          branchLabel: childLocation.branchLabel,
+        } : null;
+      },
     }];
   }),
 }];

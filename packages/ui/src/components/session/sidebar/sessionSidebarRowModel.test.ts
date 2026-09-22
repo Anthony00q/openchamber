@@ -5,6 +5,7 @@ import type { ProjectSection } from './projects/sessionProjectRender';
 import { buildSessionSidebarRowModel, resolveSessionSidebarStickyHeader, type SessionSidebarActivityItem, type SessionSidebarRowModelArgs } from './sessionSidebarRowModel';
 import { getPinnedSessionKey } from '@/stores/useSessionPinnedStore';
 import { getRuntimeKey } from '@/lib/runtime-switch';
+import { deriveRecentActivitySections } from './recent/activitySections';
 
 const timelineItem = (id: string, overrides: Partial<SessionSidebarActivityItem> = {}): SessionSidebarActivityItem => ({
   node: { session: session(id), children: [], worktree: null },
@@ -78,6 +79,32 @@ const args = (sections: ProjectSection[]): SessionSidebarRowModelArgs => ({
 });
 
 describe('buildSessionSidebarRowModel', () => {
+  test('expanded Recent rows use their own tooltip metadata, including an explicitly hidden branch', () => {
+    const parent = node('parent', [node('child'), node('hidden')]);
+    const branches = new Map([['parent', 'main'], ['child', 'feature-child']]);
+    const input = args([]);
+    input.showRecentSection = true;
+    input.mode = 'search';
+    input.recentSections = deriveRecentActivitySections({
+      sessions: [parent.session],
+      getSessionNode: () => parent,
+      getSessionLocation: (id) => ({
+        projectId: 'project-a', groupDirectory: '/repo', projectLabel: 'repo',
+        branchLabel: branches.get(id) ?? null,
+        worktree: null,
+      }),
+      query: '',
+    });
+    const rows = buildSessionSidebarRowModel(input).rows.flatMap((row) => row.kind === 'session'
+      ? [{ id: row.node.session.id, metadata: row.secondaryMeta }]
+      : []);
+    expect(rows).toEqual([
+      { id: 'parent', metadata: { projectLabel: 'repo', branchLabel: 'main' } },
+      { id: 'child', metadata: { projectLabel: 'repo', branchLabel: 'feature-child' } },
+      { id: 'hidden', metadata: { projectLabel: 'repo', branchLabel: null } },
+    ]);
+  });
+
   test('uses occurrence keys while retaining duplicate session IDs in logical order', () => {
     const repeated = node('same-session');
     const input = args([project([group([repeated])])]);

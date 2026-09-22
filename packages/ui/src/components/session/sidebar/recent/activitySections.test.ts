@@ -4,6 +4,9 @@ import type { WorktreeMetadata } from '@/types/worktree';
 import { getGitHubPrStatusKey } from '@/stores/useGitHubPrStatusStore';
 import { resolveSessionPrLookupKey } from '../sessions/sessionNodeItemUtils';
 import { deriveRecentActivitySections, deriveRecentSessions } from './activitySections';
+import { resolveSidebarSessionLocations } from './sessionLocation';
+import type { SessionNode } from '../types';
+import type { DirectoryOwner } from '../sessions/sessionOwnership';
 
 const NOW = 200_000_000;
 const RECENT = NOW - (48 * 60 * 60 * 1000);
@@ -84,7 +87,7 @@ describe('deriveRecentActivitySections', () => {
       query: 'deploy',
     });
 
-    expect(sections).toEqual([{
+    expect(sections).toMatchObject([{
       key: 'active-now',
       items: [{
         node: { session: matching, children: [], worktree: null },
@@ -134,5 +137,49 @@ describe('deriveRecentActivitySections', () => {
     });
 
     expect(sections[0].items[0]?.node).toBe(node);
+  });
+
+  test('resolves child and grandchild PR keys from their own worktrees without losing the subtree', () => {
+    const root = { ...session('root'), directory: '/workspace/app' };
+    const child = { ...session('child', { parentID: root.id }), directory: '/worktrees/feature' };
+    const grandchild = { ...session('grandchild', { parentID: child.id }), directory: '/worktrees/other/sub' };
+    const missing = { ...session('missing', { parentID: root.id }), directory: '/worktrees/deleted' };
+    const worktree: WorktreeMetadata = {
+      path: '/worktrees/feature', projectDirectory: '/workspace/app', branch: 'feature', label: 'feature',
+    };
+    const otherWorktree: WorktreeMetadata = { ...worktree, path: '/worktrees/other', branch: 'other' };
+    const owner: DirectoryOwner = {
+      projectId: 'app', projectRoot: '/workspace/app', scopeDirectory: '/workspace/app', kind: 'project',
+    };
+    const locations = resolveSidebarSessionLocations({
+      sessions: [root, child, grandchild, missing],
+      projects: [{ id: 'app', normalizedPath: '/workspace/app' }],
+      ownerBySessionId: new Map([root, child, grandchild, missing].map((record) => [
+        record.id, owner,
+      ])),
+      availableWorktreesByProject: new Map([['/workspace/app', [worktree, otherWorktree]]]),
+      gitBranches: new Map(),
+      homeDirectory: null,
+      hideBranchMatchingProjectLabel: true,
+    });
+    const missingNode: SessionNode = { session: missing, worktree: null, children: [] };
+    const original: SessionNode = {
+      session: root, worktree: null,
+      children: [{ session: child, worktree: null, children: [{ session: grandchild, worktree: null, children: [] }] }, missingNode],
+    };
+    const sections = deriveRecentActivitySections({
+      sessions: [root], getSessionLocation: (id) => locations.get(id) ?? null,
+      getSessionNode: () => original, query: '',
+    });
+    const projected = sections[0].items[0].node;
+    expect(projected.worktree).toBeNull();
+    expect(resolveSessionPrLookupKey(projected.children[0].worktree, false))
+      .toBe(getGitHubPrStatusKey('/worktrees/feature', 'feature'));
+    expect(resolveSessionPrLookupKey(projected.children[0].children[0].worktree, false))
+      .toBe(getGitHubPrStatusKey('/worktrees/other', 'other'));
+    expect(projected.children[1]).toBe(missingNode);
+    expect(projected.children.map((node) => node.session.id)).toEqual(['child', 'missing']);
+    expect(projected.children[0].children[0].session).toBe(grandchild);
+    expect(original.children[0].worktree).toBeNull();
   });
 });

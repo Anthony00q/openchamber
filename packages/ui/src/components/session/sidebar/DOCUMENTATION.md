@@ -158,6 +158,13 @@ renders `projects`.
   the project label; Timeline shows the branch on every row, using the live
   project root branch for root-directory sessions and the worktree branch
   otherwise.
+- Recent resolves each root and active descendant against its own directory and
+  owner. Its projection attaches that worktree at every depth, including children
+  under worktree subdirectories; an unresolved worktree stays null. Each visible
+  row also resolves its own tooltip metadata rather than inheriting its parent's
+  branch, preserving the resolver's deliberate branch suppression. The full
+  subtree remains available to archive/delete actions, and managed Chats keep
+  their separate projection.
 - Search filters Timeline with the same rule as Recent (exact `ses_` id, else
   title contains) and counts one match per listed row.
 

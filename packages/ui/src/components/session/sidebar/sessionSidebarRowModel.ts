@@ -14,6 +14,7 @@ export type SessionSidebarActivityItem = {
   projectId: string | null;
   groupDirectory: string | null;
   secondaryMeta: { projectLabel?: string | null; branchLabel?: string | null } | null;
+  getSecondaryMeta?: (sessionId: string) => SessionSidebarActivityItem['secondaryMeta'];
 };
 
 export type SessionSidebarActivityKey = 'chats' | 'active-now' | 'timeline';
@@ -238,6 +239,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     archived: boolean;
     renderContext: SessionSidebarRenderContext;
     secondaryMeta?: SessionSidebarActivityItem['secondaryMeta'];
+    getSecondaryMeta?: SessionSidebarActivityItem['getSecondaryMeta'];
     indexedNodes?: IndexedSessionNodes;
     selectionPoolOffset?: number;
   }): void => {
@@ -260,7 +262,9 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
         selectionScopeKey: options.selectionScopeKey,
         archived: options.archived,
         renderContext: options.renderContext,
-        secondaryMeta: options.secondaryMeta ?? null,
+        secondaryMeta: options.getSecondaryMeta
+          ? options.getSecondaryMeta(current.node.session.id)
+          : options.secondaryMeta ?? null,
       });
       const subtreeRange = options.indexedNodes?.subtreeRangeByNode.get(current.node);
       const descendantRange = subtreeRange && subtreeRange[1] > subtreeRange[0] + 1
@@ -494,7 +498,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
         const indexed = indexNodes([item.node]);
         const selectionPoolOffset = selectionDescendantIds.length;
         selectionDescendantIds.push(...indexed.preorderIds);
-        appendSessions({ nodes: [item.node], containerKey, projectId: item.projectId, groupDirectory: item.groupDirectory, ownerKey: getSessionFolderOwnerKey(item.projectId, item.groupDirectory), selectionScopeKey: getSessionFolderOwnerKey(item.projectId, item.groupDirectory), archived: false, renderContext: 'recent', secondaryMeta: item.secondaryMeta, indexedNodes: indexed, selectionPoolOffset });
+        appendSessions({ nodes: [item.node], containerKey, projectId: item.projectId, groupDirectory: item.groupDirectory, ownerKey: getSessionFolderOwnerKey(item.projectId, item.groupDirectory), selectionScopeKey: getSessionFolderOwnerKey(item.projectId, item.groupDirectory), archived: false, renderContext: 'recent', secondaryMeta: item.secondaryMeta, getSecondaryMeta: item.getSecondaryMeta, indexedNodes: indexed, selectionPoolOffset });
         if (search) searchMatchCount += 1;
       }
       const remaining = section.items.length - visibleItems.length;
