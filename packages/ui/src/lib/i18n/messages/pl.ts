@@ -702,6 +702,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.group.pr.status.closed': 'Zamknięty',
   'sessions.sidebar.group.empty.noArchivedSessions': 'Brak zarchiwizowanych sesji.',
   'sessions.sidebar.group.empty.noSessionsInWorkspace': 'Brak sesji w tej przestrzeni roboczej.',
+  'sessions.sidebar.group.empty.startSession': 'Rozpocznij sesję',
   'sessions.sidebar.group.showMore': 'Pokaż więcej sesji',
   'sessions.sidebar.group.showMoreSingle': 'Pokaż {count} więcej sesji',
   'sessions.sidebar.group.showMorePlural': 'Pokaż {count} więcej sesji',

@@ -614,6 +614,7 @@ export const dict = {
   'sessions.sidebar.group.pr.status.closed': 'Geschlossen',
   'sessions.sidebar.group.empty.noArchivedSessions': 'Noch keine archivierten Sitzungen.',
   'sessions.sidebar.group.empty.noSessionsInWorkspace': 'Noch keine Sitzungen in diesem Arbeitsbereich.',
+  'sessions.sidebar.group.empty.startSession': 'Sitzung starten',
   'sessions.sidebar.group.showMore': 'Weitere Sitzungen anzeigen',
   'sessions.sidebar.group.showMoreSingle': '{count} weitere Sitzung anzeigen',
   'sessions.sidebar.group.showMorePlural': '{count} weitere Sitzungen anzeigen',

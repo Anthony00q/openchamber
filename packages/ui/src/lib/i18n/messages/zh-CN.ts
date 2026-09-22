@@ -702,6 +702,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.group.pr.status.closed': '已关闭',
   'sessions.sidebar.group.empty.noArchivedSessions': '暂无已归档会话。',
   'sessions.sidebar.group.empty.noSessionsInWorkspace': '该工作区暂无会话。',
+  'sessions.sidebar.group.empty.startSession': '开始会话',
   'sessions.sidebar.group.showMore': '显示更多会话',
   'sessions.sidebar.group.showMoreSingle': '再显示 {count} 个会话',
   'sessions.sidebar.group.showMorePlural': '再显示 {count} 个会话',

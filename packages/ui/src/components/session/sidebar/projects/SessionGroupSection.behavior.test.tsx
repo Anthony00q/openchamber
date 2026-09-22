@@ -25,7 +25,15 @@ type RowPropsCapture = Pick<SessionGroupSectionProps,
 
 let folderCallbacks: FolderCallbacks | null = null;
 let rowPropsCapture: RowPropsCapture | null = null;
+let emptyGroupAction: (() => void) | null = null;
 const childStores = new ChildStoreManager();
+
+mock.module('@/components/ui/button', () => ({
+  Button: ({ onClick, children }: { onClick?: () => void; children?: React.ReactNode }) => {
+    if (children === 'Start a session') emptyGroupAction = onClick ?? null;
+    return <button>{children}</button>;
+  },
+}));
 
 mock.module('../../SessionFolderItem', () => ({
   SessionFolderItem: (props: FolderCallbacks) => {
@@ -150,7 +158,7 @@ describe('SessionGroupSection public behavior', () => {
     await Promise.resolve();
     try {
       const waiting = renderToStaticMarkup(<I18nProvider><SessionGroupSection {...createProps()} /></I18nProvider>);
-      expect(waiting).toContain('No sessions in this workspace yet.');
+      expect(waiting).toContain('Start a session');
       expect(waiting).not.toContain('Loading sessions');
       rejectInitialization(new Error('initialization failed'));
       await Promise.resolve();
@@ -162,6 +170,36 @@ describe('SessionGroupSection public behavior', () => {
     } finally {
       rejectInitialization(new Error('test finished'));
       childStores.disposeAll();
+    }
+  });
+
+  test('starts an empty group session in its project and closes the mobile switcher', async () => {
+    const dom = installHookTestDom();
+    const root = createRoot(dom.container);
+    let openedDraft: Parameters<SessionGroupSectionProps['openNewSessionDraft']>[0] = undefined;
+    let activeProject: string | null = null;
+    let switcherOpen: boolean | null = null;
+    const props = createProps();
+
+    try {
+      await act(async () => root.render(<I18nProvider><SessionGroupSection
+        {...props}
+        mobileVariant
+        activeProjectId="another-project"
+        setActiveProjectIdOnly={(id) => { activeProject = id; }}
+        setSessionSwitcherOpen={(open) => { switcherOpen = open; }}
+        openNewSessionDraft={(options) => { openedDraft = options; }}
+      /></I18nProvider>));
+      expect(emptyGroupAction).toBeDefined();
+      await act(async () => emptyGroupAction?.());
+
+      expect(activeProject).toBe('project');
+      expect(switcherOpen).toBe(false);
+      expect(openedDraft).toEqual({ selectedProjectId: 'project', directoryOverride: '/workspace', target: undefined });
+    } finally {
+      await act(async () => root.unmount());
+      dom.restore();
+      emptyGroupAction = null;
     }
   });
 

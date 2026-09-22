@@ -702,6 +702,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.group.pr.status.closed': 'クローズ',
   'sessions.sidebar.group.empty.noArchivedSessions': 'まだアーカイブ済みセッションはありません。',
   'sessions.sidebar.group.empty.noSessionsInWorkspace': 'このワークスペースにはまだセッションがありません。',
+  'sessions.sidebar.group.empty.startSession': 'セッションを開始',
   'sessions.sidebar.group.showMore': 'さらにセッションを表示',
   'sessions.sidebar.group.showMoreSingle': 'さらに{count}セッションを表示',
   'sessions.sidebar.group.showMorePlural': 'さらに{count}セッションを表示',

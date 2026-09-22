@@ -49,7 +49,7 @@ export type SessionSidebarRow =
   | (RowBase & { kind: 'group-header'; group: SessionGroup; groupKey: string; projectId: string | null; collapsed: boolean; forceExpanded: boolean; allSessions: readonly Session[] })
   | (RowBase & { kind: 'folder-header'; group: SessionGroup; folder: SessionFolder; displayName: string; scopeKey: string; scopeDirectory: string | null; ownerKey: string | null; nodes: readonly SessionNode[]; activityNodes: readonly SessionNode[]; projectId: string | null; archived: boolean; collapsed: boolean; forceExpanded: boolean; deleteSessions: readonly Session[]; subFolderCount: number; dropEnabled: boolean })
   | (RowBase & { kind: 'session'; node: SessionNode; depth: number; projectId: string | null; groupDirectory: string | null; ownerKey: string | null; selectionScopeKey: string | null; archived: boolean; renderContext: SessionSidebarRenderContext; secondaryMeta: SessionSidebarActivityItem['secondaryMeta'] })
-  | (RowBase & { kind: 'empty'; emptyKind: 'sidebar' | 'search' | 'group' | 'archived'; group?: SessionGroup })
+  | (RowBase & { kind: 'empty'; emptyKind: 'sidebar' | 'search' | 'group' | 'archived'; group?: SessionGroup; projectId?: string | null })
   | (RowBase & { kind: 'status'; status: SessionSidebarGroupStatus; group: SessionGroup; groupKey: string })
   | (RowBase & { kind: 'show-control'; control: 'more' | 'fewer'; containerKey: string; currentCount: number; increment: number });
 
@@ -434,7 +434,7 @@ export const buildSessionSidebarRowModel = (args: SessionSidebarRowModelArgs): S
     const status = args.groupStatusByKey.get(groupKey);
     if (sourceNodes.length === 0 && visibleFolders.length === 0) {
       if (status && status.state !== 'ready') push({ kind: 'status', key: `${groupKey}:status`, estimateSize: STATUS_ESTIMATE, status, group, groupKey });
-      else push({ kind: 'empty', key: `${groupKey}:empty`, estimateSize: STATUS_ESTIMATE, emptyKind: group.isArchivedBucket ? 'archived' : 'group', group });
+      else push({ kind: 'empty', key: `${groupKey}:empty`, estimateSize: STATUS_ESTIMATE, emptyKind: group.isArchivedBucket ? 'archived' : 'group', group, projectId });
     } else if (status && status.state !== 'ready' && status.state !== 'loading') {
       push({ kind: 'status', key: `${groupKey}:status`, estimateSize: STATUS_ESTIMATE, status, group, groupKey });
     }

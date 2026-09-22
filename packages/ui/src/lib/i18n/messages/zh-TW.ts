@@ -715,6 +715,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.group.pr.status.closed': '已關閉',
   'sessions.sidebar.group.empty.noArchivedSessions': '暫無已封存會話。',
   'sessions.sidebar.group.empty.noSessionsInWorkspace': '該工作區暫無會話。',
+  'sessions.sidebar.group.empty.startSession': '開始工作階段',
   'sessions.sidebar.group.showMore': '顯示更多會話',
   'sessions.sidebar.group.showMoreSingle': '再顯示 {count} 個會話',
   'sessions.sidebar.group.showMorePlural': '再顯示 {count} 個會話',

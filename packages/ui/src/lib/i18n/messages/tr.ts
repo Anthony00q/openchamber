@@ -683,6 +683,7 @@ export const dict = {
   'sessions.sidebar.group.pr.status.closed': 'Kapalı',
   'sessions.sidebar.group.empty.noArchivedSessions': 'Henüz arşivlenmiş session yok.',
   'sessions.sidebar.group.empty.noSessionsInWorkspace': 'Bu çalışma alanında henüz session yok.',
+  'sessions.sidebar.group.empty.startSession': 'Oturum başlat',
   'sessions.sidebar.group.showMore': 'Daha fazla session göster',
   'sessions.sidebar.group.showMoreSingle': '{count} session daha göster',
   'sessions.sidebar.group.showMorePlural': '{count} session daha göster',

@@ -882,7 +882,13 @@ function SessionGroupSectionBase(props: SessionGroupSectionProps): React.ReactNo
       {totalSessions === 0 && allFoldersForGroup.length === 0 ? (
         // pl-[26px] lines the text up with the worktree sub-header label
         // (gutter + icon + gap).
-        <div className="py-1 pl-[26px] text-left typography-micro text-muted-foreground">
+        !group.isArchivedBucket && !bootstrapLoading && !bootstrapFailureNotice && group.directory && !group.emptyMessage ? (
+          <Button variant="link" size="xs" className="w-full justify-start pl-[26px] text-left font-normal normal-case text-muted-foreground/70 underline-offset-auto hover:text-foreground hover:underline" onClick={() => {
+              if (projectId && projectId !== activeProjectId) setActiveProjectIdOnly(projectId);
+              if (mobileVariant) setSessionSwitcherOpen(false);
+              openNewSessionDraft({ selectedProjectId: projectId, directoryOverride: group.directory, target: group.draftTarget });
+          }}>{t('sessions.sidebar.group.empty.startSession')}</Button>
+        ) : <div className="py-1 pl-[26px] text-left typography-micro text-muted-foreground">
           {group.isArchivedBucket
             ? t('sessions.sidebar.group.empty.noArchivedSessions')
             : bootstrapLoading

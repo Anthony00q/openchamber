@@ -702,6 +702,7 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.group.pr.status.closed": "Закрито",
   "sessions.sidebar.group.empty.noArchivedSessions": "Заархівованих сесій ще немає.",
   "sessions.sidebar.group.empty.noSessionsInWorkspace": "У цій гілці ще немає сесій.",
+  "sessions.sidebar.group.empty.startSession": "Почати сесію",
   "sessions.sidebar.group.showMore": "Показати більше сесій",
   "sessions.sidebar.group.showMoreSingle": "Показати більше сесій {count}",
   "sessions.sidebar.group.showMorePlural": "Показати більше сесій {count}",

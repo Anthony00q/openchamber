@@ -702,6 +702,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.group.pr.status.closed': '닫힘',
   'sessions.sidebar.group.empty.noArchivedSessions': '보관된 세션이 없습니다',
   'sessions.sidebar.group.empty.noSessionsInWorkspace': '아직 이 워크스페이스에 세션 없음',
+  'sessions.sidebar.group.empty.startSession': '세션 시작',
   'sessions.sidebar.group.showMore': '세션 더 보기',
   'sessions.sidebar.group.showMoreSingle': '세션 {count}개 더 보기',
   'sessions.sidebar.group.showMorePlural': '세션 {count}개 더 보기',
