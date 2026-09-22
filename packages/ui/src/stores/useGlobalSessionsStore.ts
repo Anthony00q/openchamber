@@ -42,6 +42,7 @@ type GlobalSessionsState = {
   reviewTransferBySessionId: Map<string, ReviewTransferDirection>;
   mutationRevision: number;
   mutationRevisionBySessionId: Map<string, number>;
+  /** A complete global snapshot has arrived for this runtime. */
   hasLoaded: boolean;
   managedChatsHydrated: boolean;
   status: GlobalSessionsStatus;
@@ -322,7 +323,7 @@ const applySnapshot = (
   status: GlobalSessionsStatus,
   /** False for a partial page merged mid-load: the lists are incomplete, so
       they must not claim the authority `hasLoaded` grants. */
-  markLoaded = true,
+  markLoaded = status === 'ready',
 ): Partial<GlobalSessionsState> | GlobalSessionsState => {
   if (isVSCodeRuntime()) {
     activeSessions = filterManagedChatsForRuntime(activeSessions, true);
@@ -684,7 +685,6 @@ export const useGlobalSessionsStore = create<GlobalSessionsState>((set, get) => 
         if (generation !== loadGeneration) return { activeSessions: [], archivedSessions: [] };
         rootsReady = true;
         get().rehydrateManagedChatSessions();
-        set((state) => (state.status === 'loading' ? state : { status: 'loading' }));
         // One fetch of every session, split client-side: archive state is
         // OpenChamber's own, so the server list cannot filter on it.
         // Thousands of sessions paginate for seconds. Show the newest page as
@@ -746,6 +746,7 @@ export const useGlobalSessionsStore = create<GlobalSessionsState>((set, get) => 
     })();
 
     inflightLoad = loadPromise;
+    set({ status: 'loading' });
     const clearInflightLoad = () => {
       if (inflightLoad === loadPromise) {
         inflightLoad = null;

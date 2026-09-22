@@ -18,8 +18,11 @@ kept at this root in `types.ts` and `utils.tsx`.
   model and the same `@tanstack/react-virtual` instance.
 - `list/useSidebarGroupStatus.ts` subscribes to project and standalone Chats
   directories together. Chats uses the same `activity:chats` identity for status
-  and row projection, including a Chats-only sidebar. A successful list stops
-  loading independently of initialization; failures keep their retry/access actions.
+  and row projection, including a Chats-only sidebar. An unresolved global list
+  keeps unopened groups loading; a global failure exposes Retry against the global
+  loader, without bootstrapping a directory. A complete global snapshot or complete
+  active-directory coverage stops loading independently of initialization. Archived
+  groups require global coverage. Directory failures keep their retry/access actions.
 - Root session right-click and overflow menus expose `Move to worktree`: a submenu
   listing the canonical primary and linked worktree destinations, with the current
   target disabled and a separate `New worktree...` action. Opening the submenu
@@ -41,8 +44,8 @@ unconditionally. The hook is the only bootstrap demand owner and publishes
 only the current directory and the selected session's directory; it also
 refreshes newly added topology, coalesces control events, and performs
 authoritative cleanup. Root-level `useGlobalSessionsPolling` remains the only
-initial and 45-second global poller. `useSessionListSync` must not create a
-second global polling lifecycle.
+initial and 45-second global poller, with bounded startup recovery.
+`useSessionListSync` must not create a second global polling lifecycle.
 
 The global sessions cache is the complete source for active and archived
 coverage. Initialized directory stores only supply sessions missing from that
@@ -198,7 +201,7 @@ matching and ordering. Search does not fetch sessions or broaden list membership
 
 - Publish bootstrap demand only for the current directory and the selected session's directory. Known project roots and worktrees are topology, not demand: rows and sessions come from the global session list, activity from the global status index and the host status seed. Every directory-scoped read makes OpenCode create and initialize a location, so demanding the whole topology created one per project at startup.
 - Directory demand and refresh requests preserve path case after separator and drive-letter normalization. Case-insensitive sidebar membership keys stay inside the collection projection; sending those keys as paths creates duplicate directory stores and can address a different directory on case-sensitive filesystems.
-- A never-bootstrapped directory shows as ready. Load failures and denied folder access surface when it is selected; the group notice retry still forces a bootstrap.
+- A never-bootstrapped directory is ready only after a complete global snapshot. Before that, the group shows global loading or failure, and Retry reloads the global list. Previously loaded groups stay ready during background polling. Directory failures and denied folder access still use forced bootstrap or native access recovery for the affected directory.
 - The sync scheduler deduplicates, promotes, retries, and limits work. Sidebar components must not reproduce that lifecycle with mount effects.
 - Hide speculative work when the sidebar/chat surface is hidden: message prefetch, Git/PR enrichment and subscriptions, search listeners, sticky-header observation, and archived-folder derivation stop. The session row tree unmounts so row-owned status, permission, unseen, and viewport subscriptions do no background work. The outer sidebar remains mounted, preserving UI state and authoritative directory refresh for an immediate reopen; deferred derived work reruns from current state when visibility returns.
 - The sidebar does not subscribe its whole tree to the cross-directory live-session aggregate. Global create/structural/lifecycle snapshots drive rendered session metadata; the cached sync index only fills sessions not yet present globally and provides refresh fallback data. Row activity continues to come from the session-keyed live status index.

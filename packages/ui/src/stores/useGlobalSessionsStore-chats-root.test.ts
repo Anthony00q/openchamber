@@ -80,12 +80,13 @@ describe('global load owns chats-root readiness', () => {
     try {
       const first = useGlobalSessionsStore.getState().loadSessions();
       const second = useGlobalSessionsStore.getState().loadSessions();
-      expect(useGlobalSessionsStore.getState().status).toBe('idle');
+      expect(useGlobalSessionsStore.getState().status).toBe('loading');
       expect(list.mock.calls).toHaveLength(0);
       root.resolve({ home: '/home/user', chatsRoot: '/srv/chats' });
       await Promise.all([first, second]);
       expect(home.mock.calls).toHaveLength(1);
       expect(useGlobalSessionsStore.getState().status).toBe('error');
+      expect(useGlobalSessionsStore.getState().hasLoaded).toBe(false);
       expect(useGlobalSessionsStore.getState().activeSessions.map((session) => session.id)).toEqual(['saved']);
       expect(readDirCache(scope).sessions?.map((session) => session.id)).toEqual(['saved']);
     } finally { list.mockRestore(); }

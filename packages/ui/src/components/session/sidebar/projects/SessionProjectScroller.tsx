@@ -18,6 +18,7 @@ import { requestDirectoryAccess } from '@/lib/desktop';
 import { sessionEvents } from '@/lib/sessionEvents';
 import { CHAT_DRAFT_PROJECT_ID } from '@/lib/chatDirectories';
 import { useSessionFoldersStore } from '@/stores/useSessionFoldersStore';
+import { refreshGlobalSessions } from '@/stores/useGlobalSessionsStore';
 import { useUIStore } from '@/stores/useUIStore';
 import { useChildStoreManager } from '@/sync/sync-context';
 import type { ProjectSortOrder } from '@/stores/useSessionDisplayStore';
@@ -189,7 +190,10 @@ function SessionProjectScrollerComponent({ model, view, actions }: Props): React
 
   const renderStatus = React.useCallback((row: Extract<SessionSidebarRow, { kind: 'status' }>) => {
     const retry = () => {
-      if (!row.status.directory) return;
+      if (!row.status.directory) {
+        void refreshGlobalSessions();
+        return;
+      }
       childStores.requestBootstrap({ directory: row.status.directory, priority: 'expanded', reason: row.group.isMain ? 'project-expanded' : 'worktree-expanded', force: true });
     };
     const grant = async () => {

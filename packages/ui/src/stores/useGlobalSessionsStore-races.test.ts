@@ -249,6 +249,7 @@ describe("paginated global session load", () => {
     const state = useGlobalSessionsStore.getState()
     expect(state.activeSessions).toHaveLength(PAGE_SIZE)
     expect(state.status).toBe("error")
+    expect(state.hasLoaded).toBe(false)
   })
 
   test("drops the pages when the runtime switches mid-load", async () => {
