@@ -149,5 +149,5 @@ Before adding guidance to a skill, identify its canonical owner. If another skil
 Before creating or updating a pull request, read `CONTRIBUTING.md` and
 `.github/PULL_REQUEST_TEMPLATE.md`. Complete the template with concrete,
 current evidence for the final PR HEAD; do not make the reviewer reconstruct
-intent, affected surfaces, applicable guidance, validation, visual behavior,
-or failure and rollback considerations from the diff alone.
+intent, affected surfaces, validation, visual behavior, or failure and
+rollback considerations from the diff alone.
