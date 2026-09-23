@@ -1,3 +1,4 @@
+import { readOpenCodeInfo, isSupportedOpenCodeVersion, requireOpenCodeV2, UnsupportedOpenCodeVersionError } from './compatibility.js';
 import { spawn, spawnSync } from 'node:child_process';
 import net from 'node:net';
 import { stripAppImageArgv0Leak } from '../inherited-env.js';
@@ -141,6 +142,7 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
     managedStartupTimeoutMs = 30_000,
     now = Date.now,
     topUpV1SessionMigration = topUpV1Migration,
+    checkOpenCodeBinary = requireOpenCodeV2,
   } = deps;
 
   const killProcessOnPortWin32 = (port) => {
@@ -666,8 +668,8 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
         signal: controller.signal,
       });
       clearTimeout(timeout);
-      // A 200 from `/api/info` is the whole readiness answer in 2.0.8.
-      return response.ok;
+      const info = await readOpenCodeInfo(response);
+      return info !== null && isSupportedOpenCodeVersion(info.version);
     } catch {
       return false;
     }
@@ -707,6 +709,7 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
 
     await applyOpencodeBinaryFromSettings({ strict: true });
     const resolvedBinary = ensureOpencodeCliEnv();
+    await checkOpenCodeBinary(resolveManagedOpenCodeLaunchSpec(resolvedBinary));
     recordStartupPerformance('opencode.binary.ready', {
       attempt,
       durationMs: performance.now() - phaseStartedAt,
@@ -821,7 +824,7 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
         return await startOpenCodeOnce(attempt);
       } catch (error) {
         lastError = error;
-        if (state.isShuttingDown || error?.code === 'OPENCODE_BINARY_INVALID') {
+        if (state.isShuttingDown || error instanceof UnsupportedOpenCodeVersionError || error?.code === 'OPENCODE_BINARY_INVALID') {
           break;
         }
         if (attempt >= START_OPEN_CODE_MAX_ATTEMPTS) {
@@ -981,6 +984,9 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
           continue;
         }
 
+        const info = await readOpenCodeInfo(response);
+        if (!info) throw new Error('OpenCode did not return valid version information.');
+        if (!isSupportedOpenCodeVersion(info.version)) throw new UnsupportedOpenCodeVersionError(info.version);
         state.isOpenCodeReady = true;
         state.lastOpenCodeError = null;
         return;

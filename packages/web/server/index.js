@@ -1,3 +1,5 @@
+import { installOpenCodeV2, supportsOpenCodeV2Install } from './lib/opencode/v2-install.js';
+import { describeOpenCodeCompatibility, readOpenCodeCliVersion, readExternalOpenCodeVersion } from './lib/opencode/compatibility.js';
 import 'reflect-metadata';
 import express from 'express';
 import compression from 'compression';
@@ -72,6 +74,7 @@ import { createServerUtilsRuntime } from './lib/opencode/server-utils-runtime.js
 import { createStaticRoutesRuntime } from './lib/opencode/static-routes-runtime.js';
 import { createSettingsRuntime } from './lib/opencode/settings-runtime.js';
 import { createOpenCodeResolutionRuntime } from './lib/opencode/opencode-resolution-runtime.js';
+import { runOpenCodeCliUpgrade } from './lib/opencode/cli-upgrade.js';
 import { resolveOpenCodeUpgradeCapability } from './lib/opencode/upgrade-capability.js';
 import { createBootstrapRuntime } from './lib/opencode/bootstrap-runtime.js';
 import { createSessionRuntime } from './lib/opencode/session-runtime.js';
@@ -1345,6 +1348,18 @@ const openCodeLifecycleRuntime = createOpenCodeLifecycleRuntime({
   getManagedOpenCodeEnv: async () => (managedConfigRuntime ? managedConfigRuntime.buildManagedChildEnv() : {}),
 });
 
+const getOpenCodeCompatibility = async () => {
+  if (isExternalOpenCode || ENV_SKIP_OPENCODE_START) {
+    const base = ENV_CONFIGURED_OPENCODE_HOST?.origin || openCodeBaseUrl || `http://127.0.0.1:${openCodePort || ENV_EFFECTIVE_PORT}`;
+    const version = await readExternalOpenCodeVersion(base, getOpenCodeAuthHeaders()).catch(() => null);
+    return describeOpenCodeCompatibility(version, 'external', false);
+  }
+  const binary = ensureOpencodeCliEnv();
+  const installation = isBundledOpenCodeCliPath(binary) ? 'bundled' : 'managed';
+  const version = await readOpenCodeCliVersion(resolveManagedOpenCodeLaunchSpec(binary)).catch(() => null);
+  return describeOpenCodeCompatibility(version, installation, supportsOpenCodeV2Install());
+};
+
 const getOpenCodeUpgradeCapability = () => {
   const activeBinary = lastOpenCodeLaunchDiagnostics?.sourceBinary
     || lastOpenCodeLaunchDiagnostics?.binary
@@ -2104,6 +2119,19 @@ async function main(options = {}) {
     refreshOpenCodeAfterConfigChange,
     getOpenCodeResolutionSnapshot,
     getOpenCodeUpgradeCapability,
+    getOpenCodeCompatibility,
+    installOpenCodeV2: async () => {
+      const binary = await installOpenCodeV2({
+        env: { ...getLoginShellEnvSnapshot(), ...process.env, PATH: buildManagedOpenCodePath() },
+      });
+      await persistSettings({ opencodeBinary: binary });
+      await refreshOpenCodeAfterConfigChange('OpenCode v2 installation');
+      await waitForOpenCodeReady();
+    },
+    upgradeOpenCodeCli: () => runOpenCodeCliUpgrade(
+      resolveManagedOpenCodeLaunchSpec(lastOpenCodeLaunchDiagnostics?.sourceBinary || resolvedOpencodeBinary),
+      { env: { ...getLoginShellEnvSnapshot(), ...process.env, PATH: buildManagedOpenCodePath() }, cwd: os.homedir() },
+    ),
     formatSettingsResponse,
     readSettingsFromDisk,
     readSettingsFromDiskMigrated,

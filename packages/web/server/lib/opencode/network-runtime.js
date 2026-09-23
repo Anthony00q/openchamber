@@ -1,3 +1,4 @@
+import { readOpenCodeInfo, isSupportedOpenCodeVersion } from './compatibility.js';
 export const createOpenCodeNetworkRuntime = (deps) => {
   const {
     state,
@@ -59,9 +60,8 @@ export const createOpenCodeNetworkRuntime = (deps) => {
         clearTimeout(timeout);
         timeout = null;
 
-        if (response.ok) {
-          return true;
-        }
+        const info = await readOpenCodeInfo(response);
+        if (info && isSupportedOpenCodeVersion(info.version)) return true;
       } catch {
       } finally {
         if (timeout) {

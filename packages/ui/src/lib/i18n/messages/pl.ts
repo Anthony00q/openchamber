@@ -8,6 +8,18 @@ import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 
 export const dict: Record<I18nKey, string> = {
+  "opencodeCompatibility.bundled": "OpenCode jest dołączony do OpenChamber. Zaktualizuj OpenChamber, aby uzyskać OpenCode v2.",
+  "opencodeCompatibility.title": "Wymagany OpenCode v2",
+  "opencodeCompatibility.local": "Zainstalowano OpenCode {version}. Ta wersja OpenChamber wymaga OpenCode v2.",
+  "opencodeCompatibility.external": "Połączony serwer używa OpenCode {version}. Zainstaluj na nim OpenCode v2, a następnie połącz się ponownie.",
+  "opencodeCompatibility.installDescription": "OpenChamber zainstaluje v2 za pomocą oficjalnego instalatora, a następnie uruchomi ponownie OpenCode.",
+  "opencodeCompatibility.install": "Zaktualizuj do OpenCode v2",
+  "opencodeCompatibility.reconnect": "Sprawdź ponownie",
+  "opencodeCompatibility.guide": "Instrukcja instalacji",
+  "opencodeCompatibility.installing": "Instalowanie OpenCode v2…",
+  "opencodeCompatibility.reconnecting": "Ponowne łączenie…",
+  "opencodeCompatibility.failed": "Nie udało się ukończyć operacji. Spróbuj ponownie lub skorzystaj z instrukcji instalacji i połącz się ponownie.",
+
   'sessions.aiRename.action': 'Zmień nazwę z AI',
   'sessions.aiRename.generating': 'Generowanie tytułu sesji...',
   'sessions.aiRename.checking': 'Sprawdzanie zakończonych wymian...',
@@ -1093,7 +1105,7 @@ export const dict: Record<I18nKey, string> = {
   'onboarding.chooser.tabs.localInstall': 'Lokalna instalacja',
   'onboarding.chooser.tabs.connectRemote': 'Połącz zdalnie',
   'onboarding.localSetup.title': 'Konfiguracja OpenCode',
-  'onboarding.localSetup.description': 'Zainstaluj CLI OpenCode aby kontynuować.',
+  'onboarding.localSetup.description': 'Zainstaluj CLI OpenCode v2 aby kontynuować.',
   'onboarding.localSetup.dialog.selectOpencodeBinary': 'Wybierz binarkę opencode',
   'onboarding.localSetup.errors.cliNotReady': 'OpenCode CLI nie jest jeszcze gotowy. Potwierdź, że instalacja jest kompletna i spróbuj ponownie.',
   'onboarding.localSetup.errors.detectionFailed': 'Wykrywanie nie powiodło się',
@@ -1102,8 +1114,8 @@ export const dict: Record<I18nKey, string> = {
   'onboarding.localSetup.windows.stepInstallWslSuffix': '',
   'onboarding.localSetup.windows.stepRunInstallInWsl': 'Uruchom polecenie instalacji poniżej w terminalu Windows.',
   'onboarding.localSetup.windows.stepSetBinaryPath': 'Jeśli OpenChamber nie wykryje OpenCode automatycznie, ustaw ścieżkę binarki poniżej.',
-  'onboarding.localSetup.docs.windows': 'Dokumentacja OpenCode',
-  'onboarding.localSetup.docs.default': 'Wyświetl dokumentację',
+  "onboarding.localSetup.docs.windows": "Instrukcja instalacji",
+  "onboarding.localSetup.docs.default": "Instrukcja instalacji",
   'onboarding.localSetup.actions.checking': 'Sprawdzanie...',
   'onboarding.localSetup.helper.checkAndContinue': 'Kliknij aby sprawdzić czy OpenCode CLI jest dostępny. Jeśli się uda, automatycznie przejdziesz do głównego ekranu.',
   'onboarding.localSetup.field.alreadyInstalled': 'Juz zainstalowane? Ustaw ścieżkę binarki OpenCode:',
@@ -3205,9 +3217,9 @@ export const dict: Record<I18nKey, string> = {
 
   // Onboarding
   'onboarding.localSetup.actions.checkAndContinue': 'Sprawdź i kontynuuj',
-  'onboarding.localSetup.intro': 'OpenCode to serce OpenChamber — zainstaluj je, aby zacząć.',
+  'onboarding.localSetup.intro': 'Zainstaluj CLI OpenCode v2 aby kontynuować.',
   'onboarding.localSetup.actions.checkNow': 'Sprawdź teraz',
-  'onboarding.localSetup.status.watching': 'Czekanie na OpenCode',
+  'onboarding.localSetup.status.watching': 'Czekanie na OpenCode v2',
   'onboarding.localSetup.status.autoContinue': 'Przejdziemy dalej automatycznie, gdy zostanie wykryty.',
   'onboarding.localSetup.advanced.title': 'Ustaw niestandardową ścieżkę binarki',
   'onboarding.localSetup.troubleshoot.title': 'Masz problem?',

@@ -277,6 +277,16 @@ export async function handleSystemBridgeMessage(
       }
     }
 
+    case 'api:opencode/compatibility': {
+      return { id, type, success: true, data: await ctx?.manager?.getCompatibility() };
+    }
+
+    case 'api:opencode/install-v2': {
+      if (!ctx?.manager) return { id, type, success: false, error: 'OpenCode manager is unavailable.' };
+      await ctx.manager.installV2();
+      return { id, type, success: true, data: { success: true } };
+    }
+
     case 'api:opencode/upgrade-status': {
       return { id, type, success: true, data: await getOpenCodeUpgradeStatus(ctx?.manager) };
     }

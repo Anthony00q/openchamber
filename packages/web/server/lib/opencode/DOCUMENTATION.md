@@ -215,7 +215,7 @@ Two hard rules, both verified against v2.0.8
   - `GET /api/config/settings`
   - `PUT /api/config/settings`
   - `GET /api/config/opencode-resolution`
-  - `POST /api/opencode/upgrade` (enforces the active runtime's upgrade capability, serializes supported OpenCode upgrades, then restarts managed OpenCode so the new binary is active)
+  - `POST /api/opencode/upgrade` (enforces the active runtime's upgrade capability, shares concurrent upgrade requests and runs the resolved CLI with `upgrade`; the existing Reload action restarts managed OpenCode afterwards)
   - `GET /api/opencode/upgrade-status` (returns version availability plus the authoritative `upgrade.supported`, `upgrade.manager`, and `upgrade.reason` capability)
   - `POST /api/opencode/directory` (validates and activates an existing project directory; `{ create: true }` explicitly creates the requested project directory before activation, including outside the previously active workspace)
   - `GET /api/provider/:providerId/source`
@@ -223,6 +223,46 @@ Two hard rules, both verified against v2.0.8
   - `DELETE /api/provider/:providerId/auth`
 - Owns lazy auth library loading for provider auth checks/removal.
 - Keeps route behavior independent from composition root; `index.js` now supplies dependencies only.
+
+## CLI upgrades
+
+`cli-upgrade.js` runs the host-resolved executable and wrapper arguments with
+`upgrade`, without a shell or client-supplied arguments. OpenCode chooses the
+installer. Web, hosted mobile, Capacitor, and Desktop with a separately installed
+CLI use this server path. VS Code uses the same executor from its extension host.
+Bundled Desktop, external URL connections, unavailable CLIs, and the Windows
+ARM64 workaround remain unsupported at the host boundary.
+
+An upgrade leaves the current server running. The toast's Reload action restarts
+it using the installed version. Failed installations return an error and can be
+retried; installer output is not returned or logged because it can contain registry
+credentials. Requests from multiple clients share the in-flight operation. The
+executor supplies EOF and bounds captured output; installation has no fixed time
+limit, and the VS Code bridge does not apply its usual 30-second request timeout.
+
+### Migrating an installed v1 CLI
+
+`GET /api/opencode/compatibility` reads the local CLI version without starting
+its server, or probes an external server's JSON version contract. A confirmed
+managed v1 CLI on macOS/Linux advertises `canInstall`; bundled binaries,
+external connections and Windows do not.
+
+`POST /api/opencode/install-v2` rechecks that capability and shares one operation
+across concurrent clients. `v2-install.js` downloads the official
+`https://opencode.ai/v2/install` script, passes a validated stable v2 release
+from npm and `--no-modify-path`, then verifies the resulting executable.
+It installs into the host user's standard `~/.opencode/bin`. Existing npm/Bun
+packages remain installed; the host selects the new binary through
+`opencodeBinary`, restarts OpenCode, and waits for v2 readiness before replying.
+
+A filesystem lock prevents separate hosts sharing a home from installing at
+the same time. The installer has a five-minute deadline and owns its subprocess
+group. Existing executable/shim files are restored after an installation or
+verification failure. If rollback fails, backups and the lock remain under
+`.opencode/bin/.openchamber-install` for manual recovery. A successful install
+followed by a settings/restart failure keeps v2 on disk; Check again can retry
+the restart. A host crash may also leave the lock for manual recovery.
+Installer output is discarded, not forwarded to clients or logs.
 
 ## Public exports (session-runtime.js)
 - `createSessionRuntime({ writeSseEvent, getNotificationClients, broadcastEvent? })`: creates runtime-owned state machine and APIs for session status.

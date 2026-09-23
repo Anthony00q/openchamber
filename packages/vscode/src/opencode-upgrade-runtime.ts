@@ -1,16 +1,20 @@
 type UpgradeCapability = {
   supported: boolean;
   manager: 'opencode' | 'external' | 'openchamber' | null;
-  reason: 'external' | 'unavailable' | 'windows-arm64-workaround' | 'no-upgrade-route' | null;
+  reason: 'external' | 'unavailable' | 'windows-arm64-workaround' | null;
 };
 
 export type OpenCodeUpgradeManager = {
   getApiUrl(): string | null;
   getOpenCodeAuthHeaders(): Record<string, string>;
-  getDebugInfo(): { mode: 'managed' | 'external' };
+  getDebugInfo(): { mode: 'managed' | 'external'; cliPath: string | null };
+  upgradeCli(): Promise<void>;
 };
 
-type UpgradeResult = { status: number; body: Record<string, unknown> };
+type UpgradeResult =
+  | { status: 200; body: { success: true } }
+  | { status: 409; body: { success: false; code: 'OPENCODE_UPGRADE_UNSUPPORTED'; error: string; upgrade: UpgradeCapability } }
+  | { status: 500; body: { success: false; error: string } };
 
 // TEMPORARY WORKAROUND — Windows ARM64: native opencode.exe fails with a Bun
 // FFI/TinyCC dlopen error (https://github.com/anomalyco/opencode/issues/19130).
@@ -41,16 +45,12 @@ const compareVersions = (left: unknown, right: unknown): number => {
   return a.prerelease === b.prerelease ? 0 : (a.prerelease ? -1 : 1);
 };
 
-// OpenCode 2.x dropped the server-side upgrade route, so nothing OpenChamber
-// can call upgrades a managed OpenCode from inside the extension any more. The
-// status read below still reports the installed and latest versions; the user
-// upgrades OpenCode with their own installer.
 const getCapability = (manager?: OpenCodeUpgradeManager): UpgradeCapability => {
   if (isWindowsArm64()) return { supported: false, manager: 'openchamber', reason: 'windows-arm64-workaround' };
   if (!manager) return { supported: false, manager: null, reason: 'unavailable' };
   if (manager.getDebugInfo().mode !== 'managed') return { supported: false, manager: 'external', reason: 'external' };
-  if (!manager.getApiUrl()) return { supported: false, manager: null, reason: 'unavailable' };
-  return { supported: false, manager: 'opencode', reason: 'no-upgrade-route' };
+  if (!manager.getApiUrl() || !manager.getDebugInfo().cliPath) return { supported: false, manager: null, reason: 'unavailable' };
+  return { supported: true, manager: 'opencode', reason: null };
 };
 
 const getApiUrl = (manager?: OpenCodeUpgradeManager): string | null => {
@@ -77,8 +77,7 @@ const fetchLatestVersion = async (): Promise<string> => {
 export const getOpenCodeUpgradeStatus = async (manager?: OpenCodeUpgradeManager): Promise<Record<string, unknown>> => {
   const upgrade = getCapability(manager);
   const apiUrl = getApiUrl(manager);
-  // Version reporting does not depend on being able to upgrade: About still
-  // shows which OpenCode is running even though the upgrade action is gone.
+  // External runtimes still report their version without offering an upgrade.
   if (!apiUrl || !manager) return { available: false, currentVersion: null, latestVersion: null, upgrade };
   try {
     const [healthResponse, latestVersion] = await Promise.all([
@@ -98,17 +97,28 @@ export const getOpenCodeUpgradeStatus = async (manager?: OpenCodeUpgradeManager)
   }
 };
 
-/**
- * OpenCode 2.x removed the upgrade route it used to expose, so there is nothing
- * left for OpenChamber to drive. Answering explicitly keeps the shared UI on a
- * stable unsupported response instead of a 404 from the proxy.
- */
-export const upgradeManagedOpenCode = async (manager?: OpenCodeUpgradeManager): Promise<UpgradeResult> => ({
-  status: 409,
-  body: {
-    success: false,
-    code: 'OPENCODE_UPGRADE_UNSUPPORTED',
-    error: 'This OpenCode runtime cannot be upgraded by OpenChamber.',
-    upgrade: getCapability(manager),
-  },
-});
+const upgradesInFlight = new WeakMap<OpenCodeUpgradeManager, Promise<void>>();
+
+export const upgradeManagedOpenCode = async (manager?: OpenCodeUpgradeManager): Promise<UpgradeResult> => {
+  const upgrade = getCapability(manager);
+  if (!manager || !upgrade.supported) return {
+    status: 409,
+    body: {
+      success: false,
+      code: 'OPENCODE_UPGRADE_UNSUPPORTED',
+      error: 'This OpenCode runtime cannot be upgraded by OpenChamber.',
+      upgrade,
+    },
+  };
+  try {
+    let pending = upgradesInFlight.get(manager);
+    if (!pending) {
+      pending = manager.upgradeCli().finally(() => { upgradesInFlight.delete(manager); });
+      upgradesInFlight.set(manager, pending);
+    }
+    await pending;
+    return { status: 200, body: { success: true } };
+  } catch (error) {
+    return { status: 500, body: { success: false, error: error instanceof Error ? error.message : 'OpenCode CLI upgrade failed.' } };
+  }
+};

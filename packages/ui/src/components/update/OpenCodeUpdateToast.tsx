@@ -92,9 +92,8 @@ export const OpenCodeUpdateToast: React.FC = () => {
   }, [reloadOpenCode, t]);
 
   React.useEffect(() => {
-    // `supported` is false on OpenCode 2.x: there is no upgrade route, so the
-    // toast tells the user a version exists and how to get it, without an
-    // Update button that could only fail.
+    // Managed CLI installations upgrade through the host. External runtimes
+    // keep the informational toast because the host cannot run their CLI.
     const showUpdateAvailableToast = (version: string, supported: boolean) => {
       // Upstream setting wins over our dedup logic: if user disabled
       // OpenCode update notifications, dismiss any active toast and bail

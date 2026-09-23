@@ -102,7 +102,8 @@ const createRuntime = (overrides = {}, stateOverrides = {}, envOverrides = {}) =
     waitForReady: vi.fn(async () => true),
     normalizeApiPrefix: vi.fn(() => ''),
     applyOpencodeBinaryFromSettings: vi.fn(async () => null),
-    ensureOpencodeCliEnv: vi.fn(),
+    checkOpenCodeBinary: async () => '2.0.14',
+  ensureOpencodeCliEnv: vi.fn(),
     ensureLocalOpenCodeServerPassword: vi.fn(async () => 'password'),
     resolveManagedOpenCodeLaunchSpec: vi.fn((binary) => ({ binary, args: [], wrapperType: null })),
     setOpenCodePort: vi.fn((port) => {

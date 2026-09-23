@@ -1,3 +1,4 @@
+import { readOpenCodeInfo, isSupportedOpenCodeVersion } from './compatibility.js';
 import express from 'express';
 import { createProjectIdFromPath } from '../projects/project-id.js';
 import fs from 'fs';
@@ -14,6 +15,9 @@ export const registerOpenCodeRoutes = (app, dependencies) => {
     crypto,
     getOpenCodeResolutionSnapshot,
     getOpenCodeUpgradeCapability,
+    upgradeOpenCodeCli,
+    getOpenCodeCompatibility,
+    installOpenCodeV2,
     formatSettingsResponse,
     readSettingsFromDisk,
     readSettingsFromDiskMigrated,
@@ -99,26 +103,54 @@ export const registerOpenCodeRoutes = (app, dependencies) => {
     }
   });
 
-  /**
-   * OpenCode 2.x has no upgrade route. v1 exposed `POST /global/upgrade` and
-   * OpenChamber drove it from Settings; the replacement is whatever installed
-   * OpenCode in the first place, which OpenChamber cannot run on the user's
-   * behalf. Answer plainly rather than 404, so the UI can say what to do.
-   */
+  app.get('/api/opencode/compatibility', async (_req, res) => {
+    try { res.json(await getOpenCodeCompatibility()); }
+    catch { res.status(503).json({ error: 'Could not check OpenCode compatibility.' }); }
+  });
+
+  let installInFlight = null;
+  app.post('/api/opencode/install-v2', async (_req, res) => {
+    try {
+      if (!installInFlight) {
+        installInFlight = (async () => {
+          const compatibility = await getOpenCodeCompatibility();
+          if (!compatibility.canInstall) return false;
+          await installOpenCodeV2();
+          return true;
+        })().finally(() => { installInFlight = null; });
+      }
+      const installed = await installInFlight;
+      if (!installed) return res.status(409).json({ success: false, error: 'Automatic OpenCode v2 installation is unavailable for this runtime.' });
+      return res.json({ success: true });
+    } catch {
+      return res.status(500).json({ success: false, error: 'OpenCode v2 installation or restart failed. Retry or use the installation guide.' });
+    }
+  });
+
+  let upgradeInFlight = null;
   app.post('/api/opencode/upgrade', async (_req, res) => {
     const capability = getOpenCodeUpgradeCapability();
-    if (capability.reason === 'bundled') {
+    if (!capability.supported) {
+      const bundled = capability.reason === 'bundled';
       return res.status(409).json({
         success: false,
-        code: 'OPENCODE_UPGRADE_MANAGED_BY_OPENCHAMBER',
-        error: 'OpenCode is bundled with OpenChamber Desktop and updates with the app.',
+        code: bundled ? 'OPENCODE_UPGRADE_MANAGED_BY_OPENCHAMBER' : 'OPENCODE_UPGRADE_UNSUPPORTED',
+        error: bundled
+          ? 'OpenCode is bundled with OpenChamber Desktop and updates with the app.'
+          : 'This OpenCode runtime cannot be upgraded by OpenChamber.',
       });
     }
-    return res.status(409).json({
-      success: false,
-      code: 'OPENCODE_UPGRADE_UNSUPPORTED',
-      error: 'OpenCode 2 updates through its own installer. Run the update the way you installed OpenCode, then restart OpenChamber.',
-    });
+    try {
+      // Multiple tabs share one installation. Clear both success and failure so
+      // a later explicit attempt can run again.
+      if (!upgradeInFlight) {
+        upgradeInFlight = upgradeOpenCodeCli().finally(() => { upgradeInFlight = null; });
+      }
+      await upgradeInFlight;
+      return res.json({ success: true });
+    } catch (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
   });
 
   app.get('/api/opencode/upgrade-status', async (_req, res) => {
@@ -178,7 +210,8 @@ export const registerOpenCodeRoutes = (app, dependencies) => {
           error: info?.error || healthResponse.statusText || 'OpenCode health check failed',
         });
       }
-      return res.json({ healthy: true });
+      const parsed = await readOpenCodeInfo(Response.json(info));
+      return res.json({ healthy: parsed !== null && isSupportedOpenCodeVersion(parsed.version) });
     } catch (error) {
       return res.status(503).json({
         healthy: false,
