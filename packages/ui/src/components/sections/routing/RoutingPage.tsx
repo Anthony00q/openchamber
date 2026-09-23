@@ -370,9 +370,13 @@ export const RoutingPage: React.FC = () => {
           <SettingsSection title={t('settings.routing.access.title')} divider={false}>
             <div className={SETTINGS_FIELDS_STACK_CLASS}>
               <p className={SETTINGS_HELPER_CLASS}>{t('settings.routing.access.intro')}</p>
-              {/* Which endpoint is answering right now, and — on the free one — whose promotion it is and that it ends. */}
               <p className={SETTINGS_HELPER_CLASS}>
-                {jevSource === 'typesafe' ? t('settings.routing.access.usingKey') : t('settings.routing.access.usingFree')}
+                {jevSource === 'typesafe' ? t('settings.routing.access.usingKey') : (
+                  <>
+                    <strong className="font-semibold">{t('settings.routing.access.usingFree')}</strong>{' '}
+                    {t('settings.routing.access.usingFreeDetails')}
+                  </>
+                )}
               </p>
               <SettingsFieldRow
                 settingsItem="routing.token"

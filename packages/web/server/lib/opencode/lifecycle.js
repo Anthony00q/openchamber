@@ -145,6 +145,8 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
     checkOpenCodeBinary = requireOpenCodeV2,
   } = deps;
 
+  let managedPreflight = null;
+
   const killProcessOnPortWin32 = (port) => {
     try {
       // Get-NetTCPConnection reads the same locale-independent WinNT API
@@ -709,7 +711,9 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
 
     await applyOpencodeBinaryFromSettings({ strict: true });
     const resolvedBinary = ensureOpencodeCliEnv();
-    await checkOpenCodeBinary(resolveManagedOpenCodeLaunchSpec(resolvedBinary));
+    const preflight = checkOpenCodeBinary(resolveManagedOpenCodeLaunchSpec(resolvedBinary));
+    managedPreflight = preflight.then(() => true, () => false);
+    await preflight;
     recordStartupPerformance('opencode.binary.ready', {
       attempt,
       durationMs: performance.now() - phaseStartedAt,
@@ -818,6 +822,7 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
   };
 
   const startOpenCode = async () => {
+    managedPreflight = null;
     let lastError = null;
     for (let attempt = 1; attempt <= START_OPEN_CODE_MAX_ATTEMPTS; attempt += 1) {
       try {
@@ -852,6 +857,7 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
     }
 
     state.currentRestartPromise = (async () => {
+      managedPreflight = null;
       state.isRestartingOpenCode = true;
       state.isOpenCodeReady = false;
       state.openCodeNotReadySince = Date.now();
@@ -1364,6 +1370,12 @@ export const createOpenCodeLifecycleRuntime = (deps) => {
   };
 
   return {
+    getManagedOpenCodePreflight: async () => {
+      const preflight = managedPreflight;
+      if (!preflight || state.isExternalOpenCode || state.isShuttingDown) return false;
+      const compatible = await preflight;
+      return compatible && preflight === managedPreflight && !state.isExternalOpenCode && !state.isShuttingDown;
+    },
     killProcessOnPort,
     startOpenCode,
     restartOpenCode,

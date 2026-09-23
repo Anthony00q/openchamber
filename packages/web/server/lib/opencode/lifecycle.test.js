@@ -969,3 +969,50 @@ describe('killProcessOnPort on Windows', () => {
     expect(spawnSyncMock).not.toHaveBeenCalledWith('taskkill', expect.anything(), expect.anything());
   });
 });
+
+it('shares the managed CLI preflight with desktop while startup is pending', async () => {
+  let finish;
+  let entered;
+  const checking = new Promise(resolve => { entered = resolve; });
+  const check = new Promise(resolve => { finish = resolve; });
+  let checks = 0;
+  const runtime = createRuntime({
+    checkOpenCodeBinary: () => { checks += 1; entered(); return check; },
+    ensureOpencodeCliEnv: () => '/tmp/opencode',
+  });
+  spawnMock.mockImplementation(() => {
+    const child = createMockChild();
+    queueMicrotask(() => child.stdout.emit('data', 'opencode server listening on http://127.0.0.1:45678\n'));
+    return child;
+  });
+  expect(await runtime.getManagedOpenCodePreflight()).toBe(false);
+  const starting = runtime.startOpenCode();
+  await checking;
+  const desktopVerdict = runtime.getManagedOpenCodePreflight();
+  expect(runtime.testState.isOpenCodeReady).toBe(false);
+  finish('2.0.15');
+  expect(await desktopVerdict).toBe(true);
+  expect(checks).toBe(1);
+  const server = await starting;
+  try {
+    expect(await runtime.getManagedOpenCodePreflight()).toBe(true);
+    runtime.testState.isExternalOpenCode = true;
+    expect(await runtime.getManagedOpenCodePreflight()).toBe(false);
+    runtime.testState.isExternalOpenCode = false;
+    runtime.testState.isShuttingDown = true;
+    expect(await runtime.getManagedOpenCodePreflight()).toBe(false);
+  } finally {
+    await server.close();
+  }
+});
+
+it('a rejected CLI preflight never permits desktop bootstrap', async () => {
+  const runtime = createRuntime({
+    checkOpenCodeBinary: async () => {
+      throw Object.assign(new Error('Unsupported CLI'), { code: 'OPENCODE_BINARY_INVALID' });
+    },
+  });
+  await expect(runtime.startOpenCode()).rejects.toThrow('Unsupported CLI');
+  expect(await runtime.getManagedOpenCodePreflight()).toBe(false);
+  expect(spawnMock).not.toHaveBeenCalled();
+});

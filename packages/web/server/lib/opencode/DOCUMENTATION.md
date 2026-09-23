@@ -921,3 +921,11 @@ under a running child.
   OpenChamber does not take it over. It merges its plugin directories into
   `OPENCODE_CONFIG_CONTENT` instead, and those installs keep the old behavior —
   a managed-tool toggle needs an OpenCode restart to take effect.
+
+The embedded server controller exposes `getManagedOpenCodePreflight()` for
+desktop bootstrap. It shares the lifecycle's current CLI validation promise,
+including while validation is in flight. It returns false before validation
+starts, after failure, during shutdown, or for external OpenCode. Restart clears
+the previous result, and readers discard results from a replaced preflight.
+This checks CLI compatibility, not server health; the normal startup flow still
+owns connection readiness. Explicit user compatibility checks remain fresh.

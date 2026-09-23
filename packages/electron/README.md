@@ -58,6 +58,16 @@ Same-origin session-chat iframes complete an authenticated parent-frame handshak
 
 The preload bridge exposes desktop-only APIs to the web UI through `window.__OPENCHAMBER_DESKTOP__`. Privileged commands are checked in `main.mjs`, not only in the UI.
 
+The compatibility gate can reuse the embedded managed OpenCode CLI preflight
+through `desktop_managed_opencode_compatible`. Main matches the requested
+API origin to the local backend and reads the lifecycle-owned preflight promise.
+A pending check is shared; successful checks allow UI initialization before
+server health becomes ready. Restart invalidates the result. This avoids a second
+CLI version process during startup.
+External OpenCode, remote instances, HMR backends without an embedded handle,
+and unavailable IPC retain the HTTP compatibility check. The renderer discards
+IPC results if its endpoint changes while the read is pending.
+
 ## Main Files
 
 | File | Purpose |

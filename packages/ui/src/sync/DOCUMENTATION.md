@@ -42,7 +42,11 @@ So:
 
 The desktop/web/VS Code App entry and MobileApp entry mount
 `OpenCodeCompatibilityGate` before application initialization and SyncProvider.
-The gate reads the OpenChamber-owned `/api/opencode/compatibility` endpoint;
+Electron first asks the native host for the embedded managed CLI preflight.
+It shares the lifecycle's pending or successful version check, so the gate starts
+the app without another version request and without waiting for server health.
+The verdict is scoped to the current API endpoint and is never persisted.
+All other cases use the OpenChamber-owned `/api/opencode/compatibility` endpoint;
 it does not depend on a healthy OpenCode server or successful session bootstrap.
 Native mobile connection selection remains outside the gate until a server is selected.
 

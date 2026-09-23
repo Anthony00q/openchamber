@@ -1,8 +1,11 @@
 import * as React from 'react';
 import { OpenChamberLogo } from '@/components/ui/OpenChamberLogo';
+import { AppStartupOverlay } from '@/components/ui/AppStartupOverlay';
 import { Icon } from '@/components/icon/Icon';
 import { Button } from '@/components/ui/button';
+import { DesktopHostSwitcherInline } from '@/components/desktop/DesktopHostSwitcher';
 import { useI18n } from '@/lib/i18n';
+import { hasCompatibleManagedDesktopOpenCode } from '@/lib/desktop';
 import { subscribeRuntimeEndpointChanged } from '@/lib/runtime-switch';
 import { fetchOpenCodeCompatibility, recoverOpenCode, type OpenCodeCompatibility } from '@/lib/opencode/compatibility';
 
@@ -20,6 +23,8 @@ export const OpenCodeCompatibilityGate: React.FC<React.PropsWithChildren> = ({ c
     const check = async () => {
       const revision = ++generation.current;
       try {
+        if (await hasCompatibleManagedDesktopOpenCode()) return;
+        if (!mounted || revision !== generation.current) return;
         const result = await fetchOpenCodeCompatibility();
         if (mounted && revision === generation.current) setCompatibility(result);
       } catch {
@@ -67,7 +72,7 @@ export const OpenCodeCompatibilityGate: React.FC<React.PropsWithChildren> = ({ c
   };
 
   if (!checked) {
-    return <div className="flex h-full items-center justify-center bg-background text-foreground"><OpenChamberLogo width={120} height={120} variant="splash" /></div>;
+    return <AppStartupOverlay ready={false} />;
   }
   if (compatibility?.state !== 'incompatible') return <>{children}</>;
   const external = compatibility.installation === 'external';
@@ -118,6 +123,9 @@ export const OpenCodeCompatibilityGate: React.FC<React.PropsWithChildren> = ({ c
           {t('opencodeCompatibility.guide')}
           <Icon name="external-link" className="size-3" />
         </a>
+        <div className="app-region-no-drag mt-3 w-full">
+          <DesktopHostSwitcherInline />
+        </div>
       </div>
     </section>
   );
