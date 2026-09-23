@@ -421,7 +421,10 @@ export const createSessionGoalRuntime = ({
   // `/api/session/active` is global and lists only the sessions running right
   // now, so an absent id is idle.
   const fetchSessionStatuses = async () => {
-    const statuses = await openCodeFetch('/api/session/active').catch(() => null);
+    // The route answers `{ data: { [id]: { type: 'running' } } }` without a
+    // `location`, so the shared unwrap leaves the envelope in place.
+    const body = await openCodeFetch('/api/session/active').catch(() => null);
+    const statuses = body && typeof body === 'object' && !Array.isArray(body) && 'data' in body ? body.data : body;
     return statuses && typeof statuses === 'object' && !Array.isArray(statuses) ? statuses : null;
   };
 

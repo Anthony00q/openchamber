@@ -125,7 +125,9 @@ export const findLastCompletedAssistantMessageID = (messages: readonly Message[]
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (message?.role !== 'assistant') continue;
-    if (message.time.completed !== undefined) return message.id;
+    // A v2 turn is several steps, each completed on its own; only the step
+    // that ended with `stop` closes a turn.
+    if (message.time.completed !== undefined && message.finish === 'stop') return message.id;
   }
   return null;
 };

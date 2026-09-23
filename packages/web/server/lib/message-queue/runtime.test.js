@@ -51,7 +51,8 @@ const createOpenCode = () => {
       state.failNext = null;
       return new Response('boom', { status: 500 });
     }
-    if (pathname === '/api/session/active') return wrapped(state.active);
+    // Real shape: `{ data }` without a `location`, unlike directory-scoped routes.
+    if (pathname === '/api/session/active') return Response.json({ data: state.active });
     if (pathname.endsWith('/message')) return Response.json({ data: state.tail, cursor: {} });
     if (pathname === '/api/command') return wrapped(state.commands);
     if (method === 'POST' && (pathname.endsWith('/model') || pathname.endsWith('/agent'))) {

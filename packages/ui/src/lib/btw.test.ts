@@ -84,10 +84,10 @@ const record = (id: string, created = 1): { info: Message; parts: Part[] } => ({
   parts: [],
 });
 
-// SAFETY: `findLastCompletedAssistantMessageID` reads only `id`, `role` and
-// `time`, which are the fields spelled out here.
-const assistantMessage = (id: string, completed?: number) =>
-  ({ id, sessionID: 'parent-1', role: 'assistant', time: { created: 1, completed } }) as Message;
+// SAFETY: `findLastCompletedAssistantMessageID` reads only `id`, `role`,
+// `time` and `finish`, which are the fields spelled out here.
+const assistantMessage = (id: string, completed?: number, finish: string | undefined = completed === undefined ? undefined : 'stop') =>
+  ({ id, sessionID: 'parent-1', role: 'assistant', time: { created: 1, completed }, finish }) as Message;
 
 // SAFETY: same narrow read as `assistantMessage`.
 const userMessage = (id: string) =>
@@ -156,6 +156,11 @@ describe('filterBtwTailMessages', () => {
 describe('findLastCompletedAssistantMessageID', () => {
   test('skips an assistant turn that is still streaming', () => {
     const messages = [assistantMessage('msg-1', 10), userMessage('msg-2'), assistantMessage('msg-3')];
+    expect(findLastCompletedAssistantMessageID(messages)).toBe('msg-1');
+  });
+
+  test('skips a completed step that ended in a tool call mid-turn', () => {
+    const messages = [assistantMessage('msg-1', 10), userMessage('msg-2'), assistantMessage('msg-3', 20, 'tool-calls')];
     expect(findLastCompletedAssistantMessageID(messages)).toBe('msg-1');
   });
 

@@ -284,6 +284,12 @@ export const resumeAutoReviewRun = (originalSessionID: string): void => {
 const waitForAssistantText = async (sessionID: string, directory: string, afterCreatedAt: number): Promise<string> => {
   const deadline = Date.now() + HANDOFF_TIMEOUT_MS;
   while (Date.now() < deadline) {
+    // v2 completes every step, and a step that says "let me check" before a
+    // tool call has text too. Only the finished turn holds the handoff.
+    if (!isSessionIdle(sessionID, directory)) {
+      await new Promise((resolve) => setTimeout(resolve, HANDOFF_POLL_MS));
+      continue;
+    }
     const messages = getSyncMessages(sessionID, directory);
     const candidates = messages
       .filter((message) => getMessageRole(message) === 'assistant')

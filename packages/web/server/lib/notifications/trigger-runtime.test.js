@@ -40,15 +40,22 @@ const stepEnded = (sessionID, id) => ({
   properties: { sessionID, info: { id, sessionID, role: 'assistant', finish: 'stop', time: { completed: 2 } } },
 });
 
+const turnEnded = (sessionID) => ({ type: 'session.idle', properties: { sessionID } });
+
 describe('ready notification on v2 step events', () => {
-  it('names the agent and model from the step start when the finish arrives', async () => {
+  it('announces the turn end with the agent and model of its last step', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { runtime, emitDesktopNotification } = makeRuntime();
 
     await runtime.maybeSendPushForTrigger(stepStarted('ses_1', 'msg_1'));
     expect(emitDesktopNotification).not.toHaveBeenCalled();
 
+    // A step's `stop` is not the end of the turn: the execution may still
+    // drain steering input, so only its idle event announces readiness.
     await runtime.maybeSendPushForTrigger(stepEnded('ses_1', 'msg_1'));
+    expect(emitDesktopNotification).not.toHaveBeenCalled();
+
+    await runtime.maybeSendPushForTrigger(turnEnded('ses_1'));
     expect(emitDesktopNotification).toHaveBeenCalledTimes(1);
     expect(emitDesktopNotification.mock.calls[0][0]).toMatchObject({
       kind: 'ready',
@@ -75,6 +82,7 @@ describe('ready notification on v2 step events', () => {
 
     await runtime.maybeSendPushForTrigger(stepStarted('ses_3', 'msg_3'));
     await runtime.maybeSendPushForTrigger(stepEnded('ses_3', 'msg_3'));
+    await runtime.maybeSendPushForTrigger(turnEnded('ses_3'));
 
     expect(emitDesktopNotification).not.toHaveBeenCalled();
   });

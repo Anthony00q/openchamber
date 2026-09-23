@@ -181,6 +181,9 @@ export const createNotificationTriggerRuntime = (deps) => {
   // of steps and the map is per process.
   const ASSISTANT_STEP_CACHE_LIMIT = 500;
   const assistantStepMeta = new Map();
+  // The reply a turn ended on: the idle event names only the session, so the
+  // ready notification borrows this step's id for its agent, model and text.
+  const lastAssistantStepBySession = new Map();
   const rememberAssistantStep = (info) => {
     if (!info || info.role !== 'assistant') return;
     const id = String(info.id ?? '');
@@ -189,6 +192,14 @@ export const createNotificationTriggerRuntime = (deps) => {
     if (!id || (!agent && !modelID)) return;
     assistantStepMeta.delete(id);
     assistantStepMeta.set(id, { agent, modelID });
+    const sessionId = String(info.sessionID ?? '');
+    if (sessionId) {
+      lastAssistantStepBySession.delete(sessionId);
+      lastAssistantStepBySession.set(sessionId, id);
+      while (lastAssistantStepBySession.size > ASSISTANT_STEP_CACHE_LIMIT) {
+        lastAssistantStepBySession.delete(lastAssistantStepBySession.keys().next().value);
+      }
+    }
     while (assistantStepMeta.size > ASSISTANT_STEP_CACHE_LIMIT) {
       assistantStepMeta.delete(assistantStepMeta.keys().next().value);
     }
@@ -361,7 +372,10 @@ export const createNotificationTriggerRuntime = (deps) => {
         type: 'message.updated',
         properties: {
           ...payload.properties,
+          // Only a turn end announces readiness; a step's `stop` does not.
+          turnEnded: true,
           info: {
+            id: lastAssistantStepBySession.get(sessionId),
             sessionID: sessionId,
             role: 'assistant',
             finish: payload.type === 'session.error' ? 'error' : 'stop',
@@ -375,7 +389,10 @@ export const createNotificationTriggerRuntime = (deps) => {
     if (payload.type === 'message.updated') {
       rememberAssistantStep(payload.properties?.info);
       const info = withRememberedStep(payload.properties?.info);
-      if (info?.role === 'assistant' && info?.finish === 'stop' && sessionId) {
+      // v2 ends every step with a `message.updated`; the last one says `stop`,
+      // but the execution can still drain steering input after it. Readiness
+      // is announced from the execution's terminal `session.idle` instead.
+      if (info?.role === 'assistant' && info?.finish === 'stop' && sessionId && payload.properties?.turnEnded === true) {
         payload = { ...payload, properties: { ...payload.properties, info } };
         const settings = await readSettingsFromDisk();
 

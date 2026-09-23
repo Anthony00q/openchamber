@@ -81,7 +81,8 @@ const v2OpenCode = ({ messages, active = {}, childPages = [[]], childrenStatus =
   const fetchMock = vi.fn(async (input, init = {}) => {
     const url = new URL(String(input));
     calls.push({ path: url.pathname, query: Object.fromEntries(url.searchParams), method: init.method ?? 'GET', body: init.body ? JSON.parse(init.body) : null });
-    if (url.pathname === '/api/session/active') return json(active);
+    // Real shape: `{ data }` without a `location`, unlike directory-scoped routes.
+    if (url.pathname === '/api/session/active') return Response.json({ data: active });
     if (url.pathname === '/api/session') {
       // Children of the parent, cursor paged: the first page is selected by
       // `parentID`, later ones by the cursor alone.

@@ -412,7 +412,10 @@ export function createMessageQueueRuntime({
   const isSessionIdle = async (sessionId, directory) => {
     // `/api/session/active` is global and lists only the sessions that are
     // running right now, so an absent entry means idle.
-    const statuses = asRecord(await openCodeFetch('/api/session/active').catch(() => null));
+    // The route answers `{ data: { [id]: { type: 'running' } } }` without a
+    // `location`, so the shared unwrap leaves the envelope in place.
+    const body = asRecord(await openCodeFetch('/api/session/active').catch(() => null));
+    const statuses = asRecord(body && 'data' in body ? body.data : body);
     if (!statuses) return null;
     if (asRecord(statuses[sessionId])) return false;
     // A missed event leaves no entry while a turn still streams. The trailing
