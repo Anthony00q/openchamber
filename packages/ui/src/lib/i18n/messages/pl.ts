@@ -1011,6 +1011,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.messageBody.actions.saveAsPlan': 'Zapisz jako plan',
   'chat.messageBody.actions.startNewSession': 'Rozpocznij nową sesję z tej odpowiedzi',
   'chat.messageBody.actions.startNewMultiRun': 'Rozpocznij nowe wielokrotne uruchomienie z tej odpowiedzi',
+  'chat.messageBody.actions.branchMenu': 'Kontynuuj od tej odpowiedzi',
   'chat.messageBody.forkDialog.instructions.label': 'Instrukcje',
   'chat.messageBody.forkDialog.instructions.placeholder': 'Dodaj instrukcje dla nowej sesji…',
   'chat.messageBody.forkDialog.createWorktree': 'Utwórz drzewo pracy',

@@ -68,6 +68,7 @@ import {
   refetchSessionMessages,
   revertToMessage as revertToMessageAction,
   forkFromMessage as forkFromMessageAction,
+  forkAfterMessage as forkAfterMessageAction,
   fetchMessagesForSession,
   type ArchiveSessionsOptions,
   type DeleteSessionOptions,
@@ -449,6 +450,7 @@ export type SessionUIState = {
   updateSessionTitle: (sessionId: string, title: string) => Promise<void>
   revertToMessage: (sessionId: string, messageId: string, options?: { skipRedoPush?: boolean }) => Promise<void>
   forkFromMessage: (sessionId: string, messageId: string) => Promise<void>
+  forkAfterMessage: (sessionId: string, messageId: string) => Promise<void>
   handleSlashUndo: (sessionId: string) => Promise<void>
   handleSlashRedo: (sessionId: string) => Promise<void>
   createSessionFromAssistantMessage: (source: AssistantMessageSessionSource, execution: AssistantMessageSessionExecution) => Promise<void>
@@ -2038,6 +2040,22 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
 
     try {
       await forkFromMessageAction(sessionId, messageId)
+
+      const { toast } = await import("sonner")
+      toast.success(`Forked from ${existingSession.title}`)
+    } catch (error) {
+      console.error("Failed to fork session:", error)
+      const { toast } = await import("sonner")
+      toast.error("Failed to fork session")
+    }
+  },
+
+  forkAfterMessage: async (sessionId, messageId) => {
+    const existingSession = getSyncSessions().find((s) => s.id === sessionId)
+    if (!existingSession) return
+
+    try {
+      await forkAfterMessageAction(sessionId, messageId)
 
       const { toast } = await import("sonner")
       toast.success(`Forked from ${existingSession.title}`)

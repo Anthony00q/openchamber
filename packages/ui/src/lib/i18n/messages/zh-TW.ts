@@ -2349,6 +2349,7 @@ export const dict: Record<I18nKey, string> = {
   'chat.messageBody.actions.saveAsPlan': '儲存為計畫',
   'chat.messageBody.actions.startNewSession': '基於此回答開始新會話',
   'chat.messageBody.actions.startNewMultiRun': '基於此回答開始新的 Multi-run',
+  'chat.messageBody.actions.branchMenu': '從此回答繼續',
   'chat.messageBody.forkDialog.instructions.label': '說明',
   'chat.messageBody.forkDialog.instructions.placeholder': '為新工作階段新增說明…',
   'chat.messageBody.forkDialog.createWorktree': '建立 worktree',

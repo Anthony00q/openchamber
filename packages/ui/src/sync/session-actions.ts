@@ -2310,6 +2310,36 @@ export async function refetchSessionMessages(sessionId: string): Promise<void> {
   })
 }
 
+/** Insert the fork into the child store so the sidebar updates immediately, then switch to it. */
+function openForkedSession(store: DirectoryStoreApi, forkedSession: Session, directory: string | null | undefined) {
+  const sessions = [...store.getState().session]
+  const searchResult = Binary.search(sessions, forkedSession.id, (s) => s.id)
+  if (!searchResult.found) {
+    sessions.splice(searchResult.index, 0, forkedSession)
+    store.setState({ session: sessions })
+  }
+  useSessionUIStore.getState().setCurrentSession(forkedSession.id, directory)
+}
+
+/**
+ * Fork keeping an assistant turn: the new session holds everything through
+ * `messageId`, so the agent there still sees the answer it just gave. The cut
+ * is the first user message after it; with none, the whole transcript is copied.
+ * The composer stays empty since there is no prompt to rewrite.
+ */
+export async function forkAfterMessage(sessionId: string, messageId: string): Promise<void> {
+  const expectedRuntimeKey = getRuntimeKey()
+  const { store, directory } = dirStoreForSession(sessionId)
+  const messages = store.getState().message[sessionId] ?? []
+  const index = messages.findIndex((message) => message.id === messageId)
+  if (index < 0) throw new Error("Fork source message is not loaded")
+  const nextUserMessage = messages.slice(index + 1).find((message) => message.role === "user")
+
+  const forkedSession = await opencodeClient.forkSession(sessionId, { before: nextUserMessage?.id, directory })
+  if (isStaleRuntime(expectedRuntimeKey)) return
+  openForkedSession(store, forkedSession, resolveSessionOwnedDirectory(forkedSession) ?? directory)
+}
+
 /**
  * Fork from a user message.
  *
@@ -2337,17 +2367,7 @@ export async function forkFromMessage(sessionId: string, messageId: string): Pro
   const target = createChatDraftIdentity(expectedRuntimeKey, resolveSessionOwnedDirectory(forkedSession) ?? directory, forkedSession.id)
   if (!target) throw new Error("Forked session has no composer directory")
 
-  // Insert new session into child store so sidebar updates immediately
-  const current = store.getState()
-  const sessions = [...current.session]
-  const searchResult = Binary.search(sessions, forkedSession.id, (s) => s.id)
-  if (!searchResult.found) {
-    sessions.splice(searchResult.index, 0, forkedSession)
-    store.setState({ session: sessions })
-  }
-
-  // Switch to new session
-  useSessionUIStore.getState().setCurrentSession(forkedSession.id, target.directory)
+  openForkedSession(store, forkedSession, target.directory)
 
   // Navigation is deferred in the chat column. Leave the source composer alone
   // until the rendered draft identity matches the fork, including for file-only prompts.

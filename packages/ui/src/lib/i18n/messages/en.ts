@@ -2379,6 +2379,7 @@ export const dict = {
   'chat.messageBody.actions.saveAsPlan': 'Save as plan',
   'chat.messageBody.actions.startNewSession': 'Start new session from this answer',
   'chat.messageBody.actions.startNewMultiRun': 'Start new multi-run from this answer',
+  'chat.messageBody.actions.branchMenu': 'Continue from this answer',
   'chat.messageBody.forkDialog.instructions.label': 'Instructions',
   'chat.messageBody.forkDialog.instructions.placeholder': 'Add instructions for the new session…',
   'chat.messageBody.forkDialog.createWorktree': 'Create worktree',

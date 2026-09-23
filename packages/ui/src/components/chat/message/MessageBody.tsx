@@ -1369,11 +1369,13 @@ const AssistantMessageBody = React.memo(({
         [assistantPlanText, createSessionFromAssistantMessage, effectiveDirectory, getDirectoryForSession, sessionId, t]
     );
 
-    const handleForkMultiRunClick = React.useCallback(
-        (event: React.MouseEvent<HTMLButtonElement>) => {
-            event.stopPropagation();
-            event.preventDefault();
+    const handleForkFromHere = React.useCallback(() => {
+        if (!sessionId) return;
+        void useSessionUIStore.getState().forkAfterMessage(sessionId, messageId);
+    }, [messageId, sessionId]);
 
+    const handleForkMultiRun = React.useCallback(
+        () => {
             if (!assistantPlanText.trim()) {
                 return;
             }
@@ -2106,6 +2108,12 @@ const AssistantMessageBody = React.memo(({
         }
         if (!isMiniChatSurface && !isReviewSessionView) {
             actions.push({
+                id: 'fork-from-here',
+                label: t('chat.messageBody.actions.fork'),
+                icon: <Icon name="git-branch" className="h-3.5 w-3.5" />,
+                onSelect: handleForkFromHere,
+            });
+            actions.push({
                 id: 'fork',
                 label: t('chat.messageBody.actions.startNewSession'),
                 icon: <Icon name="chat-new" className="h-3.5 w-3.5" />,
@@ -2118,7 +2126,7 @@ const AssistantMessageBody = React.memo(({
             }
         }
         return actions;
-    }, [assistantPlanText, canUseProjectPlanActions, contextPinPending, contextPinned, currentProjectRef, extraActions, handleForkClick, handleSaveAsPlanClick, hasCopyableText, isFooterTTSPlaying, isMiniChatSurface, isReviewSessionView, onCopyMessage, onToggleContextPin, playFooterTTS, reviewTransferAction, shareMessageAsImage, showMessageTTSButtons, stopFooterTTS, t]);
+    }, [assistantPlanText, canUseProjectPlanActions, contextPinPending, contextPinned, currentProjectRef, extraActions, handleForkClick, handleForkFromHere, handleSaveAsPlanClick, hasCopyableText, isFooterTTSPlaying, isMiniChatSurface, isReviewSessionView, onCopyMessage, onToggleContextPin, playFooterTTS, reviewTransferAction, shareMessageAsImage, showMessageTTSButtons, stopFooterTTS, t]);
 
     const finalTurnActionButtons = (
         <>
@@ -2191,37 +2199,42 @@ const AssistantMessageBody = React.memo(({
                     <TooltipContent sideOffset={6}>{t(contextPinned ? 'chat.messageBody.actions.unpinContext' : 'chat.messageBody.actions.pinContext')}</TooltipContent>
                 </Tooltip>
             ) : null}
-            {!isMiniChatSurface && !isReviewSessionView ? <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
-                        onPointerDown={(event) => event.stopPropagation()}
-                        onClick={handleForkClick}
-                    >
-                        <Icon name="chat-new" className="h-3 w-3" />
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent sideOffset={6}>{t('chat.messageBody.actions.startNewSession')}</TooltipContent>
-            </Tooltip> : null}
-            {canShowMultiRunAction && !isReviewSessionView ? (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
-                            onPointerDown={(event) => event.stopPropagation()}
-                            onClick={handleForkMultiRunClick}
-                        >
-                            <ArrowsMerge className="h-3 w-3" />
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent sideOffset={6}>{t('chat.messageBody.actions.startNewMultiRun')}</TooltipContent>
-                </Tooltip>
+            {!isMiniChatSurface && !isReviewSessionView ? (
+                <DropdownMenu>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6 text-muted-foreground bg-transparent hover:text-foreground hover:!bg-transparent active:!bg-transparent focus-visible:!bg-transparent focus-visible:ring-2 focus-visible:ring-ring"
+                                    aria-label={t('chat.messageBody.actions.branchMenu')}
+                                    onPointerDown={(event) => event.stopPropagation()}
+                                >
+                                    <Icon name="git-branch" className="h-3 w-3" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent sideOffset={6}>{t('chat.messageBody.actions.branchMenu')}</TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent align="end" onPointerDown={(event) => event.stopPropagation()}>
+                        <DropdownMenuItem className="typography-meta" onSelect={handleForkFromHere}>
+                            <Icon name="git-branch" className="h-3.5 w-3.5" />
+                            {t('chat.messageBody.actions.fork')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="typography-meta" onSelect={() => handleForkClick()}>
+                            <Icon name="chat-new" className="h-3.5 w-3.5" />
+                            {t('chat.messageBody.actions.startNewSession')}
+                        </DropdownMenuItem>
+                        {canShowMultiRunAction ? (
+                            <DropdownMenuItem className="typography-meta" onSelect={handleForkMultiRun}>
+                                <ArrowsMerge className="h-3.5 w-3.5" />
+                                {t('chat.messageBody.actions.startNewMultiRun')}
+                            </DropdownMenuItem>
+                        ) : null}
+                    </DropdownMenuContent>
+                </DropdownMenu>
             ) : null}
         </>
     );

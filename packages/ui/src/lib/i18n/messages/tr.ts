@@ -2315,6 +2315,7 @@ export const dict = {
   'chat.messageBody.actions.saveAsPlan': 'Plan olarak kaydet',
   'chat.messageBody.actions.startNewSession': 'Bu yanıttan yeni session başlat',
   'chat.messageBody.actions.startNewMultiRun': 'Bu yanıttan yeni multi-run başlat',
+  'chat.messageBody.actions.branchMenu': 'Bu yanıttan devam et',
   'chat.messageBody.forkDialog.instructions.label': 'Talimatlar',
   'chat.messageBody.forkDialog.instructions.placeholder': 'Yeni session için talimat ekle…',
   'chat.messageBody.forkDialog.createWorktree': 'Worktree oluştur',

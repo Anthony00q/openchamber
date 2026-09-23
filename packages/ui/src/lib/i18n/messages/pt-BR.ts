@@ -2357,6 +2357,7 @@ export const dict: Record<I18nKey, string> = {
   "chat.messageBody.actions.saveAsPlan": "Salvar como plano",
   "chat.messageBody.actions.startNewSession": "Iniciar nova sessão a partir desta resposta",
   "chat.messageBody.actions.startNewMultiRun": "Iniciar novo multi-run a partir desta resposta",
+  "chat.messageBody.actions.branchMenu": "Continuar a partir desta resposta",
   "chat.messageBody.forkDialog.instructions.label": "Instruções",
   "chat.messageBody.forkDialog.instructions.placeholder": "Adicione instruções para a nova sessão…",
   "chat.messageBody.forkDialog.createWorktree": "Criar worktree",

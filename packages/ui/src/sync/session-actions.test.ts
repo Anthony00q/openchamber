@@ -1831,6 +1831,76 @@ describe("forkFromMessage composer restore", () => {
   })
 })
 
+describe("forkAfterMessage", () => {
+  const sourceSession: Session = {
+    id: "session-a",
+    projectID: "project-a",
+    directory: "/test/project",
+    title: "Source session",
+    cost: 0,
+    tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+    time: { created: 1, updated: 1 },
+  }
+  const forkedSession: Session = { ...sourceSession, id: "session-fork", title: "Forked session" }
+  // SAFETY: forkAfterMessage reads only id and role; the rest of the message shape is irrelevant here.
+  const message = (id: string, role: "user" | "assistant") => ({ id, role, sessionID: sourceSession.id, time: { created: 1 } }) as Message
+  const transcript = [
+    message("msg-user-1", "user"),
+    message("msg-answer-1", "assistant"),
+    message("msg-user-2", "user"),
+    message("msg-answer-2", "assistant"),
+  ]
+
+  beforeEach(() => {
+    replyCalls.length = 0
+    selectedSessions.length = 0
+    runtimeKey = "fork-runtime"
+    sessionForkResult = forkedSession
+    sessionForkError = null
+    beforeSessionForkResolve = null
+    inputState.pendingComposerRestore = null
+  })
+
+  test("cuts before the next user message so the fork keeps the answer", async () => {
+    const source = createStore({}, { session: [sourceSession], message: { [sourceSession.id]: transcript } })
+    const { forkAfterMessage, setActionRefs } = await import("./session-actions")
+    setActionRefs(createChildStores([[sourceSession.directory, source]]), () => sourceSession.directory)
+
+    await forkAfterMessage(sourceSession.id, "msg-answer-1")
+
+    expect(replyCalls).toEqual([{
+      method: "session.fork",
+      params: { sessionID: sourceSession.id, messageID: "msg-user-2", directory: sourceSession.directory },
+    }])
+    expect(selectedSessions).toEqual([{ sessionId: forkedSession.id, directoryHint: sourceSession.directory }])
+    expect(source.getState().session).toEqual([sourceSession, forkedSession])
+    expect(inputState.pendingComposerRestore).toBeNull()
+  })
+
+  test("copies the whole transcript when the answer is the last message", async () => {
+    const source = createStore({}, { session: [sourceSession], message: { [sourceSession.id]: transcript } })
+    const { forkAfterMessage, setActionRefs } = await import("./session-actions")
+    setActionRefs(createChildStores([[sourceSession.directory, source]]), () => sourceSession.directory)
+
+    await forkAfterMessage(sourceSession.id, "msg-answer-2")
+
+    expect(replyCalls).toEqual([{
+      method: "session.fork",
+      params: { sessionID: sourceSession.id, messageID: undefined, directory: sourceSession.directory },
+    }])
+  })
+
+  test("refuses to fork from a message that is not loaded", async () => {
+    const source = createStore({}, { session: [sourceSession], message: { [sourceSession.id]: transcript } })
+    const { forkAfterMessage, setActionRefs } = await import("./session-actions")
+    setActionRefs(createChildStores([[sourceSession.directory, source]]), () => sourceSession.directory)
+
+    await expect(forkAfterMessage(sourceSession.id, "msg-missing")).rejects.toThrow("Fork source message is not loaded")
+    expect(replyCalls).toEqual([])
+    expect(selectedSessions).toEqual([])
+  })
+})
+
 describe("revertToMessage passes session directory", () => {
   beforeEach(() => {
     replyCalls.length = 0
