@@ -72,8 +72,11 @@ both settings are `false`.
   `schedule.list` already returns scheduler status, and enable/disable are one
   `schedule.toggle` action driven by the `disabled` boolean.
 - The tool description frames intent: created sessions and scheduled tasks are
-  user-facing work the user follows up with, never a channel for the agent to
-  delegate parts of its own current task.
+  user-facing work the user follows up with. The agent must not decide on its
+  own to delegate parts of its current task, but an explicit user request to
+  create, send, or schedule always wins, even when it relates to the current
+  task (strict models otherwise read the old unconditional "never delegate" as
+  a hard ban and refused user-requested sends).
 - Optional behavior switches (`worktree`, `goal`, `agent`, `variant`, `wait`)
   state their default and an explicit "only when the user asks" rule so agents
   do not invent worktrees, goal mode, or waits the user never requested.
