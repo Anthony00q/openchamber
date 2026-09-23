@@ -1,5 +1,6 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
+import { cn, formatPathForDisplay } from '@/lib/utils';
+import { useDirectoryStore } from '@/stores/useDirectoryStore';
 import type { PermissionReply, PermissionRequest } from '@/types/permission';
 import { useRoutingStore } from '@/stores/useRoutingStore';
 import { WorkerHighlightedCode } from '@/components/code/WorkerHighlightedCode';
@@ -13,6 +14,7 @@ import { permissionFilePreviewsSchema } from './permissionFilePreviews';
 import { formatShortcutForDisplay } from '@/lib/shortcuts';
 import { toolFileDiffs } from '@/lib/opencode/tools';
 import { getPermissionToolPresentation, getToolDisplayName } from './permissionToolPresentation';
+import { describeSavePatterns, permissionSummaryMetadataSchema, summarizePermission, type PermissionTarget } from './permissionSummary';
 import { usePermissionFromSubagent, usePermissionResponse } from './usePermissionResponse';
 
 const PERMISSION_BASH_CUSTOM_STYLE: React.CSSProperties = {
@@ -93,6 +95,20 @@ export const PermissionRequestContent: React.FC<{ permission: PermissionRequest 
     ? getMeta('command') || getMeta('cmd') || getMeta('script') || (permission.resources ?? []).join('\n')
     : '';
   const visiblePatterns = getVisiblePermissionPatterns(permission.resources, bashCommand);
+  const homeDirectory = useDirectoryStore((state) => state.homeDirectory);
+  const summary = summarizePermission(
+    toolName,
+    permission.resources ?? [],
+    permissionSummaryMetadataSchema.parse(permission.metadata),
+    Object.keys(metadata).length > 0,
+  );
+  const hasFilePreviews = (displayToolName === 'edit' || displayToolName === 'write')
+    && permissionFilePreviewsSchema.parse(permission.metadata?.files).length > 0;
+  // Shell commands and file diffs already name their subject below.
+  const targets: PermissionTarget[] = isBashTool
+    ? visiblePatterns.map((value) => ({ value, isPath: false }))
+    : hasFilePreviews ? [] : summary.targets;
+  const showTarget = (target: PermissionTarget): string => (target.isPath ? formatPathForDisplay(target.value, homeDirectory) : target.value);
 
   const renderToolContent = () => {
 
@@ -262,15 +278,18 @@ export const PermissionRequestContent: React.FC<{ permission: PermissionRequest 
           </div>
         )}
         {}
-        {Object.keys(metadata).length > 0 && !genericContent && !description && (
-          <div>
-            <div className="typography-meta text-muted-foreground mb-1">{t('chat.permissionCard.details')}</div>
-            <ScrollableOverlay outerClassName="max-h-32" className="p-0">
+        {Object.keys(metadata).length > 0 && !summary.metadataExplained && !genericContent && !description && (
+          <details className="group">
+            <summary className="typography-meta flex cursor-pointer list-none items-center gap-1 text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+              <Icon name="arrow-right-s" className="size-3.5 transition-transform group-open:rotate-90" />
+              {t('chat.permissionCard.showDetails')}
+            </summary>
+            <ScrollableOverlay outerClassName="mt-1 max-h-32" className="p-0">
               <pre className="typography-meta font-mono px-2 py-1 bg-muted/30 rounded whitespace-pre-wrap break-all">
                 {JSON.stringify(metadata, null, 2)}
               </pre>
             </ScrollableOverlay>
-          </div>
+          </details>
         )}
       </>
     );
@@ -296,14 +315,30 @@ export const PermissionRequestContent: React.FC<{ permission: PermissionRequest 
           </div>
         ) : null}
 
-        {visiblePatterns.length > 0 && (
-          <div className="mb-2">
-            <div className="typography-meta text-muted-foreground mb-1">{t('chat.permissionCard.resources')}</div>
-            <code className="typography-meta px-2 py-1 bg-muted/30 rounded block break-all">
-              {visiblePatterns.join(", ")}
-            </code>
+        <div className="mb-2">
+          <div className="typography-meta font-medium text-foreground">
+            {summary.tool ? t(summary.titleKey, { tool: summary.tool }) : t(summary.titleKey)}
+            {summary.scope ? (
+              <span className="font-normal text-muted-foreground"> {t('chat.permissionCard.summary.inPath', { path: formatPathForDisplay(summary.scope, homeDirectory) })}</span>
+            ) : null}
           </div>
-        )}
+          {targets.length > 0 && (
+            <ul className="mt-1 space-y-0.5">
+              {targets.map((target, index) => (
+                <li key={`${index}:${target.value}`} className="typography-meta font-mono break-all">
+                  {target.file ? (
+                    <>
+                      <span className="text-muted-foreground">{showTarget(target)}/</span>
+                      <span className="text-foreground">{target.file}</span>
+                    </>
+                  ) : (
+                    <span className="text-foreground">{showTarget(target)}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         {renderToolContent()}
       </div>
@@ -311,11 +346,17 @@ export const PermissionRequestContent: React.FC<{ permission: PermissionRequest 
   );
 };
 
-const alwaysLabel = (permission: PermissionRequest, t: ReturnType<typeof useI18n>['t']): string => {
-  const always = permission.save ?? [];
-  if (always.length === 0) return t('chat.permissionCard.alwaysAllow');
+const useAlwaysLabel = (permission: PermissionRequest): { label: string; full: string | undefined } => {
+  const { t } = useI18n();
+  const homeDirectory = useDirectoryStore((state) => state.homeDirectory);
+  const always = describeSavePatterns(permission.action || '', permission.save ?? [])
+    .map((pattern) => formatPathForDisplay(pattern, homeDirectory));
+  if (always.length === 0) return { label: t('chat.permissionCard.alwaysAllow'), full: undefined };
   const shown = always.slice(0, 2).join(', ');
-  return t('chat.permissionCard.alwaysAllowPatterns', { patterns: always.length > 2 ? `${shown}...` : shown });
+  return {
+    label: t('chat.permissionCard.alwaysAllowPatterns', { patterns: always.length > 2 ? `${shown}...` : shown }),
+    full: t('chat.permissionCard.alwaysAllowPatterns', { patterns: always.join(', ') }),
+  };
 };
 
 /** Allow once / always / deny. The dock uses the shared buttons; the inline card keeps its status-coloured row. */
@@ -326,7 +367,8 @@ export const PermissionActions: React.FC<{
   variant: 'inline' | 'dock';
 }> = ({ permission, isResponding, onRespond, variant }) => {
   const { t } = useI18n();
-  const hasSave = (permission.save?.length ?? 0) > 0;
+  const always = useAlwaysLabel(permission);
+  const hasSave = always.full !== undefined;
 
   if (variant === 'dock') {
     return (
@@ -337,9 +379,9 @@ export const PermissionActions: React.FC<{
           <kbd className="ml-1 hidden sm:inline typography-micro opacity-60">{formatShortcutForDisplay('alt+backspace')}</kbd>
         </Button>
         <div className="min-w-0 flex-1" />
-        <Button variant="outline" size="xs" disabled={isResponding} onClick={() => onRespond('always')} title={hasSave ? alwaysLabel(permission, t) : undefined}>
+        <Button variant="outline" size="xs" disabled={isResponding} onClick={() => onRespond('always')} title={always.full}>
           <Icon name="time" className="size-3.5" />
-          <span className="max-w-[180px] truncate">{alwaysLabel(permission, t)}</span>
+          <span className="max-w-[180px] truncate">{always.label}</span>
           {!hasSave ? <kbd className="ml-1 hidden sm:inline typography-micro opacity-60">{formatShortcutForDisplay('alt+shift+enter')}</kbd> : null}
         </Button>
         <Button size="xs" disabled={isResponding} onClick={() => onRespond('once')}>
@@ -377,12 +419,13 @@ export const PermissionActions: React.FC<{
       <button
         onClick={() => onRespond('always')}
         disabled={isResponding}
+        title={always.full}
         className={rowClass}
         style={{ backgroundColor: 'rgb(var(--muted) / 0.5)', color: 'var(--muted-foreground)' }}
         {...hover('rgb(var(--muted) / 0.5)', 'rgb(var(--muted) / 0.7)')}
       >
         <Icon name="time" className="h-3.5 w-3.5 sm:h-3 sm:w-3 flex-shrink-0" />
-        <span className="truncate max-w-[180px]">{alwaysLabel(permission, t)}</span>
+        <span className="truncate max-w-[180px]">{always.label}</span>
         {!hasSave ? <kbd className="ml-1 hidden sm:inline typography-micro opacity-60">{formatShortcutForDisplay('alt+shift+enter')}</kbd> : null}
       </button>
 
