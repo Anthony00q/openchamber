@@ -33,7 +33,6 @@ export const usageStatsI18n = {
     'usageStats.activity.barLabel': '{date} · steps: {count}',
     'usageStats.models.title': 'Models',
     'usageStats.models.empty': 'No model usage in this period.',
-    'usageStats.models.row': 'Tokens: {tokens} · {cost}',
   },
   de: {
     'usageStats.openAction': 'Statistik',
@@ -68,7 +67,6 @@ export const usageStatsI18n = {
     'usageStats.activity.barLabel': '{date} · Schritte: {count}',
     'usageStats.models.title': 'Modelle',
     'usageStats.models.empty': 'Keine Modellnutzung in diesem Zeitraum.',
-    'usageStats.models.row': 'Tokens: {tokens} · {cost}',
   },
   es: {
     'usageStats.openAction': 'Estadísticas',
@@ -103,7 +101,6 @@ export const usageStatsI18n = {
     'usageStats.activity.barLabel': '{date} · pasos: {count}',
     'usageStats.models.title': 'Modelos',
     'usageStats.models.empty': 'Sin uso de modelos en este periodo.',
-    'usageStats.models.row': 'Tokens: {tokens} · {cost}',
   },
   fr: {
     'usageStats.openAction': 'Statistiques',
@@ -138,7 +135,6 @@ export const usageStatsI18n = {
     'usageStats.activity.barLabel': '{date} · étapes : {count}',
     'usageStats.models.title': 'Modèles',
     'usageStats.models.empty': 'Aucune utilisation de modèle sur cette période.',
-    'usageStats.models.row': 'Jetons : {tokens} · {cost}',
   },
   ja: {
     'usageStats.openAction': '統計',
@@ -173,7 +169,6 @@ export const usageStatsI18n = {
     'usageStats.activity.barLabel': '{date} · ステップ: {count}',
     'usageStats.models.title': 'モデル',
     'usageStats.models.empty': 'この期間のモデル使用はありません。',
-    'usageStats.models.row': 'トークン: {tokens} · {cost}',
   },
   ko: {
     'usageStats.openAction': '통계',
@@ -208,7 +203,6 @@ export const usageStatsI18n = {
     'usageStats.activity.barLabel': '{date} · 단계: {count}',
     'usageStats.models.title': '모델',
     'usageStats.models.empty': '이 기간에는 모델 사용이 없습니다.',
-    'usageStats.models.row': '토큰: {tokens} · {cost}',
   },
   pl: {
     'usageStats.openAction': 'Statystyki',
@@ -243,7 +237,6 @@ export const usageStatsI18n = {
     'usageStats.activity.barLabel': '{date} · kroki: {count}',
     'usageStats.models.title': 'Modele',
     'usageStats.models.empty': 'Brak użycia modeli w tym okresie.',
-    'usageStats.models.row': 'Tokeny: {tokens} · {cost}',
   },
   'pt-BR': {
     'usageStats.openAction': 'Estatísticas',
@@ -278,7 +271,6 @@ export const usageStatsI18n = {
     'usageStats.activity.barLabel': '{date} · passos: {count}',
     'usageStats.models.title': 'Modelos',
     'usageStats.models.empty': 'Nenhum uso de modelo neste período.',
-    'usageStats.models.row': 'Tokens: {tokens} · {cost}',
   },
   tr: {
     'usageStats.openAction': 'İstatistikler',
@@ -313,7 +305,6 @@ export const usageStatsI18n = {
     'usageStats.activity.barLabel': '{date} · adımlar: {count}',
     'usageStats.models.title': 'Modeller',
     'usageStats.models.empty': 'Bu dönemde model kullanımı yok.',
-    'usageStats.models.row': 'Tokenlar: {tokens} · {cost}',
   },
   uk: {
     'usageStats.openAction': 'Статистика',
@@ -348,7 +339,6 @@ export const usageStatsI18n = {
     'usageStats.activity.barLabel': '{date} · кроки: {count}',
     'usageStats.models.title': 'Моделі',
     'usageStats.models.empty': 'За цей період моделі не використовувалися.',
-    'usageStats.models.row': 'Токени: {tokens} · {cost}',
   },
   'zh-CN': {
     'usageStats.openAction': '统计',
@@ -383,7 +373,6 @@ export const usageStatsI18n = {
     'usageStats.activity.barLabel': '{date} · 步骤：{count}',
     'usageStats.models.title': '模型',
     'usageStats.models.empty': '此期间没有模型使用记录。',
-    'usageStats.models.row': '令牌：{tokens} · {cost}',
   },
   'zh-TW': {
     'usageStats.openAction': '統計',
@@ -418,6 +407,5 @@ export const usageStatsI18n = {
     'usageStats.activity.barLabel': '{date} · 步驟：{count}',
     'usageStats.models.title': '模型',
     'usageStats.models.empty': '此期間沒有模型使用紀錄。',
-    'usageStats.models.row': '權杖：{tokens} · {cost}',
   },
 } as const;

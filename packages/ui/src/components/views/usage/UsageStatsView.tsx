@@ -338,17 +338,15 @@ function ModelUsage({ models, formats }: { models: UsageModel[]; formats: Format
             return (
               <li key={`${model.providerID}/${model.modelID}#${model.variant ?? ''}`} className="flex min-w-0 flex-col gap-1">
                 <div className="flex min-w-0 items-center gap-2">
-                  <ProviderLogo providerId={model.providerID} alt="" className="size-4 shrink-0" />
-                  <span className="flex min-w-0 flex-1 items-baseline gap-1.5 truncate" title={`${model.providerID}/${model.modelID}`}>
+                  <ProviderLogo providerId={model.providerID} alt={providerName} className="size-4 shrink-0" />
+                  <span className="flex min-w-0 flex-1 items-baseline gap-1.5 truncate" title={`${providerName} · ${model.providerID}/${model.modelID}`}>
                     <span className="truncate typography-ui-label text-foreground">{name}</span>
                     {model.variant ? <span className="shrink-0 typography-micro text-muted-foreground">{model.variant}</span> : null}
-                    <span className="shrink-0 typography-micro text-muted-foreground/80">{providerName}</span>
+                    {/* Phones keep the row for the model name; the logo names the provider there. */}
+                    <span className="hidden shrink-0 typography-micro text-muted-foreground/80 sm:inline">{providerName}</span>
                   </span>
                   <span className="shrink-0 typography-micro tabular-nums text-muted-foreground">
-                    {t('usageStats.models.row', {
-                      tokens: formats.compact.format(model.tokens.total),
-                      cost: formats.cost.format(model.cost),
-                    })}
+                    {`${formats.compact.format(model.tokens.total)} · ${formats.cost.format(model.cost)}`}
                   </span>
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-border/50">
