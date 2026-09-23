@@ -17,7 +17,7 @@ import { create } from "zustand"
 import type { Metadata, ModelRef, Part, Session, TextPart } from "@/lib/opencode/model"
 import type { AttachedFile, SessionContextUsage, SessionWorktreeAttachment } from "@/stores/types/sessionTypes"
 import type { WorktreeMetadata } from "@/types/worktree"
-import { opencodeClient } from "@/lib/opencode/client"
+import { opencodeClient, type SkillMentions } from "@/lib/opencode/client"
 import { runtimeFetch } from "@/lib/runtime-fetch"
 import { useConfigStore } from "@/stores/useConfigStore"
 import { useProjectsStore } from "@/stores/useProjectsStore"
@@ -178,6 +178,7 @@ export async function routeMessage(params: {
   additionalParts?: Array<{ text: string; synthetic?: boolean; metadata?: ContextPartMetadata; files?: Array<{ type: "file"; mime: string; url: string; filename: string }>; systemContext?: 'session-knowledge' }>
   appendSubmissions?: () => void
   delivery?: 'steer'
+  skills?: SkillMentions
 }): Promise<'command' | 'prompt' | 'shell'> {
   const requestDirectory = params.directory ?? undefined
   // The session carries its own model and agent server-side. Sending them on
@@ -194,6 +195,12 @@ export async function routeMessage(params: {
   const contextItems = (params.additionalParts ?? [])
     .filter((part) => part.text.trim().length > 0)
     .map((part) => ({ text: part.text, metadata: part.metadata }))
+  // The command route takes no skill attachments, so the skills named in a
+  // command's arguments are named in an instruction as before.
+  const skillInstructionContext = (): Array<{ text: string }> => {
+    const text = params.skills?.names.length ? params.skills.instructionFor(params.skills.names) : null
+    return text ? [{ text }] : []
+  }
   const contextFiles = (params.additionalParts ?? []).flatMap((part) => part.files ?? [])
   const sendFiles = [...(params.files ?? []), ...contextFiles]
 
@@ -246,6 +253,7 @@ export async function routeMessage(params: {
       // hang an optimistic user message on. The command's message arrives
       // through the stream instead.
       params.appendSubmissions?.()
+      const commandContext = [...contextItems, ...skillInstructionContext()]
       await opencodeClient.sendCommand({
         runtimeKey: params.runtimeKey,
         id: params.sessionId,
@@ -254,7 +262,7 @@ export async function routeMessage(params: {
         command: cmdName,
         arguments: tail.join(" "),
         files: sendFiles,
-        context: contextItems.length > 0 ? contextItems : undefined,
+        context: commandContext.length > 0 ? commandContext : undefined,
         delivery: params.delivery,
         directory: requestDirectory,
       })
@@ -283,6 +291,7 @@ export async function routeMessage(params: {
       delivery: params.delivery,
       messageId: messageID,
       directory: requestDirectory,
+      skills: params.skills,
     }).then(() => {}),
   })
   return 'prompt'
@@ -302,6 +311,8 @@ type SendMessageOptions = {
   /** Immutable copy of the new-session draft at submit time; used instead of the live draft. */
   draftSnapshot?: NewSessionDraftState
   delivery?: 'steer'
+  /** Skills named inline, attached to the prompt once the session exists. */
+  skills?: SkillMentions
 }
 
 type AssistantMessageSessionExecution = {
@@ -1784,6 +1795,7 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
         files,
         appendSubmissions,
         delivery: options?.delivery,
+        skills: options?.skills,
         additionalParts: mergedAdditionalParts?.map((p) => ({
           text: p.text,
           synthetic: p.synthetic,
@@ -1904,6 +1916,7 @@ export const useSessionUIStore = create<SessionUIState>()((set, get) => ({
       files,
       appendSubmissions,
       delivery: options?.delivery,
+      skills: options?.skills,
       additionalParts: partsWithPinnedContext?.map((p) => ({
         text: p.text,
         synthetic: p.synthetic,

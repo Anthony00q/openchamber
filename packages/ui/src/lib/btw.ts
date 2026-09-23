@@ -1,5 +1,5 @@
 import type { Message, Part, Session } from '@/lib/opencode/model';
-import { opencodeClient } from '@/lib/opencode/client';
+import { opencodeClient, type SkillMentions } from '@/lib/opencode/client';
 import * as sessionActions from '@/sync/session-actions';
 import { withBtwSessionLink, withBtwSessionMarker, withoutBtwSessionLink, withoutBtwSessionMarker } from '@/lib/sessionBtwMetadata';
 import { useBtwStore } from '@/stores/useBtwStore';
@@ -41,6 +41,8 @@ export type StartBtwInput = {
     synthetic?: boolean;
     metadata?: ContextPartMetadata;
   }>;
+  /** Skills the question names inline, attached to its prompt. */
+  skills?: SkillMentions;
 };
 
 /**
@@ -264,7 +266,7 @@ export async function startBtwSession(input: StartBtwInput): Promise<Session> {
           [...btwBoundaryParts(), ...(input.additionalParts ?? [])],
           input.variant ?? undefined,
           'normal',
-          { sessionId: forked.id, directory: sessionDirectory },
+          { sessionId: forked.id, directory: sessionDirectory, skills: input.skills },
         );
       } catch (error) {
         // A fork without its first question is not a usable btw session:

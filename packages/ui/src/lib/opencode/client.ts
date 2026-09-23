@@ -171,6 +171,23 @@ export function normalizeOpencodeError(operation: string, error: unknown): Openc
   return new OpencodeApiError(operation, String(error), { cause: error })
 }
 
+/**
+ * Skills the user named inline with `/name`, in order of appearance. They are
+ * attached to the prompt by id so OpenCode loads each one with the message,
+ * whatever the session is doing; a name that cannot be attached falls back to
+ * the instruction the caller builds for it.
+ */
+export type SkillMentions = {
+  names: readonly string[]
+  instructionFor: (names: readonly string[]) => string | null
+}
+
+type SkillAttachmentRef = { id: string; name: string }
+
+/** OpenCode rejected a prompt because an attached skill id does not exist. */
+const isSkillNotFound = (error: OpencodeApiError): boolean =>
+  error.tag === "InvalidRequestError" && error.detail.startsWith("Skill not found")
+
 export const isOpencodeNotFound = (error: unknown): boolean =>
   error instanceof OpencodeApiError && error.status === 404
 
@@ -1052,6 +1069,8 @@ class OpencodeService {
     metadata?: Metadata
     delivery?: SessionInboxDelivery
     directory?: string | null
+    /** Skills named inline; attached to the prompt so OpenCode loads them with it. */
+    skills?: SkillMentions
   }): Promise<string> {
     this.assertRuntimeUnchanged(params.runtimeKey)
 
@@ -1070,34 +1089,55 @@ class OpencodeService {
 
     assertProviderCircuitClosed(params.providerID)
 
-    try {
-      await this.applySendSelection(params.id, { model: params.model, agent: params.agent }, params.directory, params.runtimeKey)
-      for (const item of params.context ?? []) {
-        if (!item.text.trim()) continue
-        this.assertRuntimeUnchanged(params.runtimeKey)
-        await call("session.synthetic", () =>
-          this.clientFor(params.directory).session.synthetic({
-            sessionID: params.id,
-            text: item.text,
-            description: item.description,
-            metadata: item.metadata ? toJsonRecord(item.metadata) : undefined,
-            delivery: params.delivery,
-            resume: false,
-          }),
-        )
-      }
+    const admitSynthetic = async (item: { text: string; metadata?: ContextPartMetadata; description?: string }) => {
       this.assertRuntimeUnchanged(params.runtimeKey)
-      await call("session.prompt", () =>
+      await call("session.synthetic", () =>
+        this.clientFor(params.directory).session.synthetic({
+          sessionID: params.id,
+          text: item.text,
+          description: item.description,
+          metadata: item.metadata ? toJsonRecord(item.metadata) : undefined,
+          delivery: params.delivery,
+          resume: false,
+        }),
+      )
+    }
+    const prompt = (skills: readonly SkillAttachmentRef[]) => {
+      this.assertRuntimeUnchanged(params.runtimeKey)
+      return call("session.prompt", () =>
         this.clientFor(params.directory).session.prompt({
           sessionID: params.id,
           id: messageId,
           text: params.text,
           files: files.length > 0 ? files : undefined,
           agents: agents.length > 0 ? agents : undefined,
+          skills: skills.length > 0 ? skills.map((skill) => ({ id: skill.id })) : undefined,
           metadata: params.metadata,
           delivery: params.delivery,
         }),
       )
+    }
+
+    try {
+      await this.applySendSelection(params.id, { model: params.model, agent: params.agent }, params.directory, params.runtimeKey)
+      const skills = await this.resolveSkillMentions(params.skills?.names ?? [], params.directory)
+      const unresolvedInstruction = params.skills?.instructionFor(skills.unresolved) ?? null
+      for (const item of params.context ?? []) {
+        if (!item.text.trim()) continue
+        await admitSynthetic(item)
+      }
+      if (unresolvedInstruction) await admitSynthetic({ text: unresolvedInstruction })
+      try {
+        await prompt(skills.attached)
+      } catch (error) {
+        // The skill list and the prompt are two requests: a skill removed in
+        // between fails preparation before anything is admitted, so the same
+        // message id is safe to send again without the attachment.
+        if (skills.attached.length === 0 || !(error instanceof OpencodeApiError) || !isSkillNotFound(error)) throw error
+        const instruction = params.skills?.instructionFor(skills.attached.map((skill) => skill.name)) ?? null
+        if (instruction) await admitSynthetic({ text: instruction })
+        await prompt([])
+      }
     } catch (error) {
       // Do not retry a prompt after a transport failure: through a remote
       // tunnel the POST may already be running server-side even though the
@@ -1567,6 +1607,35 @@ class OpencodeService {
 
   async listSkills(directory?: string | null): Promise<Skill[]> {
     return call("skill.list", () => this.clientFor(directory).skill.list().then((r) => r.data))
+  }
+
+  /**
+   * Maps the names the composer knows to OpenCode skill ids. The composer's
+   * registry is keyed by name, while a prompt attaches skills by id (the
+   * skill's folder, which a frontmatter `name` can differ from). A name
+   * OpenCode does not list, or a failed list, leaves the name unresolved so
+   * the caller can fall back instead of losing the mention.
+   */
+  private async resolveSkillMentions(
+    names: readonly string[],
+    directory?: string | null,
+  ): Promise<{ attached: SkillAttachmentRef[]; unresolved: string[] }> {
+    if (names.length === 0) return { attached: [], unresolved: [] }
+    let known: Skill[]
+    try {
+      known = await this.listSkills(directory)
+    } catch (error) {
+      console.warn("[opencode] Could not list skills; naming them in an instruction instead:", error)
+      return { attached: [], unresolved: [...names] }
+    }
+    const attached: SkillAttachmentRef[] = []
+    const unresolved: string[] = []
+    for (const name of names) {
+      const match = known.find((skill) => skill.name === name) ?? known.find((skill) => skill.id === name)
+      if (!match) unresolved.push(name)
+      else if (!attached.some((skill) => skill.id === match.id)) attached.push({ id: match.id, name })
+    }
+    return { attached, unresolved }
   }
 
   async listMcpServers(directory?: string | null): Promise<McpServerStatus[]> {

@@ -278,6 +278,36 @@ describe('routeMessage directory scoping', () => {
   });
 });
 
+describe('routeMessage inline skills', () => {
+  test('the command route names inline skills in an instruction after the attached context', async () => {
+    const calls = [];
+    const originalListCommands = opencodeClient.listCommands;
+    const originalSendCommand = opencodeClient.sendCommand;
+    opencodeClient.listCommands = async () => [{ name: 'review-skills-test' }];
+    opencodeClient.sendCommand = async (params) => {
+      calls.push(params);
+    };
+
+    try {
+      await routeMessage({
+        sessionId: 'session-a',
+        directory: '/session/project',
+        content: '/review-skills-test with /deploy',
+        providerID: 'provider-a',
+        modelID: 'model-a',
+        additionalParts: [{ text: 'quoted code', synthetic: true }],
+        skills: { names: ['deploy'], instructionFor: (names) => `use: ${names.join(',')}` },
+      });
+    } finally {
+      opencodeClient.listCommands = originalListCommands;
+      opencodeClient.sendCommand = originalSendCommand;
+    }
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].context.map((item) => item.text)).toEqual(['quoted code', 'use: deploy']);
+  });
+});
+
 describe('sendMessage captured target', () => {
   let originalSendMessage;
   const calls = [];

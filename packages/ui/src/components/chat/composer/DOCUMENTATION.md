@@ -264,6 +264,29 @@ and the send path reading the same grammar.
   mention, file mentions, and skill instruction were resolved when it was
   queued, never at delivery — and its context follows it before the next
   queued message.
+- **Skills named inline (`/name`) are attached to the prompt, not hinted at.**
+  `buildOutgoingMessage` reports the composer text's skill names (deduped, in
+  order) as `skillNames`; `ChatInput` hands them to the send as
+  `SkillMentions`, and `opencodeClient.sendMessage` maps each name to its
+  OpenCode skill id (`GET /api/skill`; the id is the skill's folder and can
+  differ from its frontmatter name) and sends them in the prompt's `skills`
+  field. OpenCode then loads each skill's content into that user message. It
+  rides the prompt's delivery, so a new-session draft (after the session is
+  created), a steer while the agent works and a `/btw` fork all activate the
+  skill with their own message, never mid-turn. The separate
+  `session.skill` route is deliberately not used: it appends a skill message
+  immediately, outside the inbox, so while a turn runs it would land inside
+  that turn ahead of the message that asked for it. The skill message it
+  creates is hidden in the timeline anyway (`timelineRoles.ts`).
+  Fallback to the old hidden instruction ("The user explicitly mentioned
+  these skills…") is per skill and never blocks the send: a name OpenCode
+  does not list, a failed skill list, or a prompt rejected with
+  `Skill not found` (resent once with the same message id, since preparation
+  fails before admission). Queued messages keep the instruction captured at
+  queue time, because the server and the VS Code auto-send deliver them
+  without the composer's registry. A leading `/skill` that routes to
+  `session.command` keeps the instruction too: that route takes no skill
+  attachments.
 - Extension slash commands are routed first (`submit/guestCommands.ts`,
   entries from `useGuestCommands` minus every name the composer already
   knows, so an extension can never shadow a built-in, an OpenCode command, or
