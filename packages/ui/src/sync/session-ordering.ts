@@ -120,8 +120,14 @@ const finiteTime = (value: unknown): number => (
   typeof value === 'number' && Number.isFinite(value) ? value : 0
 );
 
+/**
+ * When the session last had a conversation. `time.idle` moves only when a turn
+ * ends; `time.updated` also moves on title and metadata writes, which must not
+ * lift a session nobody touched. Sessions migrated from 1.x have no `idle`
+ * until their first 2.x turn, so they fall back to `updated`.
+ */
 const updatedAt = (session: Session): number => (
-  finiteTime(session.time?.updated) || finiteTime(session.time?.created)
+  finiteTime(session.time?.idle) || finiteTime(session.time?.updated) || finiteTime(session.time?.created)
 );
 
 const createdAt = (session: Session): number => finiteTime(session.time?.created);
