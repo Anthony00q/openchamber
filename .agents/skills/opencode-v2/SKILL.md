@@ -18,8 +18,9 @@ the 2.x code, not from memory of 1.x.
 
 - `packages/ui/src/lib/opencode/client.ts` — every official OpenCode call the
   shared UI makes; `projection.ts` turns wire shapes into the OpenChamber
-  domain model in `model.ts`; `events.ts` translates wire events. These three
-  files are the only place that knows 2.x wire shapes. Rendering and stores
+  domain model in `model.ts`; `events.ts` translates wire events;
+  `plugins.ts` translates the experimental plugin routes. These files are the
+  only place that knows 2.x wire shapes. Rendering and stores
   read the domain model; fix a missing field there, never with a shim.
 - `packages/web/server/lib/opencode/proxy.js` forwards `/api/*` as-is (2.x
   serves under `/api` itself) and folds OpenChamber-owned session state into

@@ -16,6 +16,8 @@ import {
 import { getRuntimeKey } from '@/lib/runtime-switch';
 import { useProjectsStore } from '@/stores/useProjectsStore';
 import { RegistryBanner } from './RegistryBanner';
+import { PluginStatusBanner } from './PluginStatusBanner';
+import { configEntryRuntimeTarget, pluginFileRuntimeTarget } from './pluginLoadState';
 import {
   usePluginsStore,
   getPluginsConfigDirectory,
@@ -122,6 +124,15 @@ export const PluginsPage: React.FC = () => {
   const selectedFile = React.useMemo(
     () => (selectedId ? files.find((f) => f.id === selectedId) ?? null : null),
     [files, selectedId],
+  );
+
+  const selectedEntryTarget = React.useMemo(
+    () => (selectedEntry ? configEntryRuntimeTarget(selectedEntry.spec, selectedEntry.sourcePath) : null),
+    [selectedEntry],
+  );
+  const selectedFileTarget = React.useMemo(
+    () => (selectedFile ? pluginFileRuntimeTarget(selectedFile.absolutePath) : null),
+    [selectedFile],
   );
 
   const [isLoadingFile, setIsLoadingFile] = React.useState(false);
@@ -257,7 +268,10 @@ export const PluginsPage: React.FC = () => {
         onBlurCapture={autosave.onBlurCapture}
       >
         <SettingsSection divider={false}>
-          <RegistryBanner entryId={selectedEntry.id} spec={selectedEntry.spec} />
+          <div className="flex flex-col gap-3">
+            <PluginStatusBanner target={selectedEntryTarget} name={selectedEntry.spec} />
+            <RegistryBanner entryId={selectedEntry.id} spec={selectedEntry.spec} />
+          </div>
         </SettingsSection>
 
         <SettingsSection
@@ -329,9 +343,12 @@ export const PluginsPage: React.FC = () => {
         )}
         onBlurCapture={autosave.onBlurCapture}
       >
+        <SettingsSection divider={false}>
+          <PluginStatusBanner target={selectedFileTarget} name={selectedFile.fileName} />
+        </SettingsSection>
+
         <SettingsSection
           title={t('settings.plugins.page.field.content')}
-          divider={false}
           settingsItem="plugins.content"
         >
           <Textarea

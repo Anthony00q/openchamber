@@ -4,7 +4,13 @@ import { createDeferredSafeJSONStorage } from './utils/safeStorage';
 import { startConfigUpdate } from '@/lib/configUpdate';
 import { refreshAfterOpenCodeRestart } from '@/stores/useAgentsStore';
 import { useProjectsStore } from '@/stores/useProjectsStore';
-import { opencodeClient } from '@/lib/opencode/client';
+import { OpencodeApiError, opencodeClient } from '@/lib/opencode/client';
+import {
+  checkPluginUpdates,
+  listPluginRuntime,
+  updatePluginPackage,
+  type PluginRuntimeInfo,
+} from '@/lib/opencode/plugins';
 import { runtimeFetch } from '@/lib/runtime-fetch';
 import { getRuntimeKey } from '@/lib/runtime-switch';
 
@@ -18,6 +24,8 @@ export interface PluginEntry {
   scope: PluginScope;
   kind: 'config';
   parsedKind: PluginParsedKind;
+  /** The config file that declares the entry; relative path specs resolve against its directory. */
+  sourcePath?: string;
 }
 
 export interface PluginFile {
@@ -26,6 +34,7 @@ export interface PluginFile {
   scope: PluginScope;
   /** `file` is a `.ts`/`.js` OpenChamber can open; `package` is a plugin directory (or a v1 `plugin/` file) OpenCode loads but the page only lists. */
   kind: 'file' | 'package';
+  absolutePath?: string;
 }
 
 export interface PluginDraft {
@@ -55,6 +64,21 @@ export type RegistryResult =
   | { kind: 'path-missing'; spec: string; absolutePath: string }
   | { kind: 'path-unreadable'; spec: string; absolutePath: string };
 
+/**
+ * What OpenCode reported for the plugins of one directory and runtime
+ * (`scope`, see `getPluginsScopeKey`). `failed` means the read failed: every
+ * plugin's status is unknown, never "all fine" and never "all failed".
+ */
+export type PluginRuntimeSnapshot =
+  | { kind: 'idle' }
+  | { kind: 'ready'; scope: string; plugins: PluginRuntimeInfo[] }
+  | { kind: 'failed'; scope: string };
+
+/** An update this client started, keyed by `getPluginUpdateKey`. */
+export type PluginPackageUpdate =
+  | { kind: 'running' }
+  | { kind: 'failed'; error: string };
+
 export interface PluginsStore {
   entries: PluginEntry[];
   loadedDirectory: string | null | undefined;
@@ -65,12 +89,18 @@ export interface PluginsStore {
   registryInfo: Record<string, RegistryResult>;
   isLoadingRegistry: boolean;
   draft: PluginDraft | null;
+  runtime: PluginRuntimeSnapshot;
+  isCheckingUpdates: boolean;
+  packageUpdates: Record<string, PluginPackageUpdate>;
 
   setSelected: (id: string | null) => void;
   setDraft: (draft: PluginDraft | null) => void;
   loadPlugins: (options?: { force?: boolean }) => Promise<boolean>;
   loadRegistryInfo: (opts?: { specs?: string[]; force?: boolean }) => Promise<boolean>;
   updateToLatest: (id: string) => Promise<PluginMutationResult>;
+  loadRuntime: () => Promise<boolean>;
+  checkUpdates: () => Promise<boolean>;
+  updatePackage: (target: string) => Promise<boolean>;
   createEntry: (input: { spec: string; options?: Record<string, unknown>; scope: PluginScope }) => Promise<PluginMutationResult>;
   updateEntry: (id: string, input: { spec?: string; options?: Record<string, unknown> }) => Promise<PluginMutationResult>;
   deleteEntry: (id: string) => Promise<PluginMutationResult>;
@@ -136,6 +166,15 @@ const getPluginCacheKey = (directory: string | null): string => {
   return JSON.stringify([getRuntimeKey(), directory?.trim() || DEFAULT_PLUGINS_CACHE_KEY]);
 };
 
+/** Identifies the directory and runtime a runtime snapshot or update belongs to. */
+export const getPluginsScopeKey = getPluginCacheKey;
+
+export const getPluginUpdateKey = (scope: string, target: string): string => JSON.stringify([scope, target]);
+
+// Only the newest runtime read may commit: a slower earlier one (or one for a
+// directory the user already left) would put back an older inventory.
+let runtimeReadGeneration = 0;
+
 const invalidatePluginCache = (directory: string | null) => {
   pluginsLastLoadedAt.delete(getPluginCacheKey(directory));
 };
@@ -153,6 +192,9 @@ export const usePluginsStore = create<PluginsStore>()(
         registryInfo: {},
         isLoadingRegistry: false,
         draft: null,
+        runtime: { kind: 'idle' },
+        isCheckingUpdates: false,
+        packageUpdates: {},
 
         setSelected: (id) => set({ selectedId: id }),
 
@@ -175,6 +217,8 @@ export const usePluginsStore = create<PluginsStore>()(
           if (!options?.force && inFlight) {
             return inFlight;
           }
+
+          void get().loadRuntime();
 
           const request = (async () => {
             set({ isLoading: true });
@@ -237,6 +281,69 @@ export const usePluginsStore = create<PluginsStore>()(
           } catch (error) {
             console.error('[PluginsStore] Failed to load plugin registry info:', error);
             set({ isLoadingRegistry: false });
+            return false;
+          }
+        },
+
+        loadRuntime: async () => {
+          const configDirectory = getPluginsConfigDirectory();
+          const scope = getPluginsScopeKey(configDirectory);
+          const generation = ++runtimeReadGeneration;
+          try {
+            const plugins = await listPluginRuntime(configDirectory);
+            if (generation !== runtimeReadGeneration || getPluginsScopeKey(getPluginsConfigDirectory()) !== scope) return false;
+            set({ runtime: { kind: 'ready', scope, plugins } });
+            return true;
+          } catch (error) {
+            if (generation !== runtimeReadGeneration || getPluginsScopeKey(getPluginsConfigDirectory()) !== scope) return false;
+            console.error('[PluginsStore] Failed to read plugin status from OpenCode:', error);
+            set({ runtime: { kind: 'failed', scope } });
+            return false;
+          }
+        },
+
+        checkUpdates: async () => {
+          const configDirectory = getPluginsConfigDirectory();
+          const scope = getPluginsScopeKey(configDirectory);
+          set({ isCheckingUpdates: true });
+          try {
+            const plugins = await checkPluginUpdates(configDirectory);
+            // A check returns the whole inventory, so once it lands it
+            // supersedes list reads still in flight. Claiming the generation
+            // only on success keeps a failed check from discarding them.
+            runtimeReadGeneration += 1;
+            if (getPluginsScopeKey(getPluginsConfigDirectory()) === scope) {
+              set({ runtime: { kind: 'ready', scope, plugins } });
+            }
+            return true;
+          } catch (error) {
+            // The inventory already on screen is still what OpenCode loaded;
+            // only its update flags were not refreshed. The caller reports it.
+            console.error('[PluginsStore] Failed to check plugin updates:', error);
+            return false;
+          } finally {
+            set({ isCheckingUpdates: false });
+          }
+        },
+
+        updatePackage: async (target) => {
+          const configDirectory = getPluginsConfigDirectory();
+          const key = getPluginUpdateKey(getPluginsScopeKey(configDirectory), target);
+          if (get().packageUpdates[key]?.kind === 'running') return false;
+          set({ packageUpdates: { ...get().packageUpdates, [key]: { kind: 'running' } } });
+          try {
+            await updatePluginPackage(configDirectory, target);
+            // OpenCode announces the reload with `plugin.updated`; reading now
+            // clears the update flag even when that event is missed. The row
+            // stays running until then so the stale flag can't offer a rerun.
+            await get().loadRuntime();
+            const next = { ...get().packageUpdates };
+            delete next[key];
+            set({ packageUpdates: next });
+            return true;
+          } catch (error) {
+            const message = error instanceof OpencodeApiError ? error.detail : error instanceof Error ? error.message : String(error);
+            set({ packageUpdates: { ...get().packageUpdates, [key]: { kind: 'failed', error: message } } });
             return false;
           }
         },
