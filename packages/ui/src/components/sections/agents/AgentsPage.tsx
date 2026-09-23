@@ -218,7 +218,9 @@ export const AgentsPage: React.FC = () => {
         draftName: '',
         draftScope: 'user',
         description: entity.description || '',
-        mode: entity.mode || 'subagent',
+        // A stored override often omits `mode` (built-in build/plan); fall back
+        // to the resolved mode so an unrelated edit never writes `subagent`.
+        mode: entity.mode || selectedAgent?.mode || 'subagent',
         model: parsedModel ? `${parsedModel.providerID}/${parsedModel.modelID}` : '',
         variant: parsedModel?.variant || '',
         steps: entity.steps ?? undefined,

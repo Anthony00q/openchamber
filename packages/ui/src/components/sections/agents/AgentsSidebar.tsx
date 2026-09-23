@@ -179,7 +179,7 @@ export const AgentsSidebar: React.FC<AgentsSidebarProps> = ({ onItemSelect }) =>
       steps: envelope.config.steps ?? undefined,
       temperature: body?.temperature,
       top_p: body?.top_p,
-      mode: envelope.config.mode,
+      mode: envelope.config.mode ?? extAgent.mode,
       permissions: envelope.config.permissions ?? undefined,
     });
     setSelectedAgent(newName);
