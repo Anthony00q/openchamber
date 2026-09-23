@@ -30,6 +30,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cancel, intro, isCancel, log, outro, select, text } from '@clack/prompts';
 import { RELEASE_PACKAGE_FILES } from './bump-version.mjs';
+import { pointSdkAtArchive } from './lib/sdk-override.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -175,6 +176,13 @@ function run(command, args, options = {}) {
   return result.stdout?.trim() || '';
 }
 
+// VS Code's `code` is a .cmd shim on Windows, and Node spawns those only
+// through a shell, which then needs each argument quoted.
+function runCode(args, options = {}) {
+  if (process.platform !== 'win32') return run('code', args, options);
+  return run('code', args.map((arg) => `"${arg}"`), { ...options, shell: true, label: options.label || ['code', ...args].join(' ') });
+}
+
 function step(label, fn) {
   log.step(label);
   const result = fn();
@@ -299,9 +307,13 @@ function installedWebCli(directory) {
   return existsSync(cliPath) ? cliPath : '';
 }
 
-function installedGlobalWebCli() {
+function globalBunDir() {
   const bunInstall = process.env.BUN_INSTALL || path.join(os.homedir(), '.bun');
-  return installedWebCli(path.join(bunInstall, 'install', 'global'));
+  return path.join(bunInstall, 'install', 'global');
+}
+
+function installedGlobalWebCli() {
+  return installedWebCli(globalBunDir());
 }
 
 function stopInstalledInstance(directory, port) {
@@ -346,7 +358,7 @@ function packageWeb() {
   return { webFile, sdkFile };
 }
 
-/** Node one-liner that points the SDK dependency at a tarball; runs locally and over ssh. */
+/** Node one-liner that points the SDK dependency at a tarball; runs over ssh. */
 function sdkOverrideScript(sdkPath) {
   return `node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.overrides={...(p.overrides||{}),'@openchamber/sdk':'file:${sdkPath}'};fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')"`;
 }
@@ -396,20 +408,32 @@ async function deployWeb(options, config) {
     step('Preparing testing install directory', () => {
       resetDirectory(testingDir);
       run('bun', ['init', '-y'], { cwd: testingDir });
-      run('sh', ['-c', sdkOverrideScript(sdkFile)], { cwd: testingDir, label: 'point @openchamber/sdk at the local archive' });
+      pointSdkAtArchive(testingDir, sdkFile);
     });
     step('Installing testing package', () => run('bun', ['add', packageFile], { cwd: testingDir }));
     step(`Starting testing instance on ${TESTING_PORT}`, () => startInstalledInstance(testingDir, TESTING_PORT));
     return;
   }
 
-  step(`Stopping global instance on ${GLOBAL_PORT}`, () => run('openchamber', ['stop', '--port', GLOBAL_PORT], { allowFail: true, label: `stop global instance on ${GLOBAL_PORT}` }));
+  // The installed CLI, not `openchamber` from PATH: bun's global bin is often missing from PATH (Windows
+  // by default), and a stop that silently misses leaves the old server holding the port.
+  step(`Stopping global instance on ${GLOBAL_PORT}`, () => stopInstalledInstance(globalBunDir(), GLOBAL_PORT));
   step('Removing old global package', () => {
     run('bun', ['remove', '-g', '@openchamber/web'], { allowFail: true, label: 'remove @openchamber/web' });
     run('bun', ['remove', '-g', 'openchamber'], { allowFail: true, label: 'remove openchamber' });
   });
-  // A global install cannot carry an override, so it needs the SDK on npm (published with each release).
-  step('Installing package globally', () => run('bun', ['add', '-g', packageFile]));
+  step('Installing package globally', () => {
+    // Only for this install: `openchamber update` later runs `bun add -g` on the
+    // same manifest and must resolve the published SDK, not this checkout's tarball.
+    // That update re-resolves the lockfile but keeps the SDK this deploy put on disk
+    // while the version number matches; `bun remove -g @openchamber/web` first clears it.
+    const restoreManifest = pointSdkAtArchive(globalBunDir(), sdkFile);
+    try {
+      run('bun', ['add', '-g', packageFile]);
+    } finally {
+      restoreManifest();
+    }
+  });
   step(`Starting global instance on ${GLOBAL_PORT}`, () => {
     const cliPath = installedGlobalWebCli();
     if (!cliPath) throw new Error('Global OpenChamber CLI was not installed by bun add -g');
@@ -635,7 +659,7 @@ function startVsCodeExtension() {
   const vscodeDir = path.join(repoRoot, 'packages/vscode');
   removeFilesByPrefixSuffix(vscodeDir, 'openchamber-', '.vsix');
   step('Building VS Code extension', () => run('bun', ['run', 'vscode:build']));
-  run('code', ['--extensionDevelopmentPath', vscodeDir]);
+  runCode(['--extensionDevelopmentPath', vscodeDir]);
 }
 
 async function installVsCodeExtensionLocal(options) {
@@ -652,10 +676,13 @@ async function installVsCodeExtensionLocal(options) {
   const vscodeDir = path.join(repoRoot, 'packages/vscode');
   step('Building VS Code extension', () => run('bun', ['run', '--cwd', 'packages/vscode', 'build']));
   step('Removing found VSIX package(s) before install flow', () => removeFilesByPrefixSuffix(vscodeDir, 'openchamber-', '.vsix'));
-  step('Packaging VSIX', () => run('bunx', ['vsce', 'package', '--no-dependencies'], { cwd: vscodeDir }));
+  step('Packaging VSIX', () => run('bun', ['x', 'vsce', 'package', '--no-dependencies'], { cwd: vscodeDir }));
   step('Installing VSIX locally', () => {
-    run('code', ['--uninstall-extension', 'fedaykindev.openchamber'], { label: 'uninstall old extension', allowFail: true });
-    run('code --install-extension packages/vscode/openchamber-*.vsix', [], { shell: true, label: 'install VSIX' });
+    runCode(['--uninstall-extension', 'fedaykindev.openchamber'], { label: 'uninstall old extension', allowFail: true });
+    // Found here rather than by a shell glob, which cmd.exe does not expand.
+    const vsix = readdirSync(vscodeDir).find((name) => name.startsWith('openchamber-') && name.endsWith('.vsix'));
+    if (!vsix) throw new Error('vsce package did not produce an openchamber-*.vsix');
+    runCode(['--install-extension', path.join(vscodeDir, vsix)], { label: 'install VSIX' });
   });
   if (cleanup === 'delete') {
     step('Removing local VSIX package(s) after install', () => removeFilesByPrefixSuffix(vscodeDir, 'openchamber-', '.vsix'));

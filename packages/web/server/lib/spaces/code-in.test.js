@@ -9,7 +9,7 @@ import path from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { SECRET, blob, createTestHost, forConfig, hostState, makeBait, readTree, removeTestHosts, shortStatus, unexpectedChanges } from './code-in-bait.js';
+import { SECRET, SETUP_GIT, blob, createTestHost, forConfig, hostState, makeBait, readTree, removeTestHosts, shortStatus, unexpectedChanges } from './code-in-bait.js';
 import { buildExtUrl, createCodeIn } from './code-in.js';
 import { SpaceError } from './errors.js';
 import { createHostGit } from './host-git.js';
@@ -221,7 +221,7 @@ describe('takeSnapshot', () => {
     // that reads it; this test proves the outcome, a snapshot that works, whichever git runs.
     const control = path.join(host.root, 'signing control');
     host.sh(host.root, ['init', '--quiet', control]);
-    expect(spawnSync('git', ['-C', control, 'commit', '--allow-empty', '-m', 'control'], { env: host.environment, windowsHide: true }).status).not.toBe(0);
+    expect(spawnSync('git', [...SETUP_GIT, '-C', control, 'commit', '--allow-empty', '-m', 'control'], { env: host.environment, windowsHide: true }).status).not.toBe(0);
 
     const snapshot = await snapshotOf(host, repo);
     expect(g(['cat-file', 'commit', snapshot.start])).not.toContain('gpgsig');
@@ -263,7 +263,7 @@ describe('takeSnapshot', () => {
     g(['checkout', '--quiet', 'main']);
     fs.writeFileSync(path.join(repo, 'history.txt'), 'main side\n');
     g(['commit', '--quiet', '-am', 'main side']);
-    expect(spawnSync('git', ['-C', repo, 'merge', 'other'], { env: host.environment, windowsHide: true }).status).not.toBe(0);
+    expect(spawnSync('git', [...SETUP_GIT, '-C', repo, 'merge', 'other'], { env: host.environment, windowsHide: true }).status).not.toBe(0);
     await refuses(repo, 'repository_has_unmerged_changes');
   });
 
@@ -863,8 +863,10 @@ describe.skipIf(WIN)('transfer into a local stand-in for a space', () => {
       '[maintenance]', '\tauto = true', '\tautoDetach = false', '\tstrategy = gc',
       '[maintenance "gc"]', '\tenabled = true',
     ].join('\n'));
-    // The control, in the copy: with this config an ordinary commit consolidates the packs.
-    control.g(['commit', '--quiet', '--allow-empty', '-m', 'control']);
+    // The control, in the copy: with this config an ordinary commit consolidates the packs. Plain
+    // git here, not `control.g`: the setup git opts out of maintenance, which is what the control proves.
+    const commit = spawnSync('git', ['-C', control.repo, 'commit', '--quiet', '--allow-empty', '-m', 'control'], { env: host.environment, encoding: 'utf8', windowsHide: true });
+    expect(commit.status, commit.stderr).toBe(0);
     expect(packs(control.repo)).toBe(1);
     const before = hostState(bait.repo);
     await everything(host, bait.repo);

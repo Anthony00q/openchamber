@@ -244,13 +244,18 @@ limit, and the VS Code bridge does not apply its usual 30-second request timeout
 
 `GET /api/opencode/compatibility` reads the local CLI version without starting
 its server, or probes an external server's JSON version contract. A confirmed
-managed v1 CLI on macOS/Linux advertises `canInstall`; bundled binaries,
-external connections and Windows do not.
+managed v1 CLI on macOS, Linux or Windows (x64/arm64) advertises `canInstall`;
+bundled binaries and external connections do not.
 
 `POST /api/opencode/install-v2` rechecks that capability and shares one operation
-across concurrent clients. `v2-install.js` downloads the official
-`https://opencode.ai/v2/install` script, passes a validated stable v2 release
-from npm and `--no-modify-path`, then verifies the resulting executable.
+across concurrent clients. `v2-install.js` resolves a validated stable v2
+release from npm. On macOS/Linux it downloads the official
+`https://opencode.ai/v2/install` script and runs it with that release and
+`--no-modify-path`. That script is bash, so on Windows it downloads the npm
+platform package the script would fetch, `@opencode/cli-windows-x64-baseline`
+(arm64 too, like the desktop bundle), checks it against the `sha512` integrity
+npm publishes, and unpacks `opencode.exe` with the system `tar.exe`. Both
+paths then verify the resulting executable.
 It installs into the host user's standard `~/.opencode/bin`. Existing npm/Bun
 packages remain installed; the host selects the new binary through
 `opencodeBinary`, restarts OpenCode, and waits for v2 readiness before replying.

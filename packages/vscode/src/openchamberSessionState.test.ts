@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
 
 import {
   type JsonValue,
@@ -24,6 +25,9 @@ const createFakeOpenCode = (records: Record<string, SessionMetadata> = {}) => {
   };
   return { openCode, sessions };
 };
+
+/** The store joins its file names with the platform separator. */
+const dataFile = (name: string) => path.join('/data', name);
 
 /** In-memory file system: the store must read before every write and rename atomically. */
 const createMemoryFs = (initial: Record<string, string> = {}) => {
@@ -96,11 +100,11 @@ describe('openchamber session state store', () => {
   });
 
   it('moves an unreadable file aside instead of overwriting it', async () => {
-    const memory = createMemoryFs({ '/data/sessions-archive.json': '{not json' });
+    const memory = createMemoryFs({ [dataFile('sessions-archive.json')]: '{not json' });
     const store = createSessionStateStore({ dataDir: '/data', fsPromises: memory.fsPromises, now: () => 5 });
 
     assert.deepEqual(await store.readArchived(), {});
-    assert.equal(memory.files.get('/data/sessions-archive.json.corrupt-5'), '{not json');
+    assert.equal(memory.files.get(dataFile('sessions-archive.json.corrupt-5')), '{not json');
   });
 
   it('merges metadata patches on OpenCode per key and deletes on null', async () => {
@@ -117,12 +121,12 @@ describe('openchamber session state store', () => {
     assert.deepEqual(await store.getMetadata('ses_missing', openCode), {});
     await assert.rejects(store.setMetadata('ses_missing', { a: 1 }, openCode));
     // Nothing touches the legacy file.
-    assert.equal(memory.files.has('/data/sessions-metadata.json'), false);
+    assert.equal(memory.files.has(dataFile('sessions-metadata.json')), false);
   });
 
   it('folds a legacy entry into the first write, then drops it from the file', async () => {
     const memory = createMemoryFs({
-      '/data/sessions-metadata.json': JSON.stringify({ ses_a: { openchamber: { goal: { id: 'g1' } } }, ses_b: { x: 1 } }),
+      [dataFile('sessions-metadata.json')]: JSON.stringify({ ses_a: { openchamber: { goal: { id: 'g1' } } }, ses_b: { x: 1 } }),
     });
     const store = createSessionStateStore({ dataDir: '/data', fsPromises: memory.fsPromises });
     const { openCode, sessions } = createFakeOpenCode({ ses_a: { kind: 'review' } });

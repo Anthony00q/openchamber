@@ -25,13 +25,20 @@ export const removeTestHosts = () => {
 const sha256 = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
 export const forConfig = (file) => file.replaceAll('\\', '/');
 
+// For the git a test runs to set a repository up. A porcelain commit or merge starts
+// `git maintenance run --auto --detach`, which can repack the repository in the background while
+// the test compares its files before and after the code under test. Only the setup opts out: the
+// code under test keeps the host's own maintenance settings.
+export const SETUP_GIT = ['-c', 'maintenance.auto=false', '-c', 'gc.auto=0'];
+
 /**
  * A host of our own: a temporary directory, a global git config inside it and the environment
  * that points git at it. `config` adds lines to the global config, `identity: false` leaves the
  * user without a name, and `ownHome: false` keeps the real HOME.
  */
 export function createTestHost({ config = '', identity = true, ownHome = true } = {}) {
-  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'openchamber-code-in-test-')));
+  // The native realpath: on Windows it also expands an 8.3 TEMP such as C:\Users\BOHDAN~1, as git does.
+  const root = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), 'openchamber-code-in-test-')));
   roots.push(root);
   const globalIgnore = path.join(root, 'global-ignore');
   fs.writeFileSync(globalIgnore, 'secret-by-global-ignore.txt\n');
@@ -51,7 +58,7 @@ export function createTestHost({ config = '', identity = true, ownHome = true } 
   // The setup commits need somebody's name. Only the setup gets one when the user has none.
   const setupIdentity = identity ? {} : { GIT_AUTHOR_NAME: 'Setup', GIT_AUTHOR_EMAIL: 'setup@example.invalid', GIT_COMMITTER_NAME: 'Setup', GIT_COMMITTER_EMAIL: 'setup@example.invalid' };
   const sh = (directory, args, { input } = {}) => {
-    const result = spawnSync('git', ['-C', directory, ...args], { env: { ...environment, ...setupIdentity }, input, encoding: 'utf8', windowsHide: true });
+    const result = spawnSync('git', [...SETUP_GIT, '-C', directory, ...args], { env: { ...environment, ...setupIdentity }, input, encoding: 'utf8', windowsHide: true });
     if (result.status !== 0) throw new Error(`git ${args.join(' ')} exited ${result.status}: ${result.stderr}`);
     return result.stdout;
   };

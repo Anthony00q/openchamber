@@ -47,6 +47,9 @@ const runtimeApis: RuntimeAPIs = {
     get notifications() { return unavailable(); },
 };
 const sdk = OpenCode.make({ baseUrl: 'http://localhost', fetch: async () => new Response('[]', { headers: { 'Content-Type': 'application/json' } }) });
+// The answer's action bar also has an aria-expanded button, the branch menu
+// trigger, so the changed-file disclosure is the one that opens no popup.
+const changedFilesDisclosure = () => document.querySelector<HTMLButtonElement>('[data-fixture-message="final"] button[aria-expanded]:not([aria-haspopup])');
 let MessageBody: typeof import('../message/MessageBody').default;
 
 function assistant(id: string, parts: Part[], finish?: AssistantMessage['finish']): ChatMessageEntry {
@@ -216,7 +219,7 @@ describe('live Activity with the real message body', () => {
             const files = Array.from({ length: count }, (_, index) => ({ file: `src/file-${index}.ts`, additions: 1, deletions: 0 }));
             await act(async () => root.render(<Harness record={record} changedFiles={files} />));
             expect(container.querySelectorAll('button[aria-label^="Open src/file-"]')).toHaveLength(Math.min(count, 4));
-            const trigger = container.querySelector<HTMLButtonElement>('[data-fixture-message="final"] button[aria-expanded]');
+            const trigger = changedFilesDisclosure();
             if (count <= 4) {
                 expect(trigger).toBeNull();
             } else {
@@ -231,7 +234,7 @@ describe('live Activity with the real message body', () => {
         const record = turn([assistant('final', [text('answer', 'Done')], 'stop')]);
         const files = Array.from({ length: 100 }, (_, index) => ({ file: `src/file-${index}.ts`, additions: 1, deletions: 0 }));
         await act(async () => root.render(<Harness record={record} changedFiles={files} />));
-        const trigger = container.querySelector<HTMLButtonElement>('[data-fixture-message="final"] button[aria-expanded]');
+        const trigger = changedFilesDisclosure();
         if (!trigger) throw new Error('Missing changed-file disclosure');
         trigger.focus();
         await act(async () => trigger.click());
@@ -275,7 +278,7 @@ describe('live Activity with the real message body', () => {
         expect(container.textContent).not.toContain('file-0.ts');
         await act(async () => root.render(<Harness record={turn([assistant('final', final.parts, 'stop')])} changedFiles={files} isLatestTurn={false} />));
         expect(container.textContent).toContain('file-0.ts');
-        await act(async () => container.querySelector<HTMLButtonElement>('[data-fixture-message="final"] button[aria-expanded]')?.click());
+        await act(async () => changedFilesDisclosure()?.click());
         expect(container.textContent).toContain('file-4.ts');
         expect(container.querySelectorAll('button[aria-label^="Open src/file-"]')).toHaveLength(0);
     });

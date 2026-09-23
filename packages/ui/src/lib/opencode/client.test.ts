@@ -43,7 +43,13 @@ const HANG = new Response(null, { status: 599 })
 const hangUntilAborted = (signal: AbortSignal | undefined) =>
   new Promise<Response>((_, reject) => {
     if (!signal) return
-    const abort = () => reject(new DOMException("Aborted", "AbortError"))
+    // A real pending request keeps the event loop alive. AbortSignal.timeout does
+    // not, and Bun on Windows then never fires it, so hold the loop until abort.
+    const pending = setInterval(() => undefined, 1_000)
+    const abort = () => {
+      clearInterval(pending)
+      reject(new DOMException("Aborted", "AbortError"))
+    }
     if (signal.aborted) abort()
     else signal.addEventListener("abort", abort, { once: true })
   })
