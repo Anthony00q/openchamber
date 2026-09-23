@@ -10,6 +10,8 @@ import carbonfox_dark_Raw from './carbonfox-dark.json';
 import carbonfox_light_Raw from './carbonfox-light.json';
 import catppuccin_dark_Raw from './catppuccin-dark.json';
 import catppuccin_light_Raw from './catppuccin-light.json';
+import cursor_dark_Raw from './cursor-dark.json';
+import cursor_light_Raw from './cursor-light.json';
 import dracula_dark_Raw from './dracula-dark.json';
 import dracula_light_Raw from './dracula-light.json';
 import gruvbox_dark_Raw from './gruvbox-dark.json';
@@ -54,6 +56,8 @@ export const presetThemes: Theme[] = [
   carbonfox_light_Raw,
   catppuccin_dark_Raw,
   catppuccin_light_Raw,
+  cursor_dark_Raw,
+  cursor_light_Raw,
   dracula_dark_Raw,
   dracula_light_Raw,
   gruvbox_dark_Raw,

@@ -1,10 +1,10 @@
 {
   "metadata": {
     "id": "osaka-jade-refined-light",
-    "name": "Osaka Jade Refined Light",
+    "name": "Osaka Jade Light",
     "author": "tbcode-org",
     "variant": "light",
-    "description": "Light companion to Osaka Jade Refined",
+    "description": "Light companion to Osaka Jade Dark",
     "version": "1.0.0",
     "tags": ["vscode", "jade", "light"]
   },
