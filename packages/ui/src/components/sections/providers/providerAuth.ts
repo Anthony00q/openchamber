@@ -19,6 +19,31 @@ export const findIntegrationForProvider = (
   providerId: string,
 ): IntegrationInfo | undefined => integrations.find((integration) => integration.id === providerId);
 
+/**
+ * OpenCode Go bills through the OpenCode Console, so it signs in through the
+ * Console's `opencode` integration; its own integration only accepts a
+ * service-account key. OpenCode's own connect dialog makes the same mapping.
+ * Returns the integration whose OAuth methods sign a provider in.
+ */
+export const getSignInIntegrationId = (providerId: string): string =>
+  providerId === 'opencode-go' ? 'opencode' : providerId;
+
+/**
+ * Connections that give a provider credentials: its own, plus the sign-in
+ * integration's when the provider signs in elsewhere.
+ */
+export const getProviderConnections = (
+  integrations: readonly IntegrationInfo[],
+  providerId: string,
+): ConnectionInfo[] | undefined => {
+  const own = findIntegrationForProvider(integrations, providerId)?.connections;
+  const signInId = getSignInIntegrationId(providerId);
+  if (signInId === providerId) return own;
+  const signIn = findIntegrationForProvider(integrations, signInId)?.connections;
+  if (!own && !signIn) return undefined;
+  return [...(own ?? []), ...(signIn ?? [])];
+};
+
 export const getOAuthMethods = (
   integration: IntegrationInfo | undefined,
 ): IntegrationOAuthMethod[] =>

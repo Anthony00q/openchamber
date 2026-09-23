@@ -36,6 +36,8 @@ import {
   findIntegrationForProvider,
   getCredentialConnections,
   getOAuthMethods,
+  getProviderConnections,
+  getSignInIntegrationId,
 } from './providerAuth';
 import { CustomProviderForm } from './CustomProviderForm';
 
@@ -338,7 +340,7 @@ export const ProvidersPage: React.FC = () => {
     }
     const provider = providers.find((entry) => entry.id === selectedProviderId);
     const hasCreds = providerHasCredentials({
-      connections: findIntegrationForProvider(integrations, selectedProviderId)?.connections,
+      connections: getProviderConnections(integrations, selectedProviderId),
       optionsApiKey: readProviderApiKeySetting(provider),
     });
     const isEditableCustomProvider = Boolean(
@@ -724,7 +726,9 @@ export const ProvidersPage: React.FC = () => {
                 <>
                   {(() => {
                     const candidateIntegration = findIntegrationForProvider(integrations ?? [], candidateProviderId);
-                    const candidateOAuthMethods = getOAuthMethods(candidateIntegration);
+                    const candidateOAuthMethods = getOAuthMethods(
+                      findIntegrationForProvider(integrations ?? [], getSignInIntegrationId(candidateProviderId)),
+                    );
                     const showApiKey = shouldShowApiKeyAuth(candidateIntegration);
 
                     return (
@@ -763,7 +767,7 @@ export const ProvidersPage: React.FC = () => {
                         {candidateOAuthMethods.length > 0 ? (
                           <ProviderOAuthMethods
                             key={candidateProviderId}
-                            integrationId={candidateProviderId}
+                            integrationId={getSignInIntegrationId(candidateProviderId)}
                             methods={candidateOAuthMethods}
                             onConnected={() => handleOAuthConnected(candidateProviderId)}
                             className={cn(showApiKey && 'border-t border-[var(--surface-subtle)] pt-2')}
@@ -794,14 +798,16 @@ export const ProvidersPage: React.FC = () => {
 
   const providerModels = Array.isArray(selectedProvider.models) ? selectedProvider.models : [];
   const selectedIntegration = findIntegrationForProvider(integrations ?? [], selectedProvider.id);
-  const oauthAuthMethods = getOAuthMethods(selectedIntegration);
+  const oauthAuthMethods = getOAuthMethods(
+    findIntegrationForProvider(integrations ?? [], getSignInIntegrationId(selectedProvider.id)),
+  );
   const showApiKeyAuth = shouldShowApiKeyAuth(selectedIntegration);
   const integrationsLoaded = integrations !== null;
   const sourcesLoaded = Boolean(selectedSources);
   const isEditableCustomProvider = sourcesLoaded
     && isConfigDefinedCustomProvider(selectedProvider, selectedSources);
   const hasCredentials = providerHasCredentials({
-    connections: selectedIntegration?.connections,
+    connections: getProviderConnections(integrations ?? [], selectedProvider.id),
     optionsApiKey: readProviderApiKeySetting(selectedProvider),
   });
   const authStatusIncomplete = requiresProviderAuth(integrationsLoaded, hasCredentials, isEditableCustomProvider);
@@ -944,7 +950,7 @@ export const ProvidersPage: React.FC = () => {
                 {oauthAuthMethods.length > 0 && (
                   <ProviderOAuthMethods
                     key={selectedProvider.id}
-                    integrationId={selectedProvider.id}
+                    integrationId={getSignInIntegrationId(selectedProvider.id)}
                     methods={oauthAuthMethods}
                     onConnected={() => handleOAuthConnected(selectedProvider.id)}
                     className={cn(showApiKeyAuth && 'border-t border-[var(--surface-subtle)] pt-2')}

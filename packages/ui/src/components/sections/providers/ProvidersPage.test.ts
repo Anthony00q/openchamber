@@ -6,6 +6,8 @@ import {
   getCredentialConnections,
   getKeyMethod,
   getOAuthMethods,
+  getProviderConnections,
+  getSignInIntegrationId,
   providerHasCredentials,
   shouldAutoOpenAuthPanel,
   shouldShowApiKeyAuth,
@@ -76,6 +78,23 @@ describe('integration method helpers', () => {
     expect(getCredentialConnections(integration({ connections: [credential, envConnection] })))
       .toEqual([credential]);
     expect(getCredentialConnections(integration({ connections: [envConnection] }))).toEqual([]);
+  });
+});
+
+describe('Console sign-in for OpenCode Go', () => {
+  test('OpenCode Go signs in through the Console integration; others use their own', () => {
+    expect(getSignInIntegrationId('opencode-go')).toBe('opencode');
+    expect(getSignInIntegrationId('anthropic')).toBe('anthropic');
+  });
+
+  test('a Console sign-in counts as OpenCode Go credentials', () => {
+    const list = [
+      integration({ id: 'opencode-go', name: 'OpenCode Go' }),
+      integration({ id: 'opencode', name: 'OpenCode Console', connections: [credential] }),
+    ];
+    expect(getProviderConnections(list, 'opencode-go')).toEqual([credential]);
+    expect(getProviderConnections(list, 'anthropic')).toBe(undefined);
+    expect(getProviderConnections([integration({ connections: [envConnection] })], 'anthropic')).toEqual([envConnection]);
   });
 });
 
