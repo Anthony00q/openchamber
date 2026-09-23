@@ -974,6 +974,19 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     keywords: ['models', 'hide', 'show'],
   },
   {
+    id: 'web-search.provider',
+    page: 'web-search',
+    titleKey: 'settings.webSearch.section.provider',
+    descriptionKey: 'settings.webSearch.section.providerInfo',
+    keywords: ['web search', 'websearch', 'internet', 'default provider', 'disable', 'off', 'random'],
+  },
+  {
+    id: 'web-search.keys',
+    page: 'web-search',
+    titleKey: 'settings.webSearch.section.keys',
+    keywords: ['api key', 'exa', 'tavily', 'firecrawl', 'parallel', 'tinyfish', 'credentials'],
+  },
+  {
     id: 'skills.create',
     page: 'skills.installed',
     titleKey: 'settings.skills.page.title.newSkill',

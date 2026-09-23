@@ -166,3 +166,18 @@ export function toProviderEntity(raw: unknown): ProviderEntity;
 export function toPluginEntity(raw: unknown): PluginEntity | null;
 export function fromPluginEntity(entity: unknown): string | PluginEntity | null;
 export function readPluginList(config: unknown): Array<{ entry: PluginEntity; key: string; legacy: boolean }>;
+
+/** `false` (off), a provider id or `"random"`, or `null` (remove the key). */
+export type WebSearchSelection = false | string | null;
+export function parseWebSearchSelection(value: unknown): WebSearchSelection | undefined;
+export function writeWebSearchSelection(config: Record<string, unknown>, selection: WebSearchSelection): boolean;
+export interface WebSearchConfigLayers {
+  userConfig: object | null;
+  projectConfig: object | null;
+  customConfig: object | null;
+  paths: { userPath: string | null; projectPath: string | null; customPath?: string | null };
+}
+export function findWebSearchProjectOverride(
+  layers: WebSearchConfigLayers,
+  projectFiles: ReadonlyArray<{ path: string; config: object | null }>,
+): string | null;

@@ -1482,7 +1482,7 @@ async function reloadCatalog(kind: CatalogKind, childStores: ChildStoreManager):
     return
   }
   // No sync-store slice of their own: their consumers read them on demand.
-  if (kind === "skill" || kind === "plugin") return
+  if (kind === "skill" || kind === "plugin" || kind === "websearch") return
 
   await Promise.all([...childStores.children.entries()].map(async ([directory, store]) => {
     try {

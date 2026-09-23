@@ -713,6 +713,56 @@ function readPluginList(config) {
   ].filter((item) => item.entry !== null);
 }
 
+// ============== WEB SEARCH ==============
+
+/**
+ * The `websearch` key: `false` turns search off, `{ provider }` names a
+ * provider id or `"random"`. OpenChamber takes the choice flat (`false`, a
+ * string, or `null` to remove the key so OpenCode falls back to the answer
+ * given in chat, asking only when there is none).
+ * Returns `undefined` for anything else.
+ */
+function parseWebSearchSelection(value) {
+  if (value === null || value === false) return value;
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+/** Applies a parsed choice to a config object; returns whether it changed. */
+function writeWebSearchSelection(config, selection) {
+  const before = JSON.stringify(config.websearch);
+  if (selection === null) {
+    delete config.websearch;
+  } else if (selection === false) {
+    config.websearch = false;
+  } else {
+    config.websearch = { provider: selection };
+  }
+  return JSON.stringify(config.websearch) !== before;
+}
+
+const hasWebSearchKey = (config) => config != null && Object.hasOwn(config, 'websearch');
+
+/**
+ * The project config path whose `websearch` wins over the file the Settings
+ * choice is written to, or `null`. OpenCode merges user < project files (every
+ * `opencode.json[c]` and `.opencode/opencode.json[c]` from the directory up to
+ * the project root) < `OPENCODE_CONFIG`, so any project file with the key
+ * decides unless `OPENCODE_CONFIG` sets it too. `layers` is what
+ * `readConfigLayers(directory)` returns; `projectFiles` lists the existing
+ * project config files deepest first, as `{ path, config }`.
+ */
+function findWebSearchProjectOverride(layers, projectFiles) {
+  if (hasWebSearchKey(layers?.customConfig)) return null;
+  const userPath = layers?.paths?.userPath ?? null;
+  for (const file of projectFiles ?? []) {
+    if (!file?.path || file.path === userPath) continue;
+    if (hasWebSearchKey(file.config)) return file.path;
+  }
+  return null;
+}
+
 export {
   PLUGIN_SECTION,
   isRecord,
@@ -744,4 +794,7 @@ export {
   toPluginEntity,
   fromPluginEntity,
   readPluginList,
+  parseWebSearchSelection,
+  writeWebSearchSelection,
+  findWebSearchProjectOverride,
 };

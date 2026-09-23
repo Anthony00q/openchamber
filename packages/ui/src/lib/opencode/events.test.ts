@@ -284,6 +284,7 @@ describe("translateWireEvent", () => {
         { ...base, type: "project.updated", data: { id: "proj", canonical: "/repo", time: { created: 1, updated: 1, active: 1 }, sandboxes: [] } },
         "project",
       ],
+      [{ ...base, type: "websearch.updated", data: {} }, "websearch"],
     ]
     for (const [event, kind] of kinds) {
       expect(translateWireEvent(event)).toEqual([{ type: "catalog.updated", properties: { kind } }])

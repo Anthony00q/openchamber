@@ -53,8 +53,11 @@ import {
   updateMcpConfig,
   deleteMcpConfig,
   expandSnippets,
+  setWebSearchSelection,
+  getWebSearchSource,
   type SnippetScope,
 } from './opencodeConfig';
+import { parseWebSearchSelection } from './opencode-config-v2';
 import {
   getSkillsCatalog,
   scanSkillsRepository as scanSkillsRepositoryFromGit,
@@ -392,6 +395,23 @@ export async function handleConfigBridgeMessage(
       }
 
       return { id, type, success: false, error: `Unsupported method: ${normalizedMethod}` };
+    }
+
+    // GET/PUT /api/config/websearch — see the web routes in
+    // packages/web/server/lib/opencode/routes.js.
+    case 'api:config/websearch': {
+      // SAFETY: every field is checked before use: `method` against a literal,
+      // `directory` by resolveWorkingDirectory, `selection` by parseWebSearchSelection.
+      const body = (payload || {}) as { method?: string; directory?: string; selection?: unknown };
+      if (body.method === 'GET') {
+        return { id, type, success: true, data: getWebSearchSource(resolveWorkingDirectory(ctx, body.directory)) };
+      }
+      const selection = parseWebSearchSelection(body.selection);
+      if (selection === undefined) {
+        return { id, type, success: false, error: 'selection must be false, null, "random" or a provider id' };
+      }
+      const result = setWebSearchSelection(selection);
+      return { id, type, success: true, data: { success: true, changed: result.changed } };
     }
 
     case 'api:config/mcp': {

@@ -20,6 +20,7 @@ import { ScrollableOverlay } from '@/components/ui/ScrollableOverlay';
 import { AgentsSidebar } from '@/components/sections/agents/AgentsSidebar';
 import { AgentsPage } from '@/components/sections/agents/AgentsPage';
 import { BehaviorPage } from '@/components/sections/behavior/BehaviorPage';
+import { WebSearchPage } from '@/components/sections/websearch/WebSearchPage';
 import { CommandsSidebar } from '@/components/sections/commands/CommandsSidebar';
 import { CommandsPage } from '@/components/sections/commands/CommandsPage';
 import { McpSidebar } from '@/components/sections/mcp/McpSidebar';
@@ -113,6 +114,7 @@ const pageOrder: SettingsPageSlug[] = [
   'git',
   // 'opencode' group — OpenCode
   'providers',
+  'web-search',
   'agents',
   'behavior',
   'commands',
@@ -340,6 +342,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onClose, forceMobile
         return t('settings.page.remoteInstances.title');
       case 'providers':
         return t('settings.page.providers.title');
+      case 'web-search':
+        return t('settings.page.webSearch.title');
       case 'usage':
         return t('settings.page.usage.title');
       case 'agents':
@@ -659,6 +663,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onClose, forceMobile
         return <SkillsPage view="catalog" />;
       case 'providers':
         return <ProvidersPage />;
+      case 'web-search':
+        return <WebSearchPage />;
       case 'usage':
         return <UsagePage />;
       case 'about':

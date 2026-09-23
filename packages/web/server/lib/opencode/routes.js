@@ -9,6 +9,8 @@ import {
 import { getClaudeCliAuthStatus } from './claude-cli-auth.js';
 import { OPENCODE_CONFIG_DIR } from './shared.js';
 import { settingsSurfaceOf } from './settings-files.js';
+import { parseWebSearchSelection } from './config-v2.js';
+import { getWebSearchSource, setWebSearchSelection } from './websearch-config.js';
 
 export const registerOpenCodeRoutes = (app, dependencies) => {
   const {
@@ -346,6 +348,34 @@ export const registerOpenCodeRoutes = (app, dependencies) => {
       const status = typeof error?.statusCode === 'number' ? error.statusCode : 500;
       console.error('Failed to upsert provider config:', error);
       return res.status(status).json({ error: error.message || 'Failed to save provider config' });
+    }
+  });
+
+  // The web search choice (`websearch` in OpenCode config). OpenCode watches
+  // the file and announces `config.updated`, so nothing restarts.
+  // Whether a project config decides `websearch` for the directory, so
+  // Settings can say so instead of letting a write snap back.
+  app.get('/api/config/websearch', async (req, res) => {
+    try {
+      const resolved = await resolveProjectDirectory(req);
+      return res.json(getWebSearchSource(resolved.directory || null));
+    } catch (error) {
+      console.error('Failed to read the web search config source:', error);
+      return res.status(500).json({ error: error.message || 'Failed to read the web search config source' });
+    }
+  });
+
+  app.put('/api/config/websearch', (req, res) => {
+    const selection = parseWebSearchSelection(req.body?.selection);
+    if (selection === undefined) {
+      return res.status(400).json({ error: 'selection must be false, null, "random" or a provider id' });
+    }
+    try {
+      const result = setWebSearchSelection(selection);
+      return res.json({ success: true, changed: result.changed });
+    } catch (error) {
+      console.error('Failed to save the web search choice:', error);
+      return res.status(500).json({ error: error.message || 'Failed to save the web search choice' });
     }
   });
 

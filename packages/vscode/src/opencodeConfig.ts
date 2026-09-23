@@ -30,12 +30,15 @@ import {
   readGlobalPermissionRules,
   parseModelSelection,
   formatModelSelection,
+  writeWebSearchSelection,
+  findWebSearchProjectOverride,
   type AgentEntity,
   type CommandEntity,
   type McpEntity,
   type PermissionRule,
   type EffectivePermissionRule,
   type SectionKind,
+  type WebSearchSelection,
 } from './opencode-config-v2';
 
 
@@ -1555,6 +1558,50 @@ const getJsonWriteTarget = (
   }
   throwIfLayerError(layers, paths.userPath);
   return { config: userConfig, path: paths.userPath };
+};
+
+/**
+ * Mirror of the web server's `setWebSearchSelection`
+ * (`packages/web/server/lib/opencode/websearch-config.js`): the `websearch`
+ * choice goes to `OPENCODE_CONFIG` when set, else the user's global config.
+ */
+export const setWebSearchSelection = (selection: WebSearchSelection): { changed: boolean } => {
+  const layers = readConfigLayers();
+  const target = getJsonWriteTarget(layers, AGENT_SCOPE.USER);
+  const changed = writeWebSearchSelection(target.config, selection);
+  if (changed) writeConfig(target.config, target.path);
+  return { changed };
+};
+
+/** Mirror of the web server's `getWebSearchSource`: the project config that overrides a Settings write, if any. */
+export const getWebSearchSource = (workingDirectory?: string) => ({
+  projectPath: findWebSearchProjectOverride(readConfigLayers(workingDirectory), readProjectConfigFiles(workingDirectory)),
+});
+
+const PROJECT_CONFIG_NAMES = [
+  path.join('.opencode', 'opencode.jsonc'),
+  path.join('.opencode', 'opencode.json'),
+  'opencode.jsonc',
+  'opencode.json',
+];
+
+/** Mirror of the web server's `readProjectConfigFiles`: existing project configs, deepest first; unreadable ones skipped. */
+const readProjectConfigFiles = (workingDirectory?: string): Array<{ path: string; config: Record<string, unknown> }> => {
+  if (!workingDirectory) return [];
+  const root = findWorktreeRoot(workingDirectory) || path.resolve(workingDirectory);
+  const files: Array<{ path: string; config: Record<string, unknown> }> = [];
+  for (const base of getAncestors(workingDirectory, root)) {
+    for (const name of PROJECT_CONFIG_NAMES) {
+      const filePath = path.join(base, name);
+      if (!fs.existsSync(filePath)) continue;
+      try {
+        files.push({ path: filePath, config: readConfigFile(filePath) });
+      } catch {
+        // Skipped: an unreadable file can't be told apart from one without the key.
+      }
+    }
+  }
+  return files;
 };
 
 /**

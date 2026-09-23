@@ -100,6 +100,7 @@ export const carriesFileDiffs = (toolName: ToolName): boolean => {
 
 export const isExplorationTool = (toolName: ToolName): boolean => EXPLORATION_TOOLS.has(normalizeToolName(toolName))
 export const isWebTool = (toolName: ToolName): boolean => WEB_TOOLS.has(normalizeToolName(toolName))
+export const isWebSearchTool = (toolName: ToolName): boolean => normalizeToolName(toolName) === OPENCODE_TOOLS.websearch
 
 /**
  * Tools that block the turn on a form the user must answer. Only `question`

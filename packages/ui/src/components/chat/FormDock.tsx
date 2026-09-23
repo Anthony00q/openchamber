@@ -9,11 +9,13 @@ import { isIMECompositionEvent } from '@/lib/ime';
 import { useI18n } from '@/lib/i18n';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import type { FormRequest } from '@/lib/opencode/model';
+import { readWebSearchConsent } from '@/lib/opencode/websearch';
 import { useUIStore } from '@/stores/useUIStore';
 import { useScopedBlockingForms, useSessions } from '@/sync/sync-context';
 import * as sessionActions from '@/sync/session-actions';
 import { useMobileAutocompleteMaxHeight } from './useMobileAutocompleteMaxHeight';
 import { FormFieldControl } from './FormFieldControl';
+import { WebSearchConsentDock } from './WebSearchConsent';
 import { FormMarkdown } from './FormMarkdown';
 import { serializeFormAsJson, serializeFormAsMarkdown } from './formSerializers';
 import {
@@ -59,6 +61,8 @@ export const FormDock: React.FC<FormDockProps> = ({ sessionId, directory, hidden
     // of the directory that raised it.
     const form = forms[0];
     if (hidden || !form) return null;
+    const webSearchConsent = readWebSearchConsent(form);
+    if (webSearchConsent) return <WebSearchConsentDock key={form.id} form={form} consent={webSearchConsent} />;
     // Keyed on the form id so a different request starts from a clean slate.
     return <FormDockPanel key={form.id} form={form} waiting={forms.length - 1} />;
 };

@@ -19,6 +19,7 @@ import { useSkillsCatalogStore } from "@/stores/useSkillsCatalogStore";
 import { useConfigStore } from "@/stores/useConfigStore";
 import { useMcpConfigStore } from "@/stores/useMcpConfigStore";
 import { usePluginsStore } from "@/stores/usePluginsStore";
+import { refreshWebSearchIfLoaded } from "@/stores/useWebSearchStore";
 
 const SOURCE = "catalogRefresh";
 
@@ -97,17 +98,20 @@ export function catalogRefreshTasks(kind: CatalogKind): Array<() => Promise<void
     case "provider":
     case "model":
       return [refreshProviders];
+    // A web search key is a credential too.
     case "credential":
-      return [refreshProvidersAfterCredentialChange];
+      return [refreshProvidersAfterCredentialChange, refreshWebSearchIfLoaded];
     // A config file can carry any of them (a provider declared in
     // opencode.json included), and OpenChamber's own plugin injection lives
     // in one, so the whole set is re-read.
     case "config":
-      return [refreshAgents, refreshCommands, refreshSkills, refreshMcp, refreshPlugins, refreshProviders];
+      return [refreshAgents, refreshCommands, refreshSkills, refreshMcp, refreshPlugins, refreshProviders, refreshWebSearchIfLoaded];
     // Projects are the sync layer's own slice; nothing in Settings reads them
     // through these stores.
     case "project":
       return [];
+    case "websearch":
+      return [refreshWebSearchIfLoaded];
   }
 }
 

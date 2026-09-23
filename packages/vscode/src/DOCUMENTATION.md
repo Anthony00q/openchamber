@@ -298,6 +298,11 @@ Bridge surface (`bridge-config-runtime.ts`), matching the web routes:
   `subtask` is accepted as the v1 name for `subagent`.
 - `api:config/mcp` — `McpEntity` bodies; entries carry `sectionKey` and
   `legacy`.
+- `api:config/websearch` — `PUT /api/config/websearch`; `{ selection }` is
+  `false`, `null` (remove the key), `"random"` or a provider id, written with
+  the shared `writeWebSearchSelection` to `OPENCODE_CONFIG` or the user config.
+  `{ method: "GET", directory }` returns `{ projectPath }` from the shared
+  `findWebSearchProjectOverride`: the project config that overrides that write.
 
 ## Session archive and metadata
 

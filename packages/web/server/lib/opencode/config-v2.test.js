@@ -22,6 +22,9 @@ import {
   readMcpEntries,
   readLayeredMcpEntries,
   writeMcpEntry,
+  parseWebSearchSelection,
+  writeWebSearchSelection,
+  findWebSearchProjectOverride,
 } from './config-v2.js';
 
 describe('permission translation', () => {
@@ -407,5 +410,57 @@ describe('config sections', () => {
     const config = { agent: { a: 1 }, agents: { a: 2 } };
     expect(deleteSectionEntry(config, 'agents', 'a')).toBe(true);
     expect(config).toEqual({});
+  });
+});
+
+describe('web search choice', () => {
+  it('accepts off, remove, random and a provider id, and nothing else', () => {
+    expect(parseWebSearchSelection(false)).toBe(false);
+    expect(parseWebSearchSelection(null)).toBe(null);
+    expect(parseWebSearchSelection('random')).toBe('random');
+    expect(parseWebSearchSelection(' exa ')).toBe('exa');
+    expect(parseWebSearchSelection('')).toBeUndefined();
+    expect(parseWebSearchSelection(true)).toBeUndefined();
+    expect(parseWebSearchSelection(undefined)).toBeUndefined();
+    expect(parseWebSearchSelection({ provider: 'exa' })).toBeUndefined();
+  });
+
+  it('writes the OpenCode shape and leaves other keys alone', () => {
+    const config = { model: 'openai/gpt-5' };
+    expect(writeWebSearchSelection(config, 'exa')).toBe(true);
+    expect(config).toEqual({ model: 'openai/gpt-5', websearch: { provider: 'exa' } });
+    expect(writeWebSearchSelection(config, 'exa')).toBe(false);
+    expect(writeWebSearchSelection(config, false)).toBe(true);
+    expect(config.websearch).toBe(false);
+    expect(writeWebSearchSelection(config, null)).toBe(true);
+    expect(config).toEqual({ model: 'openai/gpt-5' });
+    expect(writeWebSearchSelection(config, null)).toBe(false);
+  });
+});
+
+describe('findWebSearchProjectOverride', () => {
+  const userPath = '/home/u/.config/opencode/opencode.json';
+  const layers = (customConfig = {}) => ({ userConfig: { websearch: false }, projectConfig: {}, customConfig, paths: { userPath, projectPath: null } });
+
+  it('names the deepest project file that sets websearch', () => {
+    const files = [
+      { path: '/repo/app/.opencode/opencode.json', config: { plugins: [] } },
+      { path: '/repo/opencode.json', config: { websearch: false } },
+    ];
+    expect(findWebSearchProjectOverride(layers(), files)).toBe('/repo/opencode.json');
+    expect(findWebSearchProjectOverride(layers(), [{ path: '/repo/app/opencode.json', config: { websearch: { provider: 'exa' } } }, ...files])).toBe('/repo/app/opencode.json');
+  });
+
+  it('is null when no project file sets websearch', () => {
+    expect(findWebSearchProjectOverride(layers(), [{ path: '/repo/opencode.json', config: { model: 'x' } }])).toBeNull();
+    expect(findWebSearchProjectOverride(layers(), [])).toBeNull();
+  });
+
+  it('is null when OPENCODE_CONFIG sets websearch too, since it wins', () => {
+    expect(findWebSearchProjectOverride(layers({ websearch: { provider: 'exa' } }), [{ path: '/repo/opencode.json', config: { websearch: false } }])).toBeNull();
+  });
+
+  it('ignores the user config showing up among project files', () => {
+    expect(findWebSearchProjectOverride(layers(), [{ path: userPath, config: { websearch: false } }])).toBeNull();
   });
 });

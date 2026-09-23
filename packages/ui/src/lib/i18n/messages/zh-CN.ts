@@ -7,6 +7,7 @@ import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
+import { webSearchI18n } from './websearch.i18n';
 
 export const dict: Record<I18nKey, string> = {
   "opencodeCompatibility.bundled": "OpenCode 随 OpenChamber 一起提供。请更新 OpenChamber 以获取 OpenCode v2。",
@@ -59,6 +60,7 @@ export const dict: Record<I18nKey, string> = {
   ...surfacePanelI18n['zh-CN'],
   ...fileArtifactsI18n['zh-CN'],
   ...usageStatsI18n['zh-CN'],
+  ...webSearchI18n['zh-CN'],
   'terminalView.actions.attachSelection': '附加所选输出',
   'terminalView.actions.copySelection': '复制所选输出',
   'terminalView.toast.selectionCopied': '已复制输出',

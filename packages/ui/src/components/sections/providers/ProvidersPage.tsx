@@ -24,6 +24,7 @@ import type { ModelMetadata } from '@/types';
 import { getCurrentIntlLocale, useI18n } from '@/lib/i18n';
 import { runtimeFetch } from '@/lib/runtime-fetch';
 import { opencodeClient } from '@/lib/opencode/client';
+import { listWebSearchProviders } from '@/lib/opencode/websearch';
 import type { IntegrationInfo } from '@opencode/client';
 import type { Provider } from '@/lib/opencode/model';
 import { z } from 'zod';
@@ -252,11 +253,19 @@ export const ProvidersPage: React.FC = () => {
         // v2's provider list is what is configured or connected right now;
         // the providers a user can still sign in to are the integrations.
         // MCP servers with OAuth register as integrations too and are not
-        // providers, so they are left out.
-        const { data } = await opencodeClient.getSdkClient().integration.list();
+        // providers, so they are left out. So are web search providers (Exa,
+        // Tavily, ...), whose keys live in Settings → Web search; when that
+        // list cannot be read they stay in rather than hide real providers.
+        const [{ data }, webSearchProviders] = await Promise.all([
+          opencodeClient.getSdkClient().integration.list(),
+          listWebSearchProviders(opencodeClient.getDirectory() ?? null).catch(() => null),
+        ]);
         if (!isMounted) return;
+        const webSearchIds = new Set((webSearchProviders ?? []).map((provider) => provider.id));
         setAvailableProviders(parseProvidersPayload(
-          data.filter((integration) => !integration.id.startsWith('mcp_') && integration.connections.length === 0),
+          data.filter((integration) => !integration.id.startsWith('mcp_')
+            && !webSearchIds.has(integration.id)
+            && integration.connections.length === 0),
         ));
       } catch (error) {
         if (!isMounted) return;

@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils';
 import { typography } from '@/lib/typography';
 import { formatToolInput, detectToolOutputLanguage } from '@/lib/toolHelpers';
 import { SimpleMarkdownRenderer } from '../MarkdownRenderer';
+import { parseWebSearchOutput } from '@/lib/opencode/websearch';
+import { WebSearchResults } from './parts/WebSearchResults';
 
 const cleanOutput = (output: string) => {
     let cleaned = output.replace(/^<file>\s*\n?/, '').replace(/\n?<\/file>\s*$/, '');
@@ -359,6 +361,14 @@ export const renderGlobOutput = (output: string, isMobile: boolean, options?: { 
 
 export const renderWebSearchOutput = (output: string, options?: { unstyled?: boolean }) => {
     try {
+        const parsed = parseWebSearchOutput(output);
+        if (parsed) {
+            return (
+                <div className={cn('w-full min-w-0', options?.unstyled ? null : 'p-2 bg-muted/20 rounded-xl border border-border/20')}>
+                    <WebSearchResults output={parsed} providerId={null} />
+                </div>
+            );
+        }
         return (
             <div
                 className={cn(

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { isIMECompositionEvent } from '@/lib/ime';
 import { toast } from '@/components/ui';
 import type { FormRequest } from '@/lib/opencode/model';
+import { readWebSearchConsent } from '@/lib/opencode/websearch';
 import { useUIStore } from '@/stores/useUIStore';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useSessions } from '@/sync/sync-context';
@@ -14,6 +15,7 @@ import { useI18n } from '@/lib/i18n';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { serializeFormAsJson, serializeFormAsMarkdown } from './formSerializers';
 import { FormFieldControl } from './FormFieldControl';
+import { WebSearchConsentCard } from './WebSearchConsent';
 import {
     type FormValues,
     buildFormAnswer,
@@ -37,6 +39,12 @@ interface FormCardProps {
  * a `when` clause appear and disappear as their controlling field changes.
  */
 export const FormCard: React.FC<FormCardProps> = ({ form }) => {
+    const webSearchConsent = readWebSearchConsent(form);
+    if (webSearchConsent) return <WebSearchConsentCard form={form} consent={webSearchConsent} />;
+    return <GenericFormCard form={form} />;
+};
+
+const GenericFormCard: React.FC<FormCardProps> = ({ form }) => {
     const { t } = useI18n();
     const isMobile = useUIStore((state) => state.isMobile);
     const currentSessionId = useSessionUIStore((state) => state.currentSessionId);
