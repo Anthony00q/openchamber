@@ -87,7 +87,9 @@ const buildMemoryBlock = ({ global, project, enabled = false, complete = false }
       + ' the conditions, exceptions and reasons that decide how the memory'
       + ' applies, and a title that looks self-explanatory is the most likely to'
       + ' be hiding them. Read every title that could bear on the task at hand;'
-      + ' you need not read the ones unrelated to what you are doing.',
+      + ' you need not read the ones unrelated to what you are doing. Read each'
+      + ' entry once per conversation: what you read stays in your context, so do'
+      + ' not read it again on later turns unless your context was summarized.',
     'Memory records what was true when it was written. Verify anything it says'
       + ' about files, flags or commands before relying on it.',
     ...sections,
