@@ -1,6 +1,6 @@
 import { describe, expect, test, beforeEach, mock } from "bun:test"
 import { create, type StoreApi } from "zustand"
-import type { SyncEvent } from "@/lib/opencode/events"
+import type { SyncEvent, ToolTransition } from "@/lib/opencode/events"
 import type { FormRequest, PermissionRequest } from "@/lib/opencode/model"
 
 const listPendingFormsCalls: Array<{ directories?: Array<string | null | undefined> }> = []
@@ -305,26 +305,26 @@ describe("resyncBlockingRequestsForDirectory", () => {
     expect(listPendingPermissionsCalls).toHaveLength(1)
   })
 
-  test("refreshes Git once when a live mutating tool completes between renders", () => {
+  test("refreshes Git once when a mutating tool settles, from a snapshot or a live transition", () => {
     const childStores = new ChildStoreManager()
     childStores.ensureChild("/repo", { bootstrap: false })
     const routingIndex = createEventRoutingIndex()
     const refreshes: Array<{ directory: string; paths?: string[] }> = []
     const unsubscribe = sessionEvents.onGitRefreshHint((hint) => refreshes.push(hint))
+    const toolState = (status: "pending" | "running" | "completed") => {
+      if (status === "pending") return { status, input: {}, raw: "" }
+      if (status === "running") return { status, input: {}, time: { start: 1 } }
+      return { status, input: {}, output: "", metadata: {}, time: { start: 1, end: 2 } }
+    }
     // SAFETY: this fixture supplies the sync event discriminator and the tool
     // part identity, tool name, and state fields consumed by the reducer.
-    const toolState = (status: "pending" | "completed" | "error") => {
-      if (status === "pending") return { status, input: {}, raw: "" }
-      if (status === "completed") return { status, input: {}, output: "", metadata: {}, time: { start: 1, end: 2 } }
-      return { status, input: {}, error: "boom", metadata: {}, time: { start: 1, end: 2 } }
-    }
-    const toolEvent = (tool: string, status: "pending" | "completed" | "error") => ({
+    const partEvent = (partID: string, tool: string, status: "pending" | "running" | "completed") => ({
       type: "message.part.updated",
       properties: {
         sessionID: "ses_a",
         part: {
-          id: "prt_tool",
-          callID: "prt_tool",
+          id: partID,
+          callID: partID,
           messageID: "msg_assistant",
           sessionID: "ses_a",
           type: "tool",
@@ -333,15 +333,30 @@ describe("resyncBlockingRequestsForDirectory", () => {
         },
       },
     }) as SyncEvent
+    // SAFETY: same fixture contract for the live v2 transition frame.
+    const transitionEvent = (partID: string, transition: ToolTransition) => ({
+      type: "message.tool.transition",
+      properties: { sessionID: "ses_a", messageID: "msg_assistant", partID, transition },
+    }) as SyncEvent
+    const send = (event: SyncEvent) => handleEvent("/repo", event, childStores, routingIndex, getRuntimeKey())
 
     try {
-      handleEvent("/repo", toolEvent("apply_patch", "pending"), childStores, routingIndex, getRuntimeKey())
-      handleEvent("/repo", toolEvent("apply_patch", "completed"), childStores, routingIndex, getRuntimeKey())
-      handleEvent("/repo", toolEvent("apply_patch", "completed"), childStores, routingIndex, getRuntimeKey())
-      handleEvent("/repo", toolEvent("read", "completed"), childStores, routingIndex, getRuntimeKey())
-      handleEvent("/repo", toolEvent("edit", "error"), childStores, routingIndex, getRuntimeKey())
-
+      // Snapshot path: a completed `patch` refreshes once, a repeat and a read do not.
+      send(partEvent("prt_patch", "patch", "pending"))
+      send(partEvent("prt_patch", "patch", "completed"))
+      send(partEvent("prt_patch", "patch", "completed"))
+      send(partEvent("prt_read", "read", "completed"))
       expect(refreshes).toEqual([{ directory: "/repo" }])
+
+      // Live path: OpenCode v2 settles a running shell call through a transition.
+      send(partEvent("prt_shell", "shell", "running"))
+      send(transitionEvent("prt_shell", { kind: "success", executed: true, output: "", end: 2 }))
+      expect(refreshes).toHaveLength(2)
+
+      // A failed edit may still have written the file.
+      send(partEvent("prt_edit", "edit", "running"))
+      send(transitionEvent("prt_edit", { kind: "failed", executed: true, error: "boom", end: 2 }))
+      expect(refreshes).toHaveLength(3)
     } finally {
       unsubscribe()
       childStores.disposeAll()

@@ -1838,9 +1838,15 @@ export function handleEvent(
   // type will mutate. This preserves reference identity for untouched slices
   // so Zustand selectors skip re-renders for unrelated subscribers.
   const current = getDirectoryEventState(store, batch)
-  const updatedPart = payload.type === "message.part.updated" ? payload.properties.part : undefined
-  const previousPart = updatedPart
-    ? current.part[updatedPart.messageID]?.find((part) => part.id === updatedPart.id)
+  // OpenCode v2 settles a live tool through `message.tool.transition`; a full
+  // `message.part.updated` arrives only for snapshots. Both can finish a tool.
+  const toolPartRef = payload.type === "message.part.updated"
+    ? { messageID: payload.properties.part.messageID, partID: payload.properties.part.id }
+    : payload.type === "message.tool.transition"
+      ? { messageID: payload.properties.messageID, partID: payload.properties.partID }
+      : undefined
+  const previousPart = toolPartRef
+    ? current.part[toolPartRef.messageID]?.find((part) => part.id === toolPartRef.partID)
     : undefined
   const draft: State = { ...current }
   const clonedFields = batch?.clonedFields.get(store) ?? new Set<keyof State>()
@@ -1919,7 +1925,10 @@ export function handleEvent(
     recordDirectoryRecoveryEvent(store, payload)
   }
 
-  if (reducerChanged && updatedPart) {
+  const updatedPart = reducerChanged && toolPartRef
+    ? draft.part[toolPartRef.messageID]?.find((part) => part.id === toolPartRef.partID)
+    : undefined
+  if (updatedPart) {
     sessionEvents.requestGitRefreshForToolTransition(resolvedDirectory, previousPart, updatedPart)
   }
 
