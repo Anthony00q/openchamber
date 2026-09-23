@@ -1,3 +1,33 @@
+## [2.0.0] - 2026-09-23
+
+### New
+
+- **OpenCode 2:** the extension now runs on OpenCode 2, so skills, agents, commands, MCP servers and plugins apply as soon as you save them. With OpenCode 1.x installed, it shows a screen to update, with one-click install. [Read the story on our blog](https://openchamber.dev/blog/opencode-v2/).
+- **Code Mode:** the agent can call your MCP tools and plugin tools from one short script, and the chat shows a Script row with every call it made.
+- Chat: fork a session from an agent answer.
+
+### Improvements
+
+- Chat: writing `/skill` anywhere in a message loads that skill with the message every time.
+- Chat: permission requests say in plain words what the agent wants to do and where, and "Always" names exactly what it will allow.
+- Chat: permission requests and forms appear above the message box, and forms walk through their questions one step at a time.
+- Chat: web search results show as cards with the site, title, date and snippet.
+- Sessions: optional animated activity indicators show running sessions in the sidebar and switcher (thanks to @mattv8).
+- Reviews: new review sessions inherit the current session's permission auto-accept setting.
+
+### Fixes
+
+- Sessions: queued messages and auto-review wait until a session's subagents finish.
+- Chat: edit and patch rows show their added and removed line counts again.
+- Chat: an explicit Steer stays a steer after dismissing blockers (thanks to @JustinKeltner).
+- Chat: approval cards show file changes that were missing from the preview.
+- Chat: comment quote previews fill the available width, and comment highlighting is translucent again.
+- Chat: message image export works when a message links to an external page (thanks to @ChangeHow).
+
+### Misc
+
+- Requires OpenCode 2.0.15 or newer.
+
 ## [1.24.2] - 2026-09-18
 
 ### Fixes
