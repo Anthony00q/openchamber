@@ -42,9 +42,9 @@
       "success": "#2D7048",
       "successBackground": "#2D70481A",
       "successBorder": "#2D704855",
-      "info": "#88436E",
-      "infoBackground": "#88436E1A",
-      "infoBorder": "#88436E55"
+      "info": "#315F98",
+      "infoBackground": "#315F981A",
+      "infoBorder": "#315F9855"
     },
     "syntax": {
       "base": {
