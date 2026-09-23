@@ -24,6 +24,8 @@ import nightowl_dark_Raw from './nightowl-dark.json';
 import nightowl_light_Raw from './nightowl-light.json';
 import nord_dark_Raw from './nord-dark.json';
 import nord_light_Raw from './nord-light.json';
+import osaka_jade_refined_dark_Raw from './osaka-jade-refined-dark.json';
+import osaka_jade_refined_light_Raw from './osaka-jade-refined-light.json';
 import fields_of_the_shire_dark_Raw from './fields-of-the-shire-dark.json';
 import fields_of_the_shire_light_Raw from './fields-of-the-shire-light.json';
 import onedarkpro_dark_Raw from './onedarkpro-dark.json';
@@ -66,6 +68,8 @@ export const presetThemes: Theme[] = [
   nightowl_light_Raw,
   nord_dark_Raw,
   nord_light_Raw,
+  osaka_jade_refined_dark_Raw,
+  osaka_jade_refined_light_Raw,
   onedarkpro_dark_Raw,
   onedarkpro_light_Raw,
   solarized_dark_Raw,
