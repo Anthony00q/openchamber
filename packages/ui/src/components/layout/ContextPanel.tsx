@@ -505,12 +505,13 @@ export const ContextPanel: React.FC = () => {
 
   // Lets an agent's browser.open create the tab it needs when none is open yet.
   // Registered from the panel because opening a tab is panel state, not
-  // something the browser view itself can do before it exists. Reveal the
-  // panel so Electron gives the webview a composited surface; capturePage()
-  // cannot capture the zero-width webview inside a closed panel.
+  // something the browser view itself can do before it exists. Background on
+  // purpose: an agent working a page must not pop the panel open or steal the
+  // active tab while the user reads something else. The tab appears in the
+  // strip; browser.capture shows it only for the moment of the screenshot.
   React.useEffect(() => {
     if (!effectiveDirectory) return;
-    return registerBrowserOpener((url) => openContextBrowser(effectiveDirectory, url));
+    return registerBrowserOpener((url) => openContextBrowser(effectiveDirectory, url, { reveal: false }));
   }, [effectiveDirectory, openContextBrowser]);
   // The agent asked for a file to be shown. It opens in front of whatever tab
   // the user had, on purpose: the agent is pointing at a result, and the prior
@@ -1378,10 +1379,13 @@ export const ContextPanel: React.FC = () => {
         {browserTabs.map((tab) => (
           <div
             key={tab.id}
+            // Invisible rather than display:none, so a background tab the agent
+            // is working keeps its layout and its snapshots read a real page.
             className={cn(
               'absolute inset-0',
-              activeTab?.id !== tab.id && 'hidden'
+              activeTab?.id !== tab.id && 'invisible pointer-events-none'
             )}
+            aria-hidden={activeTab?.id !== tab.id || undefined}
           >
             <BrowserPane initialUrl={tab.targetPath ?? ''} directory={directoryKey} tabID={tab.id} />
           </div>
