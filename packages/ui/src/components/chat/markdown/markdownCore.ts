@@ -192,6 +192,9 @@ type MarkdownBlock = {
   // very large open fence falls back to plain text until it closes, keeping
   // the repeated worker re-tokenization bounded.
   highlight: boolean;
+  // Set when the lexer already failed on this text. Parsing runs the same
+  // lexer and would fail the same way, after the same cost.
+  plainText?: true;
 };
 
 const hasReferenceDefinitions = (text: string): boolean =>
@@ -242,7 +245,7 @@ const streamBlocks = (text: string, live: boolean): MarkdownBlock[] => {
   try {
     tokens = inlineImageParser.lexer(text);
   } catch {
-    return [{ raw: text, src: heal(text), mode: 'live', highlight: true }];
+    return [{ raw: text, src: text, mode: 'live', highlight: true, plainText: true }];
   }
 
   let tail = -1;
@@ -709,6 +712,7 @@ const renderPlainText = (text: string): string =>
   `<div class="whitespace-pre-wrap break-words">${escapeRawMarkdownHtml(text)}</div>`;
 
 const parseBlock = async (block: MarkdownBlock, imageMode: MarkdownImageMode): Promise<string> => {
+  if (block.plainText) return renderPlainText(block.raw);
   const parser = imageMode === 'label' ? imageLabelParser : inlineImageParser;
   let parsed: string;
   try {
