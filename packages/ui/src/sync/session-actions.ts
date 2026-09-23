@@ -33,7 +33,7 @@ import { getBtwOriginalSessionID, getBtwSessionID, isBtwSession, withoutBtwSessi
 import { withLinkedIssue, type LinkedIssue } from "@/lib/linkedIssues"
 import { getImperativeSessionMessageLoader } from "./session-message-loader"
 import { cleanupPersistedSessionState } from "./session-deletion-cleanup"
-import { requestSessionArchiveBatch, requestSessionMetadataUpdate, requestSessionUnarchiveBatch } from "./session-archive-batch"
+import { requestSessionArchiveBatch, requestSessionMetadataUpdate, requestSessionUnarchiveBatch, type SessionArchiveStamp } from "./session-archive-batch"
 import { registerBulkArchiveEchoes, releaseBulkArchiveEchoes } from "./bulk-archive-echo"
 import { getRuntimeKey } from "@/lib/runtime-switch"
 import { getErrorStatus, isAmbiguousSendFailure } from "./send-failure-classification"
@@ -531,6 +531,29 @@ export async function clearStagedRevert(sessionId: string): Promise<void> {
 function getGlobalSessionSnapshot(sessionId: string): Session | null {
   const global = useGlobalSessionsStore.getState()
   return [...global.activeSessions, ...global.archivedSessions].find((session) => session.id === sessionId) ?? null
+}
+
+function findLiveSession(sessionId: string): Session | null {
+  if (!_childStores) return null
+  for (const store of _childStores.children.values()) {
+    const session = store.getState().session.find((item) => item.id === sessionId)
+    if (session) return session
+  }
+  return null
+}
+
+/**
+ * The archive routes answer with stamps, not session records, so the stamp is
+ * applied to the session the global store already holds. A session it does not
+ * hold is left alone rather than inserted as a record without its fields.
+ */
+function withArchivedAt(sessionId: string, archivedAt: number | null): Session | null {
+  const known = getGlobalSessionSnapshot(sessionId) ?? findLiveSession(sessionId)
+  if (!known) return null
+  const time = { ...known.time }
+  if (archivedAt === null) delete time.archived
+  else time.archived = archivedAt
+  return { ...known, time }
 }
 
 const toError = (error: unknown): Error => (error instanceof Error ? error : new Error(String(error)))
@@ -1376,13 +1399,14 @@ export async function archiveSession(sessionId: string, expectedRuntimeKey = get
     if (result.outcome !== "archived") {
       throw new Error(`archive failed: ${result.reason}`)
     }
-    const archived = result.archived.find((session) => session.id === sessionId)
-    if (!archived) {
+    const stamp = result.archived.find((entry) => entry.id === sessionId)
+    if (!stamp) {
       throw new Error("archive failed: server did not return the archived session")
     }
+    const archived = withArchivedAt(sessionId, stamp.archivedAt)
     const snapshots = removeSessionFromLiveStores(sessionId, sessionDirectory)
     invalidateSessionLoads(sessionId, [...snapshots.map((snapshot) => snapshot.directory), sessionDirectory])
-    useGlobalSessionsStore.getState().upsertSession(archived)
+    if (archived) useGlobalSessionsStore.getState().upsertSession(archived)
     const ui = useSessionUIStore.getState()
     if (ui.currentSessionId === sessionId) ui.setCurrentSession(null)
     return true
@@ -1451,14 +1475,10 @@ export async function archiveSessions(
       releaseBulkArchiveEchoes(expectedRuntimeKey, batchIds)
       registerBulkArchiveEchoes(
         expectedRuntimeKey,
-        result.archived.flatMap((session) => (
-          session.time?.archived === undefined
-            ? []
-            : [{ id: session.id, archivedAt: session.time.archived }]
-        )),
+        result.archived,
       )
       commitArchivedSessions(result.archived, directory)
-      archivedIds.push(...result.archived.map((session) => session.id))
+      archivedIds.push(...result.archived.map((entry) => entry.id))
       failedIds.push(...result.failedIds)
       continue
     }
@@ -1546,15 +1566,16 @@ function planArchiveBatches(ids: string[]) {
  * archived bucket, and clear it if it was open — with the per-session store
  * notifications collapsed into one.
  */
-function commitArchivedSessions(sessions: Session[], directory: string): void {
-  if (sessions.length === 0) return
+function commitArchivedSessions(stamps: SessionArchiveStamp[], directory: string): void {
+  if (stamps.length === 0) return
 
-  const ids = sessions.map((session) => session.id)
+  const ids = stamps.map((stamp) => stamp.id)
+  const archived = stamps.flatMap((stamp) => withArchivedAt(stamp.id, stamp.archivedAt) ?? [])
   const snapshots = removeSessionsFromLiveStores(ids, directory)
   const directories = [...snapshots.map((snapshot) => snapshot.directory), directory]
   for (const id of ids) invalidateSessionLoads(id, directories)
 
-  useGlobalSessionsStore.getState().upsertSessions(sessions)
+  useGlobalSessionsStore.getState().upsertSessions(archived)
 
   const ui = useSessionUIStore.getState()
   if (ui.currentSessionId && ids.includes(ui.currentSessionId)) ui.setCurrentSession(null)
@@ -1578,14 +1599,11 @@ export async function unarchiveSession(sessionId: string, expectedRuntimeKey = g
     if (result.outcome !== "restored") {
       throw new Error(`unarchive failed: ${result.reason}`)
     }
-    const restored = result.restored.find((session) => session.id === sessionId)
-    if (!restored) {
+    if (!result.restored.includes(sessionId)) {
       throw new Error("unarchive failed: server did not return the restored session")
     }
-    if (restored.time?.archived) {
-      throw new Error("unarchive failed: server kept the session archived")
-    }
-    useGlobalSessionsStore.getState().upsertSession(restored)
+    const restored = withArchivedAt(sessionId, null)
+    if (restored) useGlobalSessionsStore.getState().upsertSession(restored)
     if (sessionDirectory) registerSessionDirectory(sessionId, sessionDirectory)
     promoteRestoredSessionOrdering(sessionId)
     return true

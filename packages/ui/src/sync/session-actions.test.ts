@@ -706,7 +706,7 @@ describe("confirmed session removal", () => {
   test("moves the session to archived state after server confirmation", async () => {
     archiveBatchResponse = {
       status: 200,
-      body: { archived: [{ id: "session-a", directory: "/test/project", time: { created: 1, archived: 2 } }], failedIds: [] },
+      body: { archived: [{ id: "session-a", archivedAt: 2 }], failedIds: [] },
     }
     const source = createStore({}, {
       session: [{ id: "session-a", directory: "/test/project", time: { created: 1 } } as Session],
@@ -722,7 +722,7 @@ describe("confirmed session removal", () => {
   test("rejects an archive response that arrives after a runtime switch", async () => {
     archiveBatchResponse = {
       status: 200,
-      body: { archived: [{ id: "session-a", directory: "/test/project", time: { created: 1, archived: 2 } }], failedIds: [] },
+      body: { archived: [{ id: "session-a", archivedAt: 2 }], failedIds: [] },
     }
     const source = createStore({}, {
       session: [{ id: "session-a", directory: "/test/project", time: { created: 1 } } as Session],
@@ -747,8 +747,8 @@ describe("confirmed session removal", () => {
       status: 200,
       body: {
         archived: [
-          { id: "session-a", directory: "/test/project", time: { created: 1, archived: 2 } },
-          { id: "session-b", directory: "/test/project", time: { created: 1, archived: 2 } },
+          { id: "session-a", archivedAt: 2 },
+          { id: "session-b", archivedAt: 2 },
         ],
         failedIds: [],
       },
@@ -782,8 +782,8 @@ describe("confirmed session removal", () => {
       status: 200,
       body: {
         archived: [
-          { id: "session-a", directory: "/test/project", time: { created: 1, archived: 2 } },
-          { id: "session-b", directory: "/test/project", time: { created: 1, archived: 2 } },
+          { id: "session-a", archivedAt: 2 },
+          { id: "session-b", archivedAt: 2 },
         ],
         failedIds: [],
       },
@@ -815,11 +815,7 @@ describe("archiving a batch through the server", () => {
     ...(metadata ? { metadata } : {}),
   } as unknown as Session)
 
-  const archivedSession = (id: string): Session => ({
-    id,
-    directory: "/test/project",
-    time: { created: 1, archived: 2 },
-  } as unknown as Session)
+  const archivedSession = (id: string) => ({ id, archivedAt: 2 })
 
   beforeEach(() => {
     replyCalls.length = 0
@@ -968,12 +964,18 @@ describe("archiving a batch through the server", () => {
 })
 
 describe("session restore (unarchive)", () => {
-  const restored = (id: string, directory: string, archived = 0) => ({
-    id,
-    projectID: "project-main",
-    directory,
-    time: { created: 1, updated: 1, archived },
-  })
+  // The route answers with stamps; the full record comes from the archived
+  // list the global store already holds.
+  const restored = (id: string, directory: string, archivedAt: number | null = null) => {
+    globalArchivedSessions.push({
+      id,
+      projectID: "project-main",
+      directory,
+      title: `Title ${id}`,
+      time: { created: 1, updated: 1, archived: 5 },
+    } as unknown as Session)
+    return { id, archivedAt }
+  }
 
   beforeEach(async () => {
     replyCalls.length = 0
@@ -1014,7 +1016,8 @@ describe("session restore (unarchive)", () => {
     expect(openchamberRouteRequests).toHaveLength(1)
     expect(openchamberRouteRequests[0].path).toBe("/api/openchamber/sessions/unarchive")
     expect(openchamberRouteRequests[0].body).toMatchObject({ ids: ["session-a"] })
-    expect((globalUpsertedSessions[0] as Session)?.time?.archived).toBe(0)
+    expect((globalUpsertedSessions[0] as Session)?.time?.archived).toBeUndefined()
+    expect((globalUpsertedSessions[0] as Session)?.title).toBe("Title session-a")
     expect(registeredSessionDirectories).toEqual([{ sessionID: "session-a", directory: "/test/project" }])
     const { useSessionOrderingStore } = await import("./session-ordering")
     const rank = useSessionOrderingStore.getState().rankById.get("session-a")

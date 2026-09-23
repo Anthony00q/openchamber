@@ -201,14 +201,14 @@ describe('retention execution', () => {
     expect(useUIStore.getState().autoDeleteLastRunAt).toBe(123);
   });
 
-  test('archives through the canonical action and retains the returned server record', async () => {
-    seed([session('old')]);
+  test('archives through the canonical action and keeps the whole record with the server stamp', async () => {
+    const old = session('old');
+    seed([old]);
     useUIStore.setState({ sessionRetentionAction: 'archive' });
-    const archived = session('old', { time: { created: 1, updated: now, archived: now } });
     spyOn(sessionRoutes, 'requestSessionArchiveBatch')
-      .mockResolvedValue({ outcome: 'archived', archived: [archived], failedIds: [] });
+      .mockResolvedValue({ outcome: 'archived', archived: [{ id: 'old', archivedAt: now }], failedIds: [] });
     expect((await runSessionRetentionCleanup({ force: true })).completedIds).toEqual(['old']);
-    expect(useGlobalSessionsStore.getState().archivedSessions).toEqual([archived]);
+    expect(useGlobalSessionsStore.getState().archivedSessions).toEqual([{ ...old, time: { ...old.time, archived: now } }]);
   });
 
   test('processes 850 hierarchical sessions with one confirmed delete per candidate', async () => {
