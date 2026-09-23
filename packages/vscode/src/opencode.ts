@@ -1114,10 +1114,14 @@ export function createOpenCodeManager(context: vscode.ExtensionContext): OpenCod
       return installInFlight;
     },
     upgradeCli: () => enqueueOperation(async () => {
-      if (useConfiguredUrl || !server || !cliPath) {
+      if (useConfiguredUrl) {
         throw new Error('This OpenCode runtime cannot be upgraded by OpenChamber.');
       }
-      await runOpenCodeCliUpgrade(resolveWindowsLaunchSpec(cliPath, []), {
+      // Match capability reporting: the resolver may find the CLI after startup.
+      // Upgrading the binary does not require a live managed server process.
+      const binary = cliPath || resolveOpencodeCliPath();
+      if (!binary) throw new Error('OpenCode CLI could not be found.');
+      await runOpenCodeCliUpgrade(resolveWindowsLaunchSpec(binary, []), {
         cwd: serverWorkingDirectory(), env: process.env,
       });
     }),
