@@ -73,3 +73,13 @@ An agent can ask for a file to be shown (`file.open` on the managed
 `ContextPanel` answers it with `openContextFile`, `MobileApp` additionally
 opens the files drawer. VS Code has no shared file viewer and no managed
 tool, so the event never reaches it.
+
+## Uploads
+
+`useFileTreeUpload` owns uploads for both trees: `FilesView` (including
+mobile) and `SidebarFilesTree`. Files arrive through desktop drag-and-drop or
+through the system picker, which folder menus ("Upload Files") and the tree
+toolbar open. A single upload runs at a time, in batches of three. Existing
+names are never replaced silently: they collect into a replace-confirmation
+dialog, which is dropped when the workspace or runtime changes. The feature is
+present only when the runtime exposes `files.uploadFile`.
