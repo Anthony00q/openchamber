@@ -13,6 +13,8 @@
 
 import fs from 'fs';
 import path from 'path';
+import { unwrapOpenCodeResponse } from '../opencode/response-envelope.js';
+import { createSessionActivityProbe } from '../opencode/session-activity.js';
 
 const QUEUE_FILE_NAME = 'message-queue.json';
 const QUEUE_FILE_VERSION = 1;
@@ -27,6 +29,9 @@ const DISPATCH_QUIET_MS = 500;
 // After a user abort the UI held the queue for two seconds so the stop is not
 // immediately followed by the next prompt; the server keeps that window.
 const ABORT_HOLD_MS = 2_000;
+// While a background subagent keeps the turn open, how often the head is
+// rechecked in case the parent's rerun idle event is missed.
+const SUBAGENT_RECHECK_MS = 5_000;
 const RETRY_BASE_DELAY_MS = 2_000;
 const RETRY_MAX_DELAY_MS = 60_000;
 // A hold is asserted by a UI-driven process (auto-review) that dies with the
@@ -172,15 +177,6 @@ const toPublicItem = (item) => {
   }
   publicItem.sendConfig = { ...item.sendConfig };
   return publicItem;
-};
-
-/**
- * OpenCode 2.x answers `/api/*` with `{ location, data }`. Unwrap it once here
- * so every call site keeps reading the payload it cares about.
- */
-const unwrapOpenCodeBody = (body) => {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
-  return 'data' in body && 'location' in body ? body.data : body;
 };
 
 const extractSessionStatus = (payload) => {
@@ -402,18 +398,27 @@ export function createMessageQueueRuntime({
       const detail = await response.text().catch(() => '');
       throw httpError(`OpenCode ${method} ${fetchPath} failed with ${response.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`, response.status);
     }
-    return unwrapOpenCodeBody(await response.json().catch(() => null));
+    return unwrapOpenCodeResponse(await response.json().catch(() => null));
   };
 
   /**
    * Live idleness, or null when it could not be established. Unknown is never
    * idle: a fetch failure re-arms instead of sending into a running turn.
    */
+  const activityProbe = createSessionActivityProbe({ buildOpenCodeUrl, getOpenCodeAuthHeaders, timeoutMs: FETCH_TIMEOUT_MS, fetchImpl });
+
+  /** True while a subagent of the session runs; null when it could not be checked. */
+  const hasWorkingSubagents = async (sessionId) => {
+    const statuses = await activityProbe.fetchActiveSessionStatuses();
+    if (!statuses) return null;
+    return activityProbe.hasWorkingChildren(sessionId, statuses);
+  };
+
   const isSessionIdle = async (sessionId, directory) => {
     // `/api/session/active` is global and lists only the sessions that are
     // running right now, so an absent entry means idle.
-    // The route answers `{ data: { [id]: { type: 'running' } } }` without a
-    // `location`, so the shared unwrap leaves the envelope in place.
+    // The route answers `{ data: { [id]: { type: 'running' } } }`; the shared
+    // unwrap hands over the map, and an envelope is still accepted.
     const body = asRecord(await openCodeFetch('/api/session/active').catch(() => null));
     const statuses = asRecord(body && 'data' in body ? body.data : body);
     if (!statuses) return null;
@@ -622,6 +627,16 @@ export function createMessageQueueRuntime({
     }
     // Busy: the next idle status event re-arms the loop.
     if (!idle) return;
+
+    // A queued message waits for the whole turn. A parent idles while a
+    // background subagent works and runs again when OpenCode hands the
+    // result back, so the turn is only over once no subagent runs. That rerun
+    // re-arms through its idle event; the recheck covers a missed one.
+    const subagentsWorking = await hasWorkingSubagents(sessionId);
+    if (subagentsWorking !== false) {
+      armDispatch(sessionId, subagentsWorking === null ? retryDelayMs(1) : SUBAGENT_RECHECK_MS);
+      return;
+    }
 
     // Re-read after the awaits — the user may have edited the queue meanwhile.
     const current = queues.get(sessionId);

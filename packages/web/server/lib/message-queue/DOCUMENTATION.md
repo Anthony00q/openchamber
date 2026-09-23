@@ -111,6 +111,11 @@ persisted "sending" flag would strand a message forever.
    will never complete, so a restored queue would wait on it forever. A reply
    with no `created` time still blocks. A failed fetch is unknown, never idle:
    the tick re-arms with backoff.
+   The turn must also be over for the session's subagents: a parent idles
+   while a background subagent works and runs again when OpenCode hands the
+   result back. While `../opencode/session-activity.js` finds a running child
+   the head waits (the rerun's idle event re-arms it, a 5 s recheck covers a
+   missed one); a failed check is unknown and backs off like the rest.
 5. The head is marked in flight (broadcast), then sent. The captured model and
    agent are switched onto the session first (`POST /session/:id/model`,
    `/agent`), because v2 holds both on the session rather than in the body; a

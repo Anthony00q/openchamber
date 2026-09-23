@@ -20,6 +20,8 @@ import path from 'path';
 
 import { GOAL_OBJECTIVE_CHAR_LIMIT, readObjective } from './objectives.js';
 import { readMergedSettingsSync } from '../opencode/settings-files.js';
+import { createSessionActivityProbe } from '../opencode/session-activity.js';
+import { unwrapOpenCodeResponse } from '../opencode/response-envelope.js';
 
 const OPENCHAMBER_SETTINGS_FILE = path.join(
   process.env.OPENCHAMBER_DATA_DIR
@@ -39,8 +41,6 @@ const KICKOFF_QUIET_MS = 3_000;
 // already bails if the session turns out to be busy. The tiny delay only
 // coalesces duplicate session.updated events.
 const RESUME_KICKOFF_MS = 250;
-const CHILDREN_PAGE_SIZE = 50;
-const CHILDREN_MAX_PAGES = 8;
 const FETCH_TIMEOUT_MS = 10_000;
 const MESSAGE_FETCH_LIMIT = 40;
 const TRANSCRIPT_PART_CHAR_LIMIT = 6_000;
@@ -401,10 +401,7 @@ export const createSessionGoalRuntime = ({
     if (!response.ok) {
       throw new Error(`OpenCode ${method} ${fetchPath} failed with ${response.status}`);
     }
-    // OpenCode 2.x answers `/api/*` with `{ location, data }`.
-    const payload = await response.json().catch(() => null);
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return payload;
-    return 'data' in payload && 'location' in payload ? payload.data : payload;
+    return unwrapOpenCodeResponse(await response.json().catch(() => null));
   };
 
   const fetchRecentMessages = async (sessionId, directory) => {
@@ -418,45 +415,11 @@ export const createSessionGoalRuntime = ({
     return messages.map(toLoopMessage).filter(Boolean).reverse();
   };
 
-  // `/api/session/active` is global and lists only the sessions running right
-  // now, so an absent id is idle.
-  const fetchSessionStatuses = async () => {
-    // The route answers `{ data: { [id]: { type: 'running' } } }` without a
-    // `location`, so the shared unwrap leaves the envelope in place.
-    const body = await openCodeFetch('/api/session/active').catch(() => null);
-    const statuses = body && typeof body === 'object' && !Array.isArray(body) && 'data' in body ? body.data : body;
-    return statuses && typeof statuses === 'object' && !Array.isArray(statuses) ? statuses : null;
-  };
-
-  // v2 has no `/session/{id}/children`; `GET /api/session?parentID=` lists a
-  // parent's subagent sessions, newest first, in cursor pages. Later pages carry
-  // the filter inside the cursor, so only the cursor and the limit travel.
-  // Returns null when any page could not be read: "could not look" must not
-  // pass for "nothing to wait for", or a parent would audit and complete while
-  // its subagent is still working.
-  const fetchSessionChildren = async (sessionId) => {
-    const children = [];
-    const seenCursors = new Set();
-    let cursor;
-    for (let pageNumber = 0; pageNumber < CHILDREN_MAX_PAGES; pageNumber += 1) {
-      const page = await openCodeFetch('/api/session', {
-        query: {
-          limit: String(CHILDREN_PAGE_SIZE),
-          ...(cursor ? { cursor } : { parentID: sessionId }),
-        },
-      }).catch(() => null);
-      if (!Array.isArray(page?.data)) return null;
-      for (const child of page.data) {
-        if (child?.id) children.push({ id: child.id });
-      }
-      const next = page.cursor?.next;
-      if (!next || page.data.length === 0 || seenCursors.has(next)) return children;
-      seenCursors.add(next);
-      cursor = next;
-    }
-    // A parent with more subagents than this walks is unknown, not idle.
-    return null;
-  };
+  const activityProbe = createSessionActivityProbe({
+    buildOpenCodeUrl,
+    getOpenCodeAuthHeaders,
+    timeoutMs: FETCH_TIMEOUT_MS,
+  });
 
   // v2 reports only that a session is running.
   const isWorkingStatus = (status) => Boolean(status);
@@ -618,19 +581,19 @@ export const createSessionGoalRuntime = ({
     // its next idle event will arm a fresh tick. If a child is still working,
     // OpenCode will inject its result into the parent and produce the same
     // busy→idle cycle, so do not poll or audit the interim parent reply.
-    const statuses = await fetchSessionStatuses();
+    const statuses = await activityProbe.fetchActiveSessionStatuses();
     if (!statuses) {
       armTimer(sessionId, directory, idleQuietMs);
       return;
     }
     if (isWorkingStatus(statuses[sessionId])) return;
 
-    const children = await fetchSessionChildren(sessionId, directory);
-    if (!children) {
+    const childrenWorking = await activityProbe.hasWorkingChildren(sessionId, statuses);
+    if (childrenWorking === null) {
       armTimer(sessionId, directory, idleQuietMs);
       return;
     }
-    if (children.some((child) => typeof child?.id === 'string' && isWorkingStatus(statuses[child.id]))) return;
+    if (childrenWorking) return;
 
     const messages = await fetchRecentMessages(sessionId, directory);
     if (!messages) return;

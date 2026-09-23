@@ -35,6 +35,8 @@ const createOpenCode = () => {
   const state = {
     // `/api/session/active` lists only running sessions; an absent id is idle.
     active: {},
+    // Subagent sessions per parent, as `GET /api/session?parentID=` lists them.
+    children: {},
     tail: [],
     commands: [],
     sent: [],
@@ -53,6 +55,10 @@ const createOpenCode = () => {
     }
     // Real shape: `{ data }` without a `location`, unlike directory-scoped routes.
     if (pathname === '/api/session/active') return Response.json({ data: state.active });
+    if (pathname === '/api/session' && method === 'GET') {
+      const parentID = new URL(url).searchParams.get('parentID');
+      return Response.json({ data: (state.children[parentID] ?? []).map((id) => ({ id, parentID })), cursor: {} });
+    }
     if (pathname.endsWith('/message')) return Response.json({ data: state.tail, cursor: {} });
     if (pathname === '/api/command') return wrapped(state.commands);
     if (method === 'POST' && (pathname.endsWith('/model') || pathname.endsWith('/agent'))) {
@@ -218,6 +224,27 @@ describe('message queue runtime', () => {
     expect(runtime.sessionSnapshot(SESSION).items).toEqual([]);
   });
 
+  it('waits for a background subagent before sending the queued message', async () => {
+    const { runtime, openCode, emit } = createRuntime();
+    runtime.start();
+    // The parent paused: it is idle while its background subagent works.
+    openCode.state.children = { [SESSION]: ['ses_child'] };
+    openCode.state.active = { ses_child: { type: 'running' } };
+
+    await runtime.enqueue(SESSION, DIRECTORY, item({ content: 'next', text: 'next' }));
+    emit({ type: 'session.status', properties: { sessionID: SESSION, status: { type: 'idle' } } });
+    await settle();
+    expect(openCode.state.sent).toHaveLength(0);
+
+    // The subagent finished and OpenCode ran the parent again with its result.
+    openCode.state.active = {};
+    emit({ type: 'session.status', properties: { sessionID: SESSION, status: { type: 'busy' } } });
+    emit({ type: 'session.status', properties: { sessionID: SESSION, status: { type: 'idle' } } });
+    await settle();
+    expect(openCode.state.sent).toHaveLength(1);
+    expect(openCode.state.sent[0].body).toEqual({ text: 'next' });
+  });
+
   it('does not send into a running turn even when the status event says idle', async () => {
     const { runtime, openCode, emit } = createRuntime({ now: () => 10_000 });
     runtime.start();
@@ -340,9 +367,11 @@ describe('message queue runtime', () => {
     const { runtime, openCode, emit } = createRuntime();
     runtime.start();
     let release;
-    // active map, message tail, model switch, then the prompt itself (held
-    // open until released)
+    // active map, message tail, the subagent check (active map, children),
+    // model switch, then the prompt itself (held open until released)
     openCode.fetchImpl.mockImplementationOnce(async () => Response.json({ location: {}, data: {} }))
+      .mockImplementationOnce(async () => Response.json({ data: [], cursor: {} }))
+      .mockImplementationOnce(async () => Response.json({ data: {} }))
       .mockImplementationOnce(async () => Response.json({ data: [], cursor: {} }))
       .mockImplementationOnce(async () => new Response(null, { status: 204 }))
       .mockImplementationOnce(() => new Promise((resolve) => { release = () => resolve(new Response(null, { status: 204 })); }));

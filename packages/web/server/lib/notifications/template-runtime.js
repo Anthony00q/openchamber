@@ -1,4 +1,5 @@
 import { summarizeText as summarizeSharedText } from '../text/summarization.js';
+import { unwrapOpenCodeResponse } from '../opencode/response-envelope.js';
 
 export const createNotificationTemplateRuntime = (deps) => {
   const {
@@ -208,9 +209,7 @@ export const createNotificationTemplateRuntime = (deps) => {
         console.warn(`[Notification] fetchSessionInfo: ${response.status} for session ${sessionId}`);
         return null;
       }
-      // v2 answers `/api/*` with `{ location, data }`.
-      const body = await response.json().catch(() => null);
-      const data = body && typeof body === 'object' && 'data' in body && 'location' in body ? body.data : body;
+      const data = unwrapOpenCodeResponse(await response.json().catch(() => null));
       if (data && typeof data === 'object') {
         sessionInfoCache.set(sessionId, { data, at: Date.now() });
         return data;

@@ -87,3 +87,101 @@ describe('ready notification on v2 step events', () => {
     expect(emitDesktopNotification).not.toHaveBeenCalled();
   });
 });
+
+describe('ready notification while background subagents run', () => {
+  const stubOpenCode = ({ active, children }) => {
+    vi.stubGlobal('fetch', vi.fn(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/api/session/active') return Response.json({ data: active() });
+      if (url.pathname === '/api/session') return Response.json({ data: children, cursor: {} });
+      return Response.json({});
+    }));
+  };
+
+  it('stays silent on the pause and announces the real turn end', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    let active = { ses_child: { type: 'running' } };
+    stubOpenCode({ active: () => active, children: [{ id: 'ses_child', parentID: 'ses_1' }] });
+    const { runtime, emitDesktopNotification } = makeRuntime();
+
+    await runtime.maybeSendPushForTrigger(stepStarted('ses_1', 'msg_1'));
+    await runtime.maybeSendPushForTrigger(turnEnded('ses_1'));
+    expect(emitDesktopNotification).not.toHaveBeenCalled();
+
+    // The subagent finished and OpenCode ran the parent again with its result.
+    active = {};
+    await runtime.maybeSendPushForTrigger(turnEnded('ses_1'));
+    expect(emitDesktopNotification).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it('announces the idle when the subagent check cannot be made', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('down', { status: 503 })));
+    const { runtime, emitDesktopNotification } = makeRuntime();
+
+    await runtime.maybeSendPushForTrigger(stepStarted('ses_1', 'msg_1'));
+    await runtime.maybeSendPushForTrigger(turnEnded('ses_1'));
+    expect(emitDesktopNotification).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe('subagent finish with subagent notifications off', () => {
+  const makeSubtaskRuntime = () => {
+    const emitDesktopNotification = vi.fn(() => true);
+    const runtime = createNotificationTriggerRuntime({
+      readSettingsFromDisk: async () => ({ nativeNotificationsEnabled: true, notificationMode: 'always', notifyOnCompletion: true, notifyOnSubtasks: false }),
+      prepareNotificationLastMessage: async ({ message }) => message,
+      buildTemplateVariables: async () => ({}),
+      extractLastMessageText: () => 'done',
+      fetchLastAssistantMessageText: async () => 'done',
+      resolveNotificationTemplate: () => '',
+      shouldApplyResolvedTemplateMessage: () => false,
+      emitDesktopNotification,
+      broadcastUiNotification: vi.fn(),
+      sendPushToAllUiSessions: vi.fn(async () => undefined),
+      sendApnsToAllUiSessions: vi.fn(async () => undefined),
+      isAnyInteractiveClientVisible: () => true,
+      buildOpenCodeUrl: (path) => `http://opencode.test${path}`,
+      getOpenCodeAuthHeaders: () => ({}),
+      readSessionMetadata: async () => ({}),
+    });
+    return { runtime, emitDesktopNotification };
+  };
+
+  // OpenCode answers `GET /api/session/:id` as `{ data }` with no `location`.
+  const stubSessionRecord = () => {
+    vi.stubGlobal('fetch', vi.fn(async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/api/session/active') return Response.json({ data: {} });
+      if (url.pathname === '/api/session/ses_child') return Response.json({ data: { id: 'ses_child', parentID: 'ses_parent' } });
+      return Response.json({ data: [], cursor: {} });
+    }));
+  };
+
+  it('reads the parent from the session record envelope', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    stubSessionRecord();
+    const { runtime, emitDesktopNotification } = makeSubtaskRuntime();
+
+    await runtime.maybeSendPushForTrigger(stepStarted('ses_child', 'msg_c'));
+    await runtime.maybeSendPushForTrigger(turnEnded('ses_child'));
+    expect(emitDesktopNotification).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it('a partial session update does not erase a known parent', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('down', { status: 503 })));
+    const { runtime, emitDesktopNotification } = makeSubtaskRuntime();
+
+    await runtime.maybeSendPushForTrigger({ type: 'session.created', properties: { sessionID: 'ses_child', info: { id: 'ses_child', parentID: 'ses_parent' } } });
+    // Usage updates arrive as `session.updated` with a partial record.
+    await runtime.maybeSendPushForTrigger({ type: 'session.updated', properties: { sessionID: 'ses_child', info: { id: 'ses_child', cost: 1 } } });
+    await runtime.maybeSendPushForTrigger(stepStarted('ses_child', 'msg_c'));
+    await runtime.maybeSendPushForTrigger(turnEnded('ses_child'));
+    expect(emitDesktopNotification).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+});

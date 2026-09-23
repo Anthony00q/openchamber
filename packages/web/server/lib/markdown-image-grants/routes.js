@@ -1,6 +1,7 @@
 import express from 'express';
 import { constants as fsConstants } from 'node:fs';
 import { mintOutsideFileGrant } from '../fs/routes.js';
+import { unwrapOpenCodeResponse } from '../opencode/response-envelope.js';
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const MAX_IMAGE_SOURCES = 12;
@@ -220,9 +221,7 @@ const fetchMessage = async ({ sessionId, messageId, directory, buildOpenCodeUrl,
   });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`OpenCode returned ${response.status}`);
-  // v2 answers `/api/*` with `{ location, data }` and the record is flat.
-  const body = await response.json().catch(() => null);
-  const message = body && typeof body === 'object' && 'data' in body && 'location' in body ? body.data : body;
+  const message = unwrapOpenCodeResponse(await response.json().catch(() => null));
   return message && typeof message === 'object' && typeof message.id === 'string' ? message : null;
 };
 

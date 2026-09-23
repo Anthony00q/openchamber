@@ -1,11 +1,6 @@
-/**
- * OpenCode 2.x answers `/api/*` with `{ location, data }`. Unwrapping it here
- * keeps every session read in this module reading the record itself.
- */
-const unwrapOpenCodeRecord = (body) => {
-  if (!body || typeof body !== 'object' || Array.isArray(body)) return body;
-  return 'data' in body && 'location' in body ? body.data : body;
-};
+import { unwrapOpenCodeResponse } from '../opencode/response-envelope.js';
+import { createSessionActivityProbe } from '../opencode/session-activity.js';
+
 
 export const createNotificationTriggerRuntime = (deps) => {
   const {
@@ -28,6 +23,17 @@ export const createNotificationTriggerRuntime = (deps) => {
     readSessionMetadata = null,
   } = deps;
   let getIsSessionAutoAccepting = deps.getIsSessionAutoAccepting;
+  const activityProbe = createSessionActivityProbe({ buildOpenCodeUrl, getOpenCodeAuthHeaders, timeoutMs: 2000 });
+
+  // A parent goes idle while a background subagent still works; OpenCode then
+  // hands the result back and the parent runs again. That first idle is a
+  // pause, so it announces nothing. When the check cannot be made, the idle is
+  // announced as before: a missed "ready" is worse than an early one.
+  const isPausedForSubagents = async (sessionId) => {
+    const statuses = await activityProbe.fetchActiveSessionStatuses();
+    if (!statuses) return false;
+    return (await activityProbe.hasWorkingChildren(sessionId, statuses)) === true;
+  };
   const setGetIsSessionAutoAccepting = (resolver) => {
     getIsSessionAutoAccepting = typeof resolver === 'function' ? resolver : undefined;
   };
@@ -169,8 +175,14 @@ export const createNotificationTriggerRuntime = (deps) => {
   const getParentIdFromPayload = (payload) => {
     if (!payload || typeof payload !== 'object') return undefined;
     if (payload.type !== 'session.created' && payload.type !== 'session.updated') return undefined;
-    const parentID = payload.properties?.info?.parentID ?? null;
-    return typeof parentID === 'string' && parentID.length > 0 ? parentID : null;
+    const parentID = payload.properties?.info?.parentID;
+    if (typeof parentID === 'string' && parentID.length > 0) return parentID;
+    // Only the full record from `session.created` proves a session has no
+    // parent. `session.updated` also carries partial records (usage, title)
+    // without `parentID`, and reading those as "no parent" turned a subagent
+    // into a main session, so its finish announced "ready" with subagent
+    // notifications turned off.
+    return payload.type === 'session.created' ? null : undefined;
   };
 
   // v2 splits one assistant turn over two events: `session.step.started`
@@ -245,7 +257,7 @@ export const createNotificationTriggerRuntime = (deps) => {
       if (!response.ok) {
         return undefined;
       }
-      const session = unwrapOpenCodeRecord(await response.json().catch(() => null));
+      const session = unwrapOpenCodeResponse(await response.json().catch(() => null));
       if (!session || typeof session !== 'object') {
         return undefined;
       }
@@ -363,6 +375,9 @@ export const createNotificationTriggerRuntime = (deps) => {
     }
 
     if ((payload.type === 'session.idle' || payload.type === 'session.error') && sessionId) {
+      if (payload.type === 'session.idle' && await isPausedForSubagents(sessionId)) {
+        return;
+      }
       const error = payload.properties?.error;
       const errorText = typeof error?.message === 'string'
         ? error.message
@@ -795,7 +810,7 @@ export const createNotificationTriggerRuntime = (deps) => {
         signal: AbortSignal.timeout(2000),
       });
       if (response.ok) {
-        const session = unwrapOpenCodeRecord(await response.json().catch(() => null));
+        const session = unwrapOpenCodeResponse(await response.json().catch(() => null));
         if (typeof session?.title === 'string') sessionName = session.title.trim();
       }
     } catch {
