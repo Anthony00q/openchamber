@@ -37,6 +37,9 @@ export const buildKnowledgeSignature = ({ notes, plans, memory }) => {
     ...plans.map((plan) => `p:${plan.id}:${plan.title}`),
     ...memory.global.map((entry) => `mg:${entry.id}:${entry.updatedAt}`),
     ...memory.project.map((entry) => `mp:${entry.id}:${entry.updatedAt}`),
+    // Memory being on is itself worth telling a session: without it an empty
+    // store sends nothing, and an agent never told when to save never does.
+    ...(memory.enabled ? [`m:on:${memory.complete ? 'c' : 'p'}`] : []),
   ];
   return parts.length === 0 ? '' : parts.sort().join('|');
 };
@@ -48,17 +51,37 @@ const renderMemorySection = (entries) => entries
   .join('\n');
 
 /**
+ * When to save, stated in every session where memory is on. The tool
+ * description alone is read only when the agent already means to call it, so
+ * agents told nothing here saved only when the user said "remember".
+ */
+const MEMORY_SAVE_GUIDANCE = 'You have memory that persists across sessions, through the'
+  + ' openchamber_memory tool. Save to it in the moment, without asking first, when:'
+  + ' the user corrects how you work or states a preference; the user confirms that'
+  + ' a non-obvious approach worked; or you learn a project fact that took real'
+  + ' effort to find and is not in the code or docs. One fact per entry. The user'
+  + ' can review and remove what you save, so save when it fits and mention it'
+  + ' briefly.';
+
+/**
  * Titles only for memory, never bodies: an index carrying full text grows
  * without bound until it crowds out the conversation it was meant to inform.
  */
-const buildMemoryBlock = ({ global, project }) => {
+const buildMemoryBlock = ({ global, project, enabled = false, complete = false }) => {
   const sections = [];
   if (global.length > 0) sections.push(`### About the user\n\n${renderMemorySection(global)}`);
   if (project.length > 0) sections.push(`### About this project\n\n${renderMemorySection(project)}`);
-  if (sections.length === 0) return '';
+  if (sections.length === 0) {
+    if (!enabled) return '';
+    // "Empty" only when both scopes loaded: a failed read is not an empty store.
+    return complete
+      ? `${MEMORY_SAVE_GUIDANCE}\n\nNothing is stored yet.`
+      : MEMORY_SAVE_GUIDANCE;
+  }
 
   return [
-    'You have stored memory from earlier sessions. Only the titles are listed below.',
+    ...(enabled ? [MEMORY_SAVE_GUIDANCE] : []),
+    'Stored memory from earlier sessions: only the titles are listed below.',
     'A title is an abbreviation, not the memory. Read the entry with the'
       + ' openchamber_memory tool before you act on it: titles routinely leave out'
       + ' the conditions, exceptions and reasons that decide how the memory'
@@ -168,7 +191,7 @@ export const createSessionKnowledgeRuntime = (dependencies) => {
       }
     }
 
-    let memory = { global: [], project: [] };
+    let memory = { global: [], project: [], enabled: false, complete: false };
     const memoryEnabled = typeof isAgentMemoryEnabled === 'function'
       ? await isAgentMemoryEnabled().catch(() => false)
       : true;
@@ -185,9 +208,11 @@ export const createSessionKnowledgeRuntime = (dependencies) => {
         memory = {
           global: stored.globalFailed ? [] : visible(stored.global),
           project: stored.projectFailed ? [] : visible(stored.project),
+          enabled: true,
+          complete: !stored.globalFailed && !stored.projectFailed,
         };
       } catch {
-        memory = { global: [], project: [] };
+        memory = { global: [], project: [], enabled: true, complete: false };
       }
     }
 

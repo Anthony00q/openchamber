@@ -587,8 +587,28 @@ export const createOpenChamberSessionService = (dependencies) => {
       throw markGoalPartial(error);
     }
 
+    // A session the agent dispatched has no UI to attach the project's
+    // standing context, so it is asked for here. Never fails the dispatch:
+    // a session that runs without its background beats one that never runs.
+    const knowledge = sessionKnowledgeRuntime
+      ? await sessionKnowledgeRuntime.resolvePendingForSession(sessionID, directory)
+        .catch(() => ({ text: '', signature: '' }))
+      : { text: '', signature: '' };
+    // After the send is accepted, so a rejected dispatch carries it again.
+    const recordKnowledge = async () => {
+      if (knowledge.text && sessionKnowledgeRuntime) {
+        await sessionKnowledgeRuntime.recordDelivered(sessionID, directory, knowledge.signature)
+          .catch(() => undefined);
+      }
+    };
+
     if (resolvedCommand) {
       try {
+        // The command route takes no extra parts, so the context goes in
+        // first as a synthetic message that does not start execution.
+        if (knowledge.text) {
+          await client.session.synthetic({ sessionID, text: knowledge.text, resume: false });
+        }
         await client.session.command({
           sessionID,
           // OpenCode 2.0.8 renamed the command body field `command` to `name`.
@@ -598,15 +618,8 @@ export const createOpenChamberSessionService = (dependencies) => {
       } catch (error) {
         throw markGoalPartial(error);
       }
+      await recordKnowledge();
     } else {
-      // A session the agent dispatched has no UI to attach the project's
-      // standing context, so it is asked for here. Never fails the dispatch:
-      // a session that runs without its background beats one that never runs.
-      const knowledge = sessionKnowledgeRuntime
-        ? await sessionKnowledgeRuntime.resolvePendingForSession(sessionID, directory)
-          .catch(() => ({ text: '', signature: '' }))
-        : { text: '', signature: '' };
-
       let landedMessageID = null;
       try {
         if (knowledge.text) {
@@ -626,11 +639,7 @@ export const createOpenChamberSessionService = (dependencies) => {
       } catch (error) {
         throw markGoalPartial(error);
       }
-      if (knowledge.text && sessionKnowledgeRuntime) {
-        // After the prompt is accepted, so a rejected dispatch carries it again.
-        await sessionKnowledgeRuntime.recordDelivered(sessionID, directory, knowledge.signature)
-          .catch(() => undefined);
-      }
+      await recordKnowledge();
       if (!landedMessageID) {
         // v2 answers a prompt with the inbox item it recorded. No item id means
         // nothing is queued, so the dispatch must not be claimed as done.

@@ -75,7 +75,19 @@ describe('what the session is owed', () => {
     expect(text).not.toContain('Pinned note body.');
   });
 
-  test('nothing pinned and nothing remembered owes nothing', async () => {
+  test('nothing pinned with memory off owes nothing', async () => {
+    const runtime = createRuntime({
+      projectContextRuntime: { readContext: async () => ({ notes: [], todos: [], plans: [] }) },
+      isAgentMemoryEnabled: async () => false,
+    });
+
+    const { text, signature } = await runtime.resolvePending(DIRECTORY, '');
+
+    expect(signature).toBe('');
+    expect(text).toBe('');
+  });
+
+  test('an empty memory store still tells the session when to save', async () => {
     const runtime = createRuntime({
       projectContextRuntime: { readContext: async () => ({ notes: [], todos: [], plans: [] }) },
       agentMemoryRuntime: {
@@ -83,10 +95,25 @@ describe('what the session is owed', () => {
       },
     });
 
-    const { text, signature } = await runtime.resolvePending(DIRECTORY, '');
+    const first = await runtime.resolvePending(DIRECTORY, '');
+    expect(first.text).toContain('Save to it in the moment');
+    expect(first.text).toContain('Nothing is stored yet.');
 
-    expect(signature).toBe('');
-    expect(text).toBe('');
+    const again = await runtime.resolvePending(DIRECTORY, first.signature);
+    expect(again.text).toBe('');
+  });
+
+  test('a memory store that failed to load is not called empty', async () => {
+    const runtime = createRuntime({
+      projectContextRuntime: { readContext: async () => ({ notes: [], todos: [], plans: [] }) },
+      agentMemoryRuntime: {
+        readAll: async () => ({ global: [], project: [], globalFailed: true, projectFailed: false }),
+      },
+    });
+
+    const { text } = await runtime.resolvePending(DIRECTORY, '');
+    expect(text).toContain('Save to it in the moment');
+    expect(text).not.toContain('Nothing is stored yet.');
   });
 });
 

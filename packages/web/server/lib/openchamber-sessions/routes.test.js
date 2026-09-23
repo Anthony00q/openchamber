@@ -839,6 +839,29 @@ describe('openchamber session routes', () => {
     expect(sessionPromptMock).not.toHaveBeenCalled();
   });
 
+  it('admits standing project context ahead of a dispatched slash command', async () => {
+    commandListMock.mockResolvedValue({ data: [{ name: 'review', description: 'Review' }] });
+    const recordDelivered = vi.fn(async () => undefined);
+    const sessionKnowledgeRuntime = {
+      resolvePendingForSession: vi.fn(async () => ({ text: 'Memory guidance', signature: 'sig_1' })),
+      recordDelivered,
+    };
+
+    const { app } = createApp({ sessionKnowledgeRuntime });
+    await request(app)
+      .post('/api/openchamber/sessions/ses_source/send')
+      .send({ directory: '/repo/app', prompt: '/review', model: 'openai/gpt-5.5', agent: 'build' })
+      .expect(200);
+
+    expect(sessionSyntheticMock).toHaveBeenCalledWith(expect.objectContaining({
+      text: 'Memory guidance',
+      resume: false,
+    }));
+    expect(sessionSyntheticMock.mock.invocationCallOrder[0])
+      .toBeLessThan(sessionCommandMock.mock.invocationCallOrder[0]);
+    expect(recordDelivered).toHaveBeenCalledWith('ses_source', '/repo/app', 'sig_1');
+  });
+
   it('reuses the previous session selection when send omits model, agent, and variant', async () => {
     // v2 keeps the selection on the session record, so the history is no longer
     // walked for it.

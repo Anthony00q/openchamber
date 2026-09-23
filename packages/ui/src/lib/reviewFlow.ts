@@ -21,6 +21,7 @@ import { resolveSendSelection, useSessionUIStore } from '@/sync/session-ui-store
 import { getSyncMessages, getSyncParts, getSyncSessionStatus, registerSessionDirectory } from '@/sync/sync-refs';
 import { markPendingUserSendAnimation } from '@/lib/userSendAnimation';
 import { getRuntimeKey } from '@/lib/runtime-switch';
+import { fetchSessionKnowledge, reportSessionKnowledgeDelivered } from '@/lib/sessionKnowledgeApi';
 
 const HANDOFF_TIMEOUT_MS = 180_000;
 const HANDOFF_POLL_MS = 400;
@@ -363,6 +364,11 @@ const sendPlainMessage = async (
     selection.saveAgentModelForSession(sessionID, resolved.agent, resolved.providerID, resolved.modelID);
     selection.saveAgentModelVariantForSession(sessionID, resolved.agent, resolved.providerID, resolved.modelID, resolved.variant);
   }
+  // Review sessions are real work sessions, so they carry the project's
+  // standing context (pinned notes, memory) exactly as a composer send would.
+  const knowledge = await fetchSessionKnowledge(directory, sessionID);
+  assertAutoReviewRuntimeStillCurrent(expectedRuntimeKey);
+  const sendContext = knowledge.text ? [{ text: knowledge.text }, ...(context ?? [])] : context;
   markPendingUserSendAnimation(sessionID);
   let sentMessageID: string | null = null;
   await optimisticSend({
@@ -386,12 +392,15 @@ const sendPlainMessage = async (
         model: selection.model,
         agent: selection.agent,
         text,
-        context,
+        context: sendContext,
         messageId: messageID,
       }).then(() => undefined);
     },
   });
   if (!sentMessageID) throw new Error('Failed to prepare review flow message');
+  if (knowledge.text) {
+    void reportSessionKnowledgeDelivered(directory, sessionID, knowledge.signature);
+  }
   return sentMessageID;
 };
 

@@ -94,6 +94,11 @@ mock.module('@/lib/opencode/client', () => ({
   opencodeClient: fakeOpencodeClient,
 }));
 
+mock.module('@/lib/sessionKnowledgeApi', () => ({
+  fetchSessionKnowledge: () => ({ text: '', signature: '' }),
+  reportSessionKnowledgeDelivered: async () => undefined,
+}));
+
 mock.module('@/sync/session-archive-batch', () => ({
   requestSessionMetadataUpdate: async (sessionID: string, patch: Metadata) => {
     if (rejectNextMembership) {
@@ -237,7 +242,8 @@ describe('useMultiRunStore', () => {
         { providerID: 'openrouter', modelID: 'vendor/success' },
       ] }],
     });
-    await Promise.resolve();
+    // Dispatch runs in the background after createMultiRun resolves.
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(result?.sessionIds).toEqual(['ses_multirun_2']);
     expect(result?.failedCount).toBe(1);
     expect(deletedSessionIds).toEqual(['ses_multirun']);
