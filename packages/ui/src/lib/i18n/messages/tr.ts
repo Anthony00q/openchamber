@@ -9,6 +9,10 @@ import { fileArtifactsI18n } from './file-artifacts.i18n';
 export const dict = {
   "opencodeCompatibility.bundled": "OpenCode, OpenChamber ile birlikte gelir. OpenCode v2 için OpenChamber’ı güncelleyin.",
   "opencodeCompatibility.title": "OpenCode v2 gerekli",
+  "opencodeCompatibility.outdatedTitle": "OpenCode’u güncelleyin",
+  "opencodeCompatibility.outdatedLocal": "OpenCode {version} yüklü. Bu OpenChamber sürümü OpenCode {minimum} veya daha yenisini gerektirir.",
+  "opencodeCompatibility.outdatedExternal": "Bağlı sunucuda OpenCode {version} çalışıyor. Sunucuyu OpenCode {minimum} veya daha yeni bir sürüme güncelleyip yeniden bağlanın.",
+  "opencodeCompatibility.update": "OpenCode’u güncelle",
   "opencodeCompatibility.local": "OpenCode {version} yüklü. Bu OpenChamber sürümü OpenCode v2 gerektirir.",
   "opencodeCompatibility.external": "Bağlı sunucuda OpenCode {version} çalışıyor. Bu sunucuya OpenCode v2 yükleyip yeniden bağlanın.",
   "opencodeCompatibility.installDescription": "OpenChamber, resmî yükleyiciyle v2 sürümünü yükleyecek ve ardından OpenCode’u yeniden başlatacak.",

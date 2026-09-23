@@ -5,6 +5,8 @@ const openCodeCompatibilitySchema = z.object({
   state: z.enum(['compatible', 'incompatible', 'unavailable']),
   version: z.string().nullable(),
   installation: z.enum(['managed', 'external', 'bundled']),
+  // Absent from hosts that predate the minimum-version gate.
+  minimumVersion: z.string().optional(),
   canInstall: z.boolean(),
 });
 export type OpenCodeCompatibility = z.infer<typeof openCodeCompatibilitySchema>;

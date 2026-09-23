@@ -200,7 +200,6 @@ export const createSessionAssistRuntime = ({
     if (!enabled.recap) recap = '';
     if (!enabled.suggestion) suggestion = '';
     if (!recap && !suggestion) return;
-    // OpenChamber owns this: v2 has no session-metadata update route.
     await persistSessionAssist(sessionId, directory, {
       recap,
       suggestion,

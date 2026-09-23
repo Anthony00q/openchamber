@@ -5,7 +5,9 @@ import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { getProviderSources, upsertProviderConfig } from './opencodeConfig';
 import { getProviderAuth } from './opencodeAuth';
-import { asSessionId, asSessionIdList, asSessionMetadata, asTimestamp, type JsonValue, type SessionStateStore } from './openchamberSessionState';
+import { OpenCode } from '@opencode/client';
+import { asSessionId, asSessionIdList, asSessionMetadata, asTimestamp, parseJson, type JsonValue, type SessionMetadataOnOpenCode, type SessionStateStore } from './openchamberSessionState';
+import type { OpenCodeManager } from './opencode';
 import { fetchQuotaForProvider, listConfiguredQuotaProviders } from './quotaProviders';
 import { credentialStatus, deleteCredential, importCursorCredential, normalizeCredential, readCredential, validateCredential, writeCredential, type ManagedProvider } from './quotaCredentials';
 import { getSessionActivitySnapshot } from './sessionActivityWatcher';
@@ -13,6 +15,28 @@ import { getOpenCodeUpgradeStatus, upgradeManagedOpenCode } from './opencode-upg
 import { normalizeWindowsDriveLetter, pathsEqualWithNormalizedDriveLetter } from './pathUtils';
 import { resolveWorkspaceFolders } from './workspaceResolver';
 import type { BridgeContext, BridgeResponse } from './bridge';
+
+const isSessionNotFound = (error: Error): boolean => error.name === 'SessionNotFoundError';
+
+/** Session metadata on the OpenCode instance this window manages. */
+const sessionMetadataOnOpenCode = (manager: OpenCodeManager | undefined): SessionMetadataOnOpenCode => {
+  const apiUrl = manager?.getApiUrl();
+  if (!manager || !apiUrl) throw new Error('OpenCode is not available');
+  const client = OpenCode.make({ baseUrl: apiUrl.replace(/\/+$/, ''), headers: manager.getOpenCodeAuthHeaders() });
+  return {
+    read: async (sessionID) => {
+      try {
+        const session = await client.session.get({ sessionID });
+        // Round-trip through JSON: the wire type is opaque JSON, the store's is `JsonValue`.
+        return asSessionMetadata(parseJson(JSON.stringify(session.metadata ?? {})) ?? undefined) ?? {};
+      } catch (error) {
+        if (error instanceof Error && isSessionNotFound(error)) return null;
+        throw error;
+      }
+    },
+    write: (sessionID, metadata) => client.session.update({ sessionID, metadata }),
+  };
+};
 
 type BridgeMessageInput = {
   id: string;
@@ -451,7 +475,7 @@ export async function handleSystemBridgeMessage(
       const sessionId = asSessionId(((payload || {}) as { sessionId?: JsonValue }).sessionId);
       if (!sessionId) return { id, type, success: false, error: 'a session id is required' };
       try {
-        return { id, type, success: true, data: { metadata: await deps.sessionState.getMetadata(sessionId) } };
+        return { id, type, success: true, data: { metadata: await deps.sessionState.getMetadata(sessionId, sessionMetadataOnOpenCode(ctx?.manager)) } };
       } catch (error) {
         return { id, type, success: false, error: error instanceof Error ? error.message : String(error) };
       }
@@ -464,7 +488,7 @@ export async function handleSystemBridgeMessage(
       const patch = asSessionMetadata(body.patch);
       if (!patch) return { id, type, success: false, error: 'patch must be an object' };
       try {
-        return { id, type, success: true, data: { metadata: await deps.sessionState.setMetadata(sessionId, patch) } };
+        return { id, type, success: true, data: { metadata: await deps.sessionState.setMetadata(sessionId, patch, sessionMetadataOnOpenCode(ctx?.manager)) } };
       } catch (error) {
         return { id, type, success: false, error: error instanceof Error ? error.message : String(error) };
       }

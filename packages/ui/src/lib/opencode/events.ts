@@ -50,7 +50,7 @@ export type SessionPatch = {
   permissions?: PermissionRuleset
   revert?: Session["revert"] | null
   outcome?: Session["outcome"]
-  /** Full replacement of the session's metadata (OpenChamber-owned overlay). */
+  /** Full replacement of the session's metadata. */
   metadata?: Metadata
   /** `archived: null` restores an archived session. */
   time?: Partial<Omit<Session["time"], "archived">> & { archived?: number | null }
@@ -231,6 +231,9 @@ export function translateWireEvent(event: OpenCodeEvent): SyncEvent[] {
       return [{ type: "session.deleted", properties: { sessionID: event.data.sessionID } }]
     case "session.renamed":
       return [sessionEvent(event.data.sessionID, { title: event.data.title, time: { updated: event.created } })]
+    // OpenCode's record holds the full metadata, so this replaces it.
+    case "session.metadata.updated":
+      return [sessionEvent(event.data.sessionID, { metadata: event.data.metadata })]
     case "session.moved":
       return [
         sessionEvent(event.data.sessionID, {

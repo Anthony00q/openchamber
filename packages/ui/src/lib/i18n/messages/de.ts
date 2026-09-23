@@ -9,6 +9,10 @@ import { fileArtifactsI18n } from './file-artifacts.i18n';
 export const dict = {
   "opencodeCompatibility.bundled": "OpenCode ist in OpenChamber enthalten. Aktualisieren Sie OpenChamber, um OpenCode v2 zu erhalten.",
   "opencodeCompatibility.title": "OpenCode v2 erforderlich",
+  "opencodeCompatibility.outdatedTitle": "OpenCode aktualisieren",
+  "opencodeCompatibility.outdatedLocal": "OpenCode {version} ist installiert. Diese Version von OpenChamber benötigt OpenCode {minimum} oder neuer.",
+  "opencodeCompatibility.outdatedExternal": "Der verbundene Server verwendet OpenCode {version}. Aktualisiere ihn auf OpenCode {minimum} oder neuer und verbinde dich erneut.",
+  "opencodeCompatibility.update": "OpenCode aktualisieren",
   "opencodeCompatibility.local": "OpenCode {version} ist installiert. Diese Version von OpenChamber benötigt OpenCode v2.",
   "opencodeCompatibility.external": "Der verbundene Server verwendet OpenCode {version}. Installiere dort OpenCode v2 und verbinde dich erneut.",
   "opencodeCompatibility.installDescription": "OpenChamber installiert v2 mit dem offiziellen Installationsprogramm und startet OpenCode anschließend neu.",

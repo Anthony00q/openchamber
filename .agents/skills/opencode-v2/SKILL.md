@@ -34,11 +34,11 @@ the 2.x code, not from memory of 1.x.
 Each exists because 2.x has no route for it. When a tag adds the route,
 the workaround goes and the record comes from OpenCode.
 
-- **Archive and OpenChamber session metadata** (review/btw links, linked
-  issues, goals): 2.x accepts metadata only on create and has no archive
-  route. `openchamber-sessions/` keeps both per data dir; the proxy folds
-  them into session reads and the UI writes through
-  `/api/openchamber/sessions/*`.
+- **Archive**: 2.x has no archive route. `openchamber-sessions/archive-store.js`
+  keeps it per data dir and the proxy folds it into session reads.
+  Session metadata is not a workaround since 2.0.15: it lives on the OpenCode
+  record, written by merge-then-PATCH in `session-metadata-store.js`, which
+  also migrates the old `sessions-metadata.json`.
 - **Provider credentials**: not readable over HTTP. `credential-db.js` reads
   OpenCode's own SQLite `credential` table read-only, `auth.json` as legacy
   fallback. Private schema: re-verify on every bump.
@@ -49,9 +49,9 @@ the workaround goes and the record comes from OpenCode.
   route does not declare, so session update/delete/archive report the status
   without OpenCode's message or log `ref`.
 
-Open asks upstream (OpenCode Slack): session metadata PATCH, credential read
-over HTTP, an import route for missing 1.x sessions, declaring 500 bodies on
-session mutations. Check the newest tag before re-asking.
+Open asks upstream (OpenCode Slack): credential read over HTTP, declaring 500
+bodies on session mutations. Dropped: an import route for missing 1.x
+sessions (the top-up workaround is enough). Check the newest tag before re-asking.
 
 ## Sources of truth
 
@@ -59,6 +59,9 @@ session mutations. Check the newest tag before re-asking.
   `v2.x.y` tags (`git fetch origin --tags` there; never edit it). Server
   behaviour: `packages/core/src`, HTTP surface: `packages/server/src/handlers/*`,
   wire types: `packages/schema/src`, `packages/protocol/src/groups`.
+- Minimum supported version: `MINIMUM_OPENCODE_VERSION` in
+  `packages/web/server/lib/opencode/compatibility.js`; raise it when OpenChamber
+  starts depending on a route a newer tag added.
 - Pinned version: `opencodeCli.version` in `packages/electron/package.json`
   (the bundled binary) and `@opencode/client` / `@opencode/schema` in the
   root, ui, web and vscode manifests, plus `@opencode/cli@` in the

@@ -11,7 +11,7 @@ import { buildGoalIntroText, createSessionGoal } from '../session-goal/create.js
 import { OpenChamberControlError, asControlError } from '../openchamber-control/error.js';
 import { createArchiveStore } from './archive-store.js';
 import { createOpenCodeClient as defaultCreateOpenCodeClient } from './opencode-client.js';
-import { createSessionMetadataStore, createUpstreamSessionMetadataReader } from './session-metadata-store.js';
+import { createSessionMetadataStore, createOpenCodeSessionMetadata } from './session-metadata-store.js';
 
 const asNonEmptyString = (value) => {
   if (typeof value !== 'string') return null;
@@ -392,7 +392,7 @@ export const createOpenChamberSessionService = (dependencies) => {
   const archiveStore = injectedArchiveStore || createArchiveStore({ dataDir });
   const sessionMetadataStore = injectedSessionMetadataStore || createSessionMetadataStore({
     dataDir,
-    readUpstreamMetadata: createUpstreamSessionMetadataReader({
+    openCode: createOpenCodeSessionMetadata({
       buildOpenCodeUrl,
       getOpenCodeAuthHeaders,
       createOpenCodeClient,
@@ -665,15 +665,11 @@ export const createOpenChamberSessionService = (dependencies) => {
   };
 
   /**
-   * Merge-patch a session's OpenChamber-owned metadata.
-   *
-   * OpenCode 2.x only accepts metadata at create time, so this is where the
+   * Merge-patch a session's OpenChamber metadata on its OpenCode record: the
    * per-session state of goal mode, session assist, obligatory context and
-   * pinned notes lives. The broadcast carries the full merged object, because a
+   * pinned notes. The broadcast carries the full merged object, because a
    * client that missed an earlier patch must not have to reconstruct it.
    */
-  // Seeding a session OpenCode still holds metadata for (migrated from v1, or
-  // set at create time) is the store's own job, so every writer gets it.
   const writeMetadata = async (sessionID, patch, directory = '') => {
     if (typeof persistSessionMetadata === 'function') {
       return persistSessionMetadata(sessionID, patch, { directory });

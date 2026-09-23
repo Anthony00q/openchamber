@@ -2,6 +2,7 @@ export type OpenCodeCompatibility = {
   state: 'unavailable' | 'compatible' | 'incompatible';
   version: string | null;
   installation: 'managed' | 'external' | 'bundled';
+  minimumVersion: string;
   canInstall: boolean;
 };
 type Launch = { binary: string; args: string[] };

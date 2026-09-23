@@ -7,8 +7,23 @@ import {
   isSessionRecordPath,
   mergeMetadataPatch,
   overlaySessionResponseBody,
+  type SessionMetadata,
+  type SessionMetadataOnOpenCode,
   type SessionStateFs,
 } from './openchamberSessionState';
+
+/** OpenCode's side: `write` replaces the whole object, as PATCH does. */
+const createFakeOpenCode = (records: Record<string, SessionMetadata> = {}) => {
+  const sessions = new Map(Object.entries(records));
+  const openCode: SessionMetadataOnOpenCode = {
+    read: async (id) => sessions.get(id) ?? null,
+    write: async (id, metadata) => {
+      if (!sessions.has(id)) throw new Error('not found');
+      sessions.set(id, metadata);
+    },
+  };
+  return { openCode, sessions };
+};
 
 /** In-memory file system: the store must read before every write and rename atomically. */
 const createMemoryFs = (initial: Record<string, string> = {}) => {
@@ -88,20 +103,35 @@ describe('openchamber session state store', () => {
     assert.equal(memory.files.get('/data/sessions-archive.json.corrupt-5'), '{not json');
   });
 
-  it('merges metadata patches per key and deletes on null', async () => {
+  it('merges metadata patches on OpenCode per key and deletes on null', async () => {
     const memory = createMemoryFs();
     const store = createSessionStateStore({ dataDir: '/data', fsPromises: memory.fsPromises });
+    const { openCode, sessions } = createFakeOpenCode({ ses_a: { kind: 'review' } });
 
-    await store.setMetadata('ses_a', { openchamber: { goal: { objective: 'ship' }, assist: { recap: 'r' } } });
-    const merged = await store.setMetadata('ses_a', { openchamber: { goal: null, pinned: true } });
+    await store.setMetadata('ses_a', { openchamber: { goal: { objective: 'ship' }, assist: { recap: 'r' } } }, openCode);
+    const merged = await store.setMetadata('ses_a', { openchamber: { goal: null, pinned: true } }, openCode);
 
-    assert.deepEqual(merged, { openchamber: { assist: { recap: 'r' }, pinned: true } });
-    assert.deepEqual(await store.getMetadata('ses_a'), merged);
-    assert.deepEqual(await store.getMetadata('ses_missing'), {});
+    assert.deepEqual(merged, { kind: 'review', openchamber: { assist: { recap: 'r' }, pinned: true } });
+    assert.deepEqual(sessions.get('ses_a'), merged);
+    assert.deepEqual(await store.getMetadata('ses_a', openCode), merged);
+    assert.deepEqual(await store.getMetadata('ses_missing', openCode), {});
+    await assert.rejects(store.setMetadata('ses_missing', { a: 1 }, openCode));
+    // Nothing touches the legacy file.
+    assert.equal(memory.files.has('/data/sessions-metadata.json'), false);
+  });
 
-    // Clearing the last key drops the session from the file altogether.
-    await store.setMetadata('ses_a', { openchamber: null });
-    assert.deepEqual(await store.readMetadata(), {});
+  it('folds a legacy entry into the first write, then drops it from the file', async () => {
+    const memory = createMemoryFs({
+      '/data/sessions-metadata.json': JSON.stringify({ ses_a: { openchamber: { goal: { id: 'g1' } } }, ses_b: { x: 1 } }),
+    });
+    const store = createSessionStateStore({ dataDir: '/data', fsPromises: memory.fsPromises });
+    const { openCode, sessions } = createFakeOpenCode({ ses_a: { kind: 'review' } });
+
+    assert.deepEqual(await store.getMetadata('ses_a', openCode), { kind: 'review', openchamber: { goal: { id: 'g1' } } });
+    await store.setMetadata('ses_a', { openchamber: { pinned: true } }, openCode);
+
+    assert.deepEqual(sessions.get('ses_a'), { kind: 'review', openchamber: { goal: { id: 'g1' }, pinned: true } });
+    assert.deepEqual(await store.readMetadata(), { ses_b: { x: 1 } });
   });
 });
 

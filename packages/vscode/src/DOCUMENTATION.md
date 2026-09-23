@@ -301,24 +301,29 @@ Bridge surface (`bridge-config-runtime.ts`), matching the web routes:
 
 ## Session archive and metadata
 
-OpenCode 2.x has no route that archives a session or rewrites its metadata
-after creation, so both are OpenChamber-owned state. `openchamberSessionState.ts`
-keeps the same two files the OpenChamber server keeps
-(`sessions-archive.json`, `sessions-metadata.json`) in the shared OpenChamber
+OpenCode 2.x has no route that archives a session, so archive flags are
+OpenChamber-owned state. `openchamberSessionState.ts` keeps the same
+`sessions-archive.json` the OpenChamber server keeps, in the shared OpenChamber
 config directory (`~/.config/openchamber`, `%APPDATA%\openchamber` on
 Windows), which is also the web server's default data directory: a session
 archived from VS Code is archived in the desktop app on the same machine, and
 the other way round. Nothing is cached between calls because two processes can
-write the files; every write re-reads first and replaces the file atomically.
+write the file; every write re-reads first and replaces the file atomically.
+
+Session metadata lives on the OpenCode record (`PATCH /api/session/{id}`,
+OpenCode 2.0.15+). OpenCode replaces the whole object, so a write reads the
+record, applies the JSON Merge Patch (RFC 7386) and writes the result, and
+features sharing the `openchamber` namespace do not erase each other. An entry
+an older version left in `sessions-metadata.json` is laid over the record on
+reads and pushed to OpenCode on that session's next write, then dropped from
+the file; the web server sweeps the rest.
 
 The webview answers `POST /api/openchamber/sessions/archive|unarchive` and
 `GET|POST /api/openchamber/sessions/:id/metadata` through the
 `api:sessions/*` bridge cases in `bridge-system-runtime.ts`, and
-`bridge-proxy-runtime.ts` folds `time.archived` and stored metadata onto every
-proxied `GET /api/session` and `GET /api/session/:id` response, the same
-overlay the web proxy applies. Metadata writes are a JSON Merge Patch
-(RFC 7386), so features sharing the `openchamber` namespace do not erase each
-other.
+`bridge-proxy-runtime.ts` folds `time.archived` and not-yet-migrated metadata
+onto every proxied `GET /api/session` and `GET /api/session/:id` response, the
+same overlay the web proxy applies.
 
 ## Extension localization
 

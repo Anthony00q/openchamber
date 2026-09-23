@@ -72,20 +72,28 @@ export const OpenCodeCompatibilityGate: React.FC<React.PropsWithChildren> = ({ c
   if (compatibility?.state !== 'incompatible') return <>{children}</>;
   const external = compatibility.installation === 'external';
   const bundled = compatibility.installation === 'bundled';
+  // A 2.x below the minimum needs an update, not the v1 → v2 move.
+  const minimum = compatibility.minimumVersion;
+  const outdated = Boolean(minimum && compatibility.version?.startsWith('2.'));
+  const descriptionKey = bundled
+    ? 'opencodeCompatibility.bundled'
+    : outdated
+      ? external ? 'opencodeCompatibility.outdatedExternal' : 'opencodeCompatibility.outdatedLocal'
+      : external ? 'opencodeCompatibility.external' : 'opencodeCompatibility.local';
   return (
     <section className="app-region-drag flex h-full min-h-0 items-center justify-center overflow-y-auto bg-background px-6 py-10 text-foreground select-none" aria-labelledby={titleId}>
       <div className="flex w-full max-w-sm flex-col items-center text-center">
         <OpenChamberLogo width={48} height={48} />
-        <h1 id={titleId} className="mt-6 text-xl font-semibold tracking-tight">{t('opencodeCompatibility.title')}</h1>
+        <h1 id={titleId} className="mt-6 text-xl font-semibold tracking-tight">{t(outdated ? 'opencodeCompatibility.outdatedTitle' : 'opencodeCompatibility.title')}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground text-balance">
-          {t(bundled ? 'opencodeCompatibility.bundled' : external ? 'opencodeCompatibility.external' : 'opencodeCompatibility.local', { version: compatibility.version ?? '' })}
+          {t(descriptionKey, { version: compatibility.version ?? '', minimum: minimum ?? '' })}
           {compatibility.canInstall && <> {t('opencodeCompatibility.installDescription')}</>}
         </p>
         {compatibility.version && (
           <div className="mt-5 inline-flex items-center gap-2 rounded-md border border-border px-2.5 py-1 font-mono text-xs" aria-hidden>
             <span className="text-muted-foreground">{compatibility.version}</span>
             <Icon name="arrow-right" className="size-3.5 text-muted-foreground" />
-            <span className="text-foreground">2.x</span>
+            <span className="text-foreground">{outdated ? `${minimum}+` : '2.x'}</span>
           </div>
         )}
         {failed && <p role="alert" className="mt-5 rounded-md border border-[var(--status-error)]/30 bg-[var(--status-error-background)] px-3 py-2 text-sm text-[var(--status-error-text)]">{t('opencodeCompatibility.failed')}</p>}
@@ -93,7 +101,7 @@ export const OpenCodeCompatibilityGate: React.FC<React.PropsWithChildren> = ({ c
           {compatibility.canInstall && (
             <Button disabled={operation !== null} onClick={() => void recover('install-v2')}>
               <Icon name={operation === 'install-v2' ? 'refresh' : 'download'} className={operation === 'install-v2' ? 'size-4 animate-spin' : 'size-4'} />
-              <span role={operation === 'install-v2' ? 'status' : undefined}>{t(operation === 'install-v2' ? 'opencodeCompatibility.installing' : 'opencodeCompatibility.install')}</span>
+              <span role={operation === 'install-v2' ? 'status' : undefined}>{t(operation === 'install-v2' ? 'opencodeCompatibility.installing' : outdated ? 'opencodeCompatibility.update' : 'opencodeCompatibility.install')}</span>
             </Button>
           )}
           <Button variant={compatibility.canInstall ? 'ghost' : 'default'} disabled={operation !== null} onClick={() => void recover('reconnect')}>

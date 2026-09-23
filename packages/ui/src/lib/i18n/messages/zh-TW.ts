@@ -10,6 +10,10 @@ import { fileArtifactsI18n } from './file-artifacts.i18n';
 export const dict: Record<I18nKey, string> = {
   "opencodeCompatibility.bundled": "OpenCode 隨 OpenChamber 一起提供。請更新 OpenChamber 以取得 OpenCode v2。",
   "opencodeCompatibility.title": "需要 OpenCode v2",
+  "opencodeCompatibility.outdatedTitle": "請更新 OpenCode",
+  "opencodeCompatibility.outdatedLocal": "已安裝 OpenCode {version}。此版本的 OpenChamber 需要 OpenCode {minimum} 或更新版本。",
+  "opencodeCompatibility.outdatedExternal": "連線的伺服器正在執行 OpenCode {version}。請將其更新至 OpenCode {minimum} 或更新版本，然後重新連線。",
+  "opencodeCompatibility.update": "更新 OpenCode",
   "opencodeCompatibility.local": "已安裝 OpenCode {version}。此版本的 OpenChamber 需要 OpenCode v2。",
   "opencodeCompatibility.external": "連線的伺服器正在執行 OpenCode {version}。請在該伺服器上安裝 OpenCode v2，然後重新連線。",
   "opencodeCompatibility.installDescription": "OpenChamber 將使用官方安裝程式安裝 v2，然後重新啟動 OpenCode。",

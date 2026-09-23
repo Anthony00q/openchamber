@@ -258,10 +258,17 @@ type RuntimeOpencodeClientConfig = {
   requestTimeoutMs?: number
 }
 
+/**
+ * The generated client joins its `/api/...` route paths onto the base URL's
+ * path (since 2.0.15), so it wants the root the `/api` mount hangs off, not
+ * the mount itself. Our base URLs name the mount, so drop that last segment.
+ */
+const toOpencodeClientRoot = (baseUrl: string): string => baseUrl.replace(/\/api\/*$/, "") || "/"
+
 export const createRuntimeOpencodeClient = (config: RuntimeOpencodeClientConfig): OpenCodeClient => {
   const requestTimeoutMs = config.requestTimeoutMs ?? OPENCODE_REQUEST_TIMEOUT_MS
   return OpenCode.make({
-    baseUrl: config.baseUrl,
+    baseUrl: toOpencodeClientRoot(config.baseUrl),
     headers: config.directory ? { [OPENCODE_DIRECTORY_HEADER]: encodeURIComponent(config.directory) } : undefined,
     fetch: async (input: string | URL | Request, init?: RequestInit) => {
       const url = input instanceof URL ? input : new URL(typeof input === "string" ? input : input.url)

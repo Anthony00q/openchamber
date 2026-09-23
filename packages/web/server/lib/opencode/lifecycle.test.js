@@ -161,7 +161,7 @@ describe('OpenCode lifecycle', () => {
   it('records an authoritative ready terminal event for external startup', async () => {
     globalThis.fetch = vi.fn(async () => ({
       ok: true,
-      json: async () => ({ version: '2.0.8', pid: 1, urls: [], paths: { tmp: '/tmp' } }),
+      json: async () => ({ version: '2.0.15', pid: 1, urls: [], paths: { tmp: '/tmp' } }),
     }));
     const runtime = createRuntime({
       env: {
@@ -193,7 +193,7 @@ describe('OpenCode lifecycle', () => {
   it('recovers an external OPENCODE_HOST connection using its configured endpoint', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
-      json: async () => ({ version: '2.0.8', pid: 1, urls: [], paths: { tmp: '/tmp' } }),
+      json: async () => ({ version: '2.0.15', pid: 1, urls: [], paths: { tmp: '/tmp' } }),
     }));
     globalThis.fetch = fetchMock;
     const runtime = createRuntime({}, {
@@ -243,7 +243,7 @@ describe('OpenCode lifecycle', () => {
   it('warms recently used directories after a successful bootstrap', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
-      json: async () => ({ version: '2.0.8', pid: 1, urls: [], paths: { tmp: '/tmp' } }),
+      json: async () => ({ version: '2.0.15', pid: 1, urls: [], paths: { tmp: '/tmp' } }),
     }));
     globalThis.fetch = fetchMock;
     const runtime = createRuntime({

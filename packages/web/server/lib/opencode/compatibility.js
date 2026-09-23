@@ -7,7 +7,30 @@ const versionSchema = z.string().regex(/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/)
 const infoSchema = z.object({ version: versionSchema });
 const legacyHealthSchema = z.object({ version: versionSchema, healthy: z.boolean() });
 
-export const isSupportedOpenCodeVersion = (version) => versionSchema.safeParse(version).success && version.split('.')[0] === '2';
+/**
+ * Oldest OpenCode OpenChamber runs against. 2.0.15 added `PATCH /api/session`
+ * metadata, which now holds every OpenChamber per-session record.
+ */
+const MINIMUM_OPENCODE_VERSION = '2.0.15';
+
+const releaseParts = (version) => version.split(/[-+]/, 1)[0].split('.').map(Number);
+
+const compareRelease = (left, right) => {
+  const a = releaseParts(left);
+  const b = releaseParts(right);
+  for (let index = 0; index < 3; index += 1) {
+    if (a[index] !== b[index]) return a[index] - b[index];
+  }
+  return 0;
+};
+
+const isOlderThanMinimum = (version) => versionSchema.safeParse(version).success
+  && compareRelease(version, MINIMUM_OPENCODE_VERSION) < 0;
+
+/** 2.x at or above the minimum. A future major is a contract OpenChamber has not met yet. */
+export const isSupportedOpenCodeVersion = (version) => versionSchema.safeParse(version).success
+  && releaseParts(version)[0] === 2
+  && !isOlderThanMinimum(version);
 
 export const readOpenCodeInfo = async (response) => {
   if (!response.ok) return null;
@@ -26,7 +49,7 @@ export const readOpenCodeCliVersion = async (launch, options = {}) => {
 
 export class UnsupportedOpenCodeVersionError extends Error {
   constructor(version) {
-    super(`OpenCode ${version} is installed. OpenChamber requires OpenCode 2.x.`);
+    super(`OpenCode ${version} is installed. OpenChamber requires OpenCode ${MINIMUM_OPENCODE_VERSION} or newer.`);
     this.name = 'UnsupportedOpenCodeVersionError';
     this.version = version;
   }
@@ -58,5 +81,8 @@ export const describeOpenCodeCompatibility = (version, installation, canInstall)
   state: version === null ? 'unavailable' : isSupportedOpenCodeVersion(version) ? 'compatible' : 'incompatible',
   version,
   installation,
-  canInstall: version !== null && version.startsWith('1.') && installation === 'managed' && canInstall,
+  minimumVersion: MINIMUM_OPENCODE_VERSION,
+  // The installer fetches the latest release, which clears both a 1.x CLI and
+  // a 2.x one older than the minimum.
+  canInstall: version !== null && isOlderThanMinimum(version) && installation === 'managed' && canInstall,
 });

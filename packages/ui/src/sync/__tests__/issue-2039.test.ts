@@ -334,6 +334,7 @@ mock.module("../session-actions", () => ({
     store.getState().markSessionAsOpenChamberCreated(session.id)
     return session
   }),
+  forkAfterMessage: mock(async () => undefined),
   deleteSession: mock(async () => true),
   deleteSessions: mock(async () => ({ deletedIds: [], failedIds: [] })),
   archiveSession: mock(async () => true),

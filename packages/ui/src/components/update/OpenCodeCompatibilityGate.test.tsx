@@ -216,3 +216,28 @@ test('a check again result from the previous runtime cannot replace the current 
   expect(host.textContent).not.toContain('1.18.31');
   expect(mounts).toBe(0);
 });
+
+test('a 2.x below the minimum asks for an update to that minimum, not for v2', async () => {
+  respond = async () => Response.json({
+    state: 'incompatible',
+    version: '2.0.14',
+    installation: 'managed',
+    minimumVersion: '2.0.15',
+    canInstall: true,
+  });
+  await render();
+  expect(mounts).toBe(0);
+  expect(host.textContent).toContain('Update OpenCode');
+  expect(host.textContent).toContain('requires OpenCode 2.0.15 or newer');
+  expect(host.textContent).toContain('2.0.15+');
+  expect(host.textContent).not.toContain('OpenCode v2 required');
+});
+
+const desktopReadiness = (invoke: () => Promise<boolean>) => {
+  Object.defineProperties(window, {
+    __OPENCHAMBER_ELECTRON__: { configurable: true, value: { runtime: 'electron' } },
+    __OPENCHAMBER_LOCAL_ORIGIN__: { configurable: true, value: 'http://127.0.0.1:3901' },
+    __OPENCHAMBER_API_BASE_URL__: { configurable: true, writable: true, value: 'http://127.0.0.1:3901' },
+    __OPENCHAMBER_DESKTOP__: { configurable: true, value: { invoke } },
+  });
+};

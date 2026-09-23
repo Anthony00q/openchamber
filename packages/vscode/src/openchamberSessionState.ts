@@ -1,15 +1,21 @@
 /**
- * OpenChamber-owned session state for the VS Code runtime: archive flags and
+ * OpenChamber session state for the VS Code runtime: archive flags and
  * per-session metadata.
  *
- * OpenCode 2.x carries `SessionInfo.time.archived` and `metadata` on the wire
- * but has no route that sets either after creation. The OpenChamber server
- * keeps both in JSON files beside its OpenCode instance
+ * OpenCode 2.x has no archive route, so archive flags are OpenChamber's own. The
+ * OpenChamber server keeps them in a JSON file beside its OpenCode instance
  * (`packages/web/server/lib/openchamber-sessions/`); the extension host has no
- * server process, so it keeps the same two files itself. The files live in the
- * shared OpenChamber config directory, which is also the web server's default
- * data directory, so a session archived from VS Code stays archived in the
- * desktop app on the same machine and the other way round.
+ * server process, so it keeps the same file itself, in the shared OpenChamber
+ * config directory, which is also the web server's default data directory: a
+ * session archived from VS Code stays archived in the desktop app on the same
+ * machine and the other way round.
+ *
+ * Metadata lives on the OpenCode session record (`PATCH /api/session/{id}`,
+ * OpenCode 2.0.15+). Before that it lived in `sessions-metadata.json` in the
+ * same directory. An entry still in that file is the newest metadata its
+ * session has: reads lay it over OpenCode's record, and the session's next
+ * write pushes the result to OpenCode and drops the entry. The web server
+ * sweeps the rest.
  *
  * Two processes may write these files, so nothing is cached between calls:
  * every read parses the file and every write re-reads it first, then replaces
@@ -17,8 +23,9 @@
  * session list requests, not on a hot path.
  *
  * Metadata writes are a JSON Merge Patch (RFC 7386): nested objects merge key
- * by key and `null` deletes. Two features writing into the same `openchamber`
- * namespace (goal mode, session assist, pinned context, review links) must not
+ * by key and `null` deletes. OpenCode replaces the whole object on PATCH, so
+ * the merge happens here, and two features writing into the same `openchamber`
+ * namespace (goal mode, session assist, pinned context, review links) do not
  * erase each other.
  */
 
@@ -47,6 +54,12 @@ export type SessionStateFs = {
   writeFile: (filePath: string, data: string, encoding: 'utf8') => Promise<void>;
   rename: (from: string, to: string) => Promise<void>;
   mkdir: (dirPath: string, options: { recursive: true }) => Promise<string | undefined>;
+};
+
+/** One session's metadata on OpenCode. `read` resolves `null` for a session OpenCode does not know. */
+export type SessionMetadataOnOpenCode = {
+  read: (sessionID: string) => Promise<SessionMetadata | null>;
+  write: (sessionID: string, metadata: SessionMetadata) => Promise<void>;
 };
 
 type SessionStateStoreOptions = {
@@ -236,20 +249,39 @@ export const createSessionStateStore = ({
       const { applied, failedIds } = await applyArchive(ids, null);
       return { restored: applied.map((id) => ({ id, archivedAt: null })), failedIds };
     },
-    getMetadata: async (sessionID: string): Promise<SessionMetadata> => {
+    /** The session's full metadata: a legacy entry laid over OpenCode's record. `{}` for an unknown session. */
+    getMetadata: async (sessionID: string, openCode: SessionMetadataOnOpenCode): Promise<SessionMetadata> => {
       const stored = await readMetadata();
       if (!stored) throw new Error('session metadata is unavailable: its file could not be read');
-      return stored[sessionID] ?? {};
+      const upstream = await openCode.read(sessionID);
+      const legacy = stored[sessionID];
+      return legacy ? { ...(upstream ?? {}), ...legacy } : upstream ?? {};
     },
-    /** Applies a merge patch and resolves with the session's full metadata afterwards. */
-    setMetadata: async (sessionID: string, patch: SessionMetadata): Promise<SessionMetadata> => {
+    /**
+     * Applies a merge patch on OpenCode and resolves with the session's full
+     * metadata afterwards. A legacy entry is folded in and then dropped from
+     * the file, since OpenCode now holds it.
+     */
+    setMetadata: async (sessionID: string, patch: SessionMetadata, openCode: SessionMetadataOnOpenCode): Promise<SessionMetadata> => {
       const stored = await readMetadata();
       if (!stored) throw new Error('session metadata is unavailable: its file could not be read');
-      const merged = mergeMetadataPatch(stored[sessionID], patch);
-      const next: StoredSessionMetadata = { ...stored };
-      if (Object.keys(merged).length === 0) delete next[sessionID];
-      else next[sessionID] = merged;
-      await writeJsonObjectFile(metadataPath, next);
+      const upstream = await openCode.read(sessionID);
+      if (!upstream) throw new Error(`session ${sessionID} was not found`);
+      const legacy = stored[sessionID];
+      const merged = mergeMetadataPatch(legacy ? { ...upstream, ...legacy } : upstream, patch);
+      await openCode.write(sessionID, merged);
+      if (legacy) {
+        // Re-read: the web server or another window may have changed the file.
+        const latest = await readMetadata();
+        if (latest && latest[sessionID]) {
+          const next = { ...latest };
+          delete next[sessionID];
+          await writeJsonObjectFile(metadataPath, next).catch((error) => {
+            // OpenCode holds the record; a stale entry is pushed again later.
+            console.warn('[openchamber-sessions] could not update the legacy metadata file:', describeError(error));
+          });
+        }
+      }
       return merged;
     },
   };
@@ -260,7 +292,7 @@ export type SessionStateStore = ReturnType<typeof createSessionStateStore>;
 /**
  * Folds owned state onto one OpenCode session record: `time.archived` from the
  * archive file (dropped when the file says the session is not archived) and
- * stored metadata merged over whatever OpenCode saw at creation time. A value
+ * legacy metadata not yet migrated merged over OpenCode's record. A value
  * that is not a session record passes through untouched.
  */
 const overlaySessionRecord = (

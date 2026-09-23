@@ -9,7 +9,7 @@ let homeDirectory;
 let binary;
 const quote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
 const cli = (version) => '#!/bin/sh\nprintf "%s\\n" "opencode v' + version + '"\n';
-const run = (script, version = '2.0.14') => installOpenCodeV2({
+const run = (script, version = '2.0.15') => installOpenCodeV2({
   homeDirectory,
   fetchImpl: async (url) => url.includes('registry.npmjs.org')
     ? Response.json({ version })
@@ -29,13 +29,13 @@ describe('OpenCode v2 installation', () => {
     const script = `#!/bin/bash
 set -eu
 test "$1" = "--version"
-test "$2" = "2.0.14"
+test "$2" = "2.0.15"
 test "$3" = "--no-modify-path"
-printf %s ${quote(cli('2.0.14'))} > ${quote(binary)}
+printf %s ${quote(cli('2.0.15'))} > ${quote(binary)}
 chmod 755 ${quote(binary)}
 `;
     expect(await run(script)).toBe(binary);
-    expect(await readOpenCodeCliVersion({ binary, args: [] })).toBe('2.0.14');
+    expect(await readOpenCodeCliVersion({ binary, args: [] })).toBe('2.0.15');
     await expect(fs.stat(path.join(path.dirname(binary), '.openchamber-install'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 

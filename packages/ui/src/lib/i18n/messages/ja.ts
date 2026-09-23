@@ -10,6 +10,10 @@ import { fileArtifactsI18n } from './file-artifacts.i18n';
 export const dict: Record<I18nKey, string> = {
   "opencodeCompatibility.bundled": "OpenCode は OpenChamber に同梱されています。OpenCode v2 を利用するには OpenChamber を更新してください。",
   "opencodeCompatibility.title": "OpenCode v2 が必要です",
+  "opencodeCompatibility.outdatedTitle": "OpenCode を更新してください",
+  "opencodeCompatibility.outdatedLocal": "OpenCode {version} がインストールされています。このバージョンの OpenChamber には OpenCode {minimum} 以降が必要です。",
+  "opencodeCompatibility.outdatedExternal": "接続先のサーバーは OpenCode {version} を使用しています。OpenCode {minimum} 以降に更新してから再接続してください。",
+  "opencodeCompatibility.update": "OpenCode を更新",
   "opencodeCompatibility.local": "OpenCode {version} がインストールされています。このバージョンの OpenChamber には OpenCode v2 が必要です。",
   "opencodeCompatibility.external": "接続先のサーバーは OpenCode {version} を使用しています。そのサーバーに OpenCode v2 をインストールしてから再接続してください。",
   "opencodeCompatibility.installDescription": "OpenChamber が公式インストーラーで v2 をインストールし、OpenCode を再起動します。",

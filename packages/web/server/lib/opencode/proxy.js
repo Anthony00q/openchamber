@@ -300,10 +300,11 @@ export const registerOpenCodeProxy = (app, deps) => {
     getSseUpstreamStallTimeoutMs = () => SSE_UPSTREAM_STALL_TIMEOUT_MS,
     readWorktreeBootstrapStatus = getWorktreeBootstrapStatus,
     WORKTREE_READY_TIMEOUT_MS = 5 * 60 * 1000,
-    // OpenCode 2.x has no archive route and no session-metadata update route,
-    // so both are OpenChamber's own. The proxy folds them back onto the
-    // sessions it serves, which is what lets clients keep reading
-    // `time.archived` and `metadata` where they always did.
+    // OpenCode 2.x has no archive route, so archive state is OpenChamber's own
+    // and the proxy folds it onto the sessions it serves (`time.archived`).
+    // Session metadata lives on OpenCode's record; the proxy lays over only
+    // the entries an older OpenChamber left in the legacy file until they are
+    // migrated.
     getArchivedSessions = null,
     getStoredSessionMetadata = null,
   } = deps;
@@ -325,15 +326,16 @@ export const registerOpenCodeProxy = (app, deps) => {
   };
 
   /**
-   * `{ [sessionID]: metadata }` for the current instance, or `null` when the
-   * store cannot answer. `null` means "unknown", and an unknown answer leaves
-   * the upstream record untouched.
+   * `{ [sessionID]: metadata }` still waiting to be migrated to OpenCode, or
+   * `null` when the store cannot answer. `null` means "unknown", and an
+   * unknown answer leaves the upstream record untouched.
    */
   const readStoredSessionMetadata = async () => {
     if (typeof getStoredSessionMetadata !== 'function') return null;
     try {
       const stored = await getStoredSessionMetadata();
-      return stored && typeof stored === 'object' ? stored : null;
+      // Nothing left to migrate is the normal state: skip the rewrite entirely.
+      return stored && typeof stored === 'object' && Object.keys(stored).length > 0 ? stored : null;
     } catch (error) {
       console.warn('[proxy] session metadata unavailable:', error?.message ?? error);
       return null;
@@ -357,8 +359,8 @@ export const registerOpenCodeProxy = (app, deps) => {
   };
 
   /**
-   * The store seeds the full upstream metadata before its first mutation.
-   * Its record is authoritative, including {}, so deleted keys stay deleted.
+   * A legacy entry is the newest metadata its session has, including {}, so it
+   * replaces the upstream record until migration pushes it there.
    */
   const withStoredMetadata = (session, stored) => {
     if (!session || typeof session !== 'object' || typeof session.id !== 'string') return session;
