@@ -788,6 +788,7 @@ export {
   readLayeredMcpEntries,
   writeMcpEntry,
   deleteMcpEntry,
+  toModelVariants,
   toProviderPackage,
   toNpmPackage,
   toProviderEntity,

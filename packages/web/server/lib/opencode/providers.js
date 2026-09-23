@@ -9,6 +9,7 @@ import {
   readSectionEntry,
   writeSectionEntry,
   deleteSectionEntry,
+  toModelVariants,
   toProviderEntity,
   toProviderPackage,
   toNpmPackage,
@@ -108,6 +109,10 @@ function validateCustomProviderConfig(providerId, config, options = {}) {
       return { ok: false, error: `Model "${trimmedId}" requires a name` };
     }
     normalizedModels[trimmedId] = { modelID: trimmedId, name: modelName };
+    // Present means the caller owns the levels; an empty list removes them.
+    if (Array.isArray(modelValue.variants)) {
+      normalizedModels[trimmedId].variants = toModelVariants(modelValue.variants);
+    }
   }
 
   const normalized = {
@@ -166,7 +171,11 @@ function mergeCustomProviderConfig(existingValue, normalizedConfig) {
   const mergedModels = Object.fromEntries(
     Object.entries(normalizedModels).map(([modelId, normalizedModel]) => {
       const existingModel = isPlainObject(existingModels[modelId]) ? existingModels[modelId] : {};
-      return [modelId, { ...existingModel, ...normalizedModel }];
+      const mergedModel = { ...existingModel, ...normalizedModel };
+      if (Array.isArray(mergedModel.variants) && mergedModel.variants.length === 0) {
+        delete mergedModel.variants;
+      }
+      return [modelId, mergedModel];
     }),
   );
 

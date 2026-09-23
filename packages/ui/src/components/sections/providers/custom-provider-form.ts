@@ -1,3 +1,5 @@
+import type { Model } from '@/lib/opencode/model';
+
 /**
  * Custom provider form helpers.
  * Mirrors OpenCode web UI validation and request construction so a provider
@@ -26,10 +28,23 @@ export type CustomProviderTranslator = (
   vars?: Record<string, string | number | boolean>,
 ) => string;
 
+/** One reasoning level as OpenCode stores it: an id plus the request change. */
+export type ModelVariantConfig = Model['variants'][number];
+/** What one reasoning level changes on the request. */
+export type ModelVariantOverlay = Omit<ModelVariantConfig, 'id'>;
+
 export type ModelRow = {
   row: string;
   id: string;
   name: string;
+  /** Comma-separated reasoning levels, e.g. "low, medium, high". */
+  variants: string;
+  /**
+   * Levels loaded from the saved config, kept verbatim so a hand-written
+   * overlay survives an edit. Emptied when the protocol changes; undefined
+   * only for rows the user added in this form.
+   */
+  savedVariants?: Record<string, ModelVariantOverlay>;
 };
 
 export type HeaderRow = {
@@ -73,7 +88,13 @@ export type CustomProviderConfig = {
     baseURL: string;
   };
   headers?: Record<string, string>;
-  models: Record<string, { modelID: string; name: string }>;
+  models: Record<string, CustomProviderModelConfig>;
+};
+
+export type CustomProviderModelConfig = {
+  modelID: string;
+  name: string;
+  variants?: ModelVariantConfig[];
 };
 
 export type CustomProviderPersistPlan = {
@@ -116,7 +137,14 @@ export type ProviderLikeForCustomForm = {
   /** v1 spelling, still read from older config entries. */
   options?: Record<string, unknown> | null;
   models?:
-    | Array<{ id?: string; modelID?: string; name?: string; package?: string; api?: { npm?: string } }>
+    | Array<{
+      id?: string;
+      modelID?: string;
+      name?: string;
+      package?: string;
+      api?: { npm?: string };
+      variants?: readonly ModelVariantConfig[];
+    }>
     | Record<string, unknown>;
 };
 
@@ -145,7 +173,35 @@ export const createModelRow = (): ModelRow => ({
   row: nextRow(),
   id: '',
   name: '',
+  variants: '',
 });
+
+/**
+ * The request change for one reasoning level, spelled the way OpenCode spells
+ * it for its own providers of the same protocol (core/src/variant.ts). The
+ * `aisdk:` packages a custom provider uses get no automatic levels there.
+ */
+export function customVariantOverlay(protocol: CustomProviderProtocol, effort: string): ModelVariantOverlay {
+  switch (protocol) {
+    case 'openai-chat':
+      return { settings: { reasoningEffort: effort } };
+    case 'openai-responses':
+      return {
+        settings: { reasoningEffort: effort, reasoningSummary: 'auto', include: ['reasoning.encrypted_content'] },
+      };
+    case 'anthropic-messages':
+      return { settings: { thinking: { type: 'adaptive', display: 'summarized' }, effort } };
+  }
+}
+
+export function parseVariantIDs(value: string): string[] {
+  const ids = value.split(/[,\s]+/).map((id) => id.trim()).filter(Boolean);
+  return ids.filter((id, index) => ids.indexOf(id) === index);
+}
+
+function readSavedVariants(variants: readonly ModelVariantConfig[] | undefined): Record<string, ModelVariantOverlay> {
+  return Object.fromEntries((variants ?? []).map(({ id, ...overlay }) => [id, overlay]));
+}
 
 export const createHeaderRow = (): HeaderRow => ({
   row: nextRow(),
@@ -281,6 +337,7 @@ export function providerToCustomFormState(provider: ProviderLikeForCustomForm): 
             modelID: typeof entry.modelID === 'string' ? entry.modelID : id,
             name: typeof entry.name === 'string' ? entry.name : id,
             package: typeof entry.package === 'string' ? entry.package : undefined,
+            variants: undefined,
           };
         })
       : []);
@@ -290,10 +347,13 @@ export function providerToCustomFormState(provider: ProviderLikeForCustomForm): 
         const id = typeof model?.modelID === 'string' && model.modelID
           ? model.modelID
           : (typeof model?.id === 'string' ? model.id : '');
+        const savedVariants = readSavedVariants(model?.variants);
         return {
           row: nextRow(),
           id,
           name: typeof model?.name === 'string' ? model.name : id,
+          variants: Object.keys(savedVariants).join(', '),
+          savedVariants,
         };
       })
     : [createModelRow()];
@@ -379,7 +439,17 @@ export function validateCustomProvider(input: ValidateCustomProviderInput): Vali
   const modelConfig = Object.fromEntries(
     input.form.models.map((model) => {
       const modelID = model.id.trim();
-      return [modelID, { modelID, name: model.name.trim() }];
+      const entry: CustomProviderModelConfig = { modelID, name: model.name.trim() };
+      const variantIDs = parseVariantIDs(model.variants);
+      // A row loaded from config always sends its list, so emptying the field
+      // clears saved levels; a new row with no levels leaves the key out.
+      if (variantIDs.length > 0 || model.savedVariants !== undefined) {
+        entry.variants = variantIDs.map((id) => ({
+          id,
+          ...(model.savedVariants?.[id] ?? customVariantOverlay(input.form.protocol, id)),
+        }));
+      }
+      return [modelID, entry];
     }),
   );
 
@@ -450,7 +520,7 @@ function buildCustomProviderConfig(input: {
   env?: string;
   baseURL: string;
   headers: Record<string, string>;
-  models: Record<string, { modelID: string; name: string }>;
+  models: Record<string, CustomProviderModelConfig>;
 }): CustomProviderConfig {
   const config: CustomProviderConfig = {
     package: CUSTOM_PROVIDER_PROTOCOLS[input.protocol],

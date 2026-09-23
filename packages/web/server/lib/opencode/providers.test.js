@@ -135,6 +135,30 @@ describe('custom provider config persistence', () => {
     expect(sources.sources.project.path).toBe(result.path);
   });
 
+  test('upsertProviderConfig writes, keeps and clears model variants', () => {
+    const base = {
+      name: 'Campus LLM',
+      npm: '@ai-sdk/openai-compatible',
+      options: { baseURL: 'https://llm.example.edu/v1' },
+      env: ['CAMPUS_KEY'],
+    };
+    const result = upsertProviderConfig('campus-llm', {
+      ...base,
+      models: { m: { name: 'M', variants: [{ id: 'low', settings: { reasoningEffort: 'low' } }] } },
+    }, projectDir, 'project');
+    expect(readJson(result.path).providers['campus-llm'].models.m.variants).toEqual([
+      { id: 'low', settings: { reasoningEffort: 'low' } },
+    ]);
+
+    upsertProviderConfig('campus-llm', { ...base, models: { m: { name: 'M' } } }, projectDir, 'project');
+    expect(readJson(result.path).providers['campus-llm'].models.m.variants).toEqual([
+      { id: 'low', settings: { reasoningEffort: 'low' } },
+    ]);
+
+    upsertProviderConfig('campus-llm', { ...base, models: { m: { name: 'M', variants: [] } } }, projectDir, 'project');
+    expect(readJson(result.path).providers['campus-llm'].models.m).toEqual({ modelID: 'm', name: 'M' });
+  });
+
   test('upsertProviderConfig updates existing entry and clears disabled_providers', () => {
     const configPath = path.join(projectDir, '.opencode', 'opencode.json');
     writeJson(configPath, {
