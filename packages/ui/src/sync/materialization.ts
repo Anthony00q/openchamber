@@ -195,6 +195,21 @@ function mergeMaterializedPart(existing: Part | undefined, next: Part): Part {
     ) {
       return existing
     }
+    // A snapshot fetched just before a call started can land after the live
+    // `called`/`progress` events. OpenCode publishes progress metadata only
+    // on change (a subagent's child `sessionID` exactly once), so letting the
+    // stale copy win would lose it until the call settles.
+    if (existing.state.status === "running" && next.state.status === "pending") {
+      return existing
+    }
+    if (
+      existing.state.status === "running"
+      && next.state.status === "running"
+      && existing.state.metadata !== undefined
+      && next.state.metadata === undefined
+    ) {
+      next = { ...next, state: { ...next.state, metadata: existing.state.metadata } }
+    }
   }
 
   if (getPartEndTime(next) !== undefined) {

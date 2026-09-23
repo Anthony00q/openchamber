@@ -338,6 +338,56 @@ describe("materializeSessionSnapshots", () => {
     expect((result.part.msg_1[0] as { state: { status: string } }).state.status).toBe("error")
   })
 
+  test("keeps a live running subagent call when a stale pending snapshot arrives", () => {
+    const runningTool = {
+      id: "prt_1",
+      messageID: "msg_1",
+      sessionID: "ses_1",
+      type: "tool",
+      callID: "call-1",
+      tool: "subagent",
+      state: { status: "running", input: {}, metadata: { sessionID: "ses_child" }, time: { start: 1000 } },
+    } satisfies ToolPart
+    const state = {
+      message: { ses_1: [message("msg_1")] },
+      part: { msg_1: [runningTool] },
+    }
+
+    const result = materializeSessionSnapshots(
+      state,
+      "ses_1",
+      [{ info: message("msg_1"), parts: [{ ...runningTool, state: { status: "pending", input: {}, raw: "" } }] }],
+    )
+
+    expect(result.part.msg_1[0]).toBe(runningTool)
+  })
+
+  test("keeps live progress metadata when a stale running snapshot lacks it", () => {
+    const runningTool = {
+      id: "prt_1",
+      messageID: "msg_1",
+      sessionID: "ses_1",
+      type: "tool",
+      callID: "call-1",
+      tool: "subagent",
+      state: { status: "running", input: {}, metadata: { sessionID: "ses_child" }, time: { start: 1000 } },
+    } satisfies ToolPart
+    const state = {
+      message: { ses_1: [message("msg_1")] },
+      part: { msg_1: [runningTool] },
+    }
+
+    const result = materializeSessionSnapshots(
+      state,
+      "ses_1",
+      [{ info: message("msg_1"), parts: [{ ...runningTool, state: { status: "running", input: {}, time: { start: 1000 } } }] }],
+    )
+
+    const merged = result.part.msg_1[0]
+    if (merged?.type !== "tool" || merged.state.status !== "running") throw new Error("Expected running tool part")
+    expect(merged.state.metadata).toEqual({ sessionID: "ses_child" })
+  })
+
   test("does not regress a completed tool when a stale running snapshot arrives", () => {
     const completedTool = {
       id: "prt_1",
