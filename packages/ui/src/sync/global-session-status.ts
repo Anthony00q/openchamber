@@ -68,6 +68,61 @@ export const replaceGlobalSessionStatusById = (statusById: Map<string, GlobalSes
   });
 };
 
+// A parent session goes idle while a background subagent keeps working in a
+// child session; OpenCode then hands the result back and the parent runs
+// again. For everything the user reads as "this session is working" (the row's
+// status dot and turn timer), that pause is still the same turn. The parent
+// lookup is injected by the sync provider: the sessions store sits above this
+// module in the import graph.
+type SessionParentResolver = (sessionId: string) => string | undefined;
+let resolveSessionParentId: SessionParentResolver = () => undefined;
+
+export const setSessionParentResolver = (resolver: SessionParentResolver): void => {
+  resolveSessionParentId = resolver;
+};
+
+/** Subagents nest; a deeper chain than this is treated as unrelated. */
+const MAX_SUBAGENT_DEPTH = 8;
+
+const forEachAncestorId = (sessionId: string, visit: (ancestorId: string) => void): void => {
+  let current = resolveSessionParentId(sessionId);
+  for (let depth = 0; current && depth < MAX_SUBAGENT_DEPTH; depth += 1) {
+    visit(current);
+    current = resolveSessionParentId(current);
+  }
+};
+
+/** True when a subagent anywhere below the session is running. */
+export const hasActiveSubagent = (sessionId: string, activeSessionIds: ReadonlySet<string>): boolean => {
+  for (const activeId of activeSessionIds) {
+    if (activeId === sessionId) continue;
+    let found = false;
+    forEachAncestorId(activeId, (ancestorId) => {
+      if (ancestorId === sessionId) found = true;
+    });
+    if (found) return true;
+  }
+  return false;
+};
+
+/** Active sessions plus every ancestor whose turn they keep open. */
+const withSubagentAncestors = (activeSessionIds: ReadonlySet<string>): ReadonlySet<string> => {
+  let extended: Set<string> | null = null;
+  for (const activeId of activeSessionIds) {
+    forEachAncestorId(activeId, (ancestorId) => {
+      if (activeSessionIds.has(ancestorId)) return;
+      extended ??= new Set(activeSessionIds);
+      extended.add(ancestorId);
+    });
+  }
+  return extended ?? activeSessionIds;
+};
+
+/** The session's turn is still open: it runs itself, or one of its subagents does. */
+export const useSessionTurnActive = (sessionId: string): boolean => useGlobalSessionStatusStore(
+  (state) => state.activeSessionIds.has(sessionId) || hasActiveSubagent(sessionId, state.activeSessionIds),
+);
+
 const normalizeStatusType = (type: string | undefined): ActiveStatusType | 'idle' => {
   if (type === 'busy') return 'busy';
   if (type === 'retry') return 'retry';
@@ -122,13 +177,19 @@ export const applyGlobalSessionStatusEvents = (directory: string, payloads: read
   const currentStatuses = (): ReadonlyMap<string, GlobalSessionStatusEntry> => statusById ?? state.statusById;
   const draftStatuses = (): Map<string, GlobalSessionStatusEntry> => (statusById ??= new Map(state.statusById));
   const draftActiveIds = (): Set<string> => (activeSessionIds ??= new Set(state.activeSessionIds));
+  const currentActiveIds = (): ReadonlySet<string> => activeSessionIds ?? state.activeSessionIds;
+  const settledIds: string[] = [];
   const settle = (sessionId: string): void => {
     if (currentStatuses().has(sessionId)) {
       draftStatuses().delete(sessionId);
       draftActiveIds().delete(sessionId);
     }
     orderingMutations.push({ type: 'observe', sessionId, phase: 'settled' });
-    timingMutations.push({ type: 'observe', sessionId, phase: 'settled' });
+    settledIds.push(sessionId);
+    // The turn timer keeps running through a background-subagent pause.
+    if (!hasActiveSubagent(sessionId, currentActiveIds())) {
+      timingMutations.push({ type: 'observe', sessionId, phase: 'settled' });
+    }
   };
 
   for (const payload of payloads) {
@@ -178,6 +239,16 @@ export const applyGlobalSessionStatusEvents = (directory: string, payloads: read
     }
   }
 
+  // A subagent that finished may have been the last thing holding its
+  // parent's turn open.
+  const finalActiveIds = currentActiveIds();
+  for (const settledId of settledIds) {
+    forEachAncestorId(settledId, (ancestorId) => {
+      if (finalActiveIds.has(ancestorId) || hasActiveSubagent(ancestorId, finalActiveIds)) return;
+      timingMutations.push({ type: 'observe', sessionId: ancestorId, phase: 'settled' });
+    });
+  }
+
   if (statusById || observedById) {
     useGlobalSessionStatusStore.setState({
       statusById: statusById ?? state.statusById,
@@ -217,7 +288,7 @@ export const applyGlobalSessionStatusSnapshot = (
   // itself, and only the handful of sessions actually being timed need an
   // answer. Reuses the sets already built above, so this allocates nothing.
   reconcileSessionActivityTiming(
-    activeSessionIds,
+    withSubagentAncestors(activeSessionIds),
     (sessionId) => known.has(sessionId) || sessionId in raw,
   );
   useGlobalSessionStatusStore.setState((state) => {

@@ -78,6 +78,7 @@ import {
   applyGlobalSessionStatusEvents,
   applyGlobalSessionStatusSnapshot,
   getDirectoryOwnedSessionIds,
+  setSessionParentResolver,
   useGlobalSessionStatusStore,
 } from "./global-session-status"
 import { applyGlobalBlockingRequestEvents } from "./global-blocking-requests"
@@ -135,6 +136,10 @@ type SyncRuntime = {
 type SyncSystem = SyncRuntime & {
   directory: string
 }
+
+// Subagent sessions keep their parent's turn open in the status index; the
+// global sessions list knows every session's parent, children included.
+setSessionParentResolver((sessionId) => useGlobalSessionsStore.getState().entityById.get(sessionId)?.parentID)
 
 const SYNC_CONTEXT_GLOBAL_KEY = "__openchamber_sync_context__"
 const SYNC_RUNTIME_CONTEXT_GLOBAL_KEY = "__openchamber_sync_runtime_context__"

@@ -5,6 +5,8 @@ import {
   applyGlobalSessionStatusEvents,
   applyGlobalSessionStatusSnapshot,
   getDirectoryOwnedSessionIds,
+  hasActiveSubagent,
+  setSessionParentResolver,
   useGlobalSessionStatusStore,
   replaceGlobalSessionStatusById,
 } from "./global-session-status"
@@ -228,5 +230,46 @@ describe("global session status index", () => {
     expect(useGlobalSessionStatusStore.getState().statusById.has("session-a")).toBe(false)
     expect(useSessionOrderingStore.getState().rankById.has("session-a")).toBe(false)
     expect(useSessionActivityTimingStore.getState().startedAt.has("session-a")).toBe(false)
+  })
+})
+
+describe("background subagent keeps its parent's turn open", () => {
+  const busy = (sessionID: string): SyncEvent => ({ type: "session.status", properties: { sessionID, status: { type: "busy" } } } as SyncEvent)
+  const idle = (sessionID: string): SyncEvent => ({ type: "session.idle", properties: { sessionID } } as SyncEvent)
+  const timing = () => useSessionActivityTimingStore.getState()
+
+  beforeEach(() => {
+    setSessionParentResolver((sessionId) => (sessionId === "child" ? "parent" : undefined))
+  })
+
+  test("the parent's timer runs through the pause and settles when the subagent ends", () => {
+    applyGlobalSessionStatusEvents("/repo", [busy("parent"), busy("child")])
+    applyGlobalSessionStatusEvents("/repo", [idle("parent")])
+
+    const active = useGlobalSessionStatusStore.getState().activeSessionIds
+    expect(active.has("parent")).toBe(false)
+    expect(hasActiveSubagent("parent", active)).toBe(true)
+    expect(timing().startedAt.has("parent")).toBe(true)
+    expect(timing().settledMs.has("parent")).toBe(false)
+
+    applyGlobalSessionStatusEvents("/repo", [idle("child")])
+    expect(timing().startedAt.has("parent")).toBe(false)
+    expect(timing().settledMs.has("parent")).toBe(true)
+  })
+
+  test("a subagent ending while the parent runs again leaves the parent's timer alone", () => {
+    applyGlobalSessionStatusEvents("/repo", [busy("parent"), busy("child")])
+    applyGlobalSessionStatusEvents("/repo", [idle("parent")])
+    applyGlobalSessionStatusEvents("/repo", [idle("child"), busy("parent")])
+
+    expect(timing().startedAt.has("parent")).toBe(true)
+    applyGlobalSessionStatusEvents("/repo", [idle("parent")])
+    expect(timing().settledMs.has("parent")).toBe(true)
+  })
+
+  test("a status snapshot does not settle a parent whose subagent is running", () => {
+    applyGlobalSessionStatusEvents("/repo", [busy("parent"), busy("child")])
+    applyGlobalSessionStatusSnapshot("/repo", { child: { type: "busy" } }, ["parent", "child"])
+    expect(timing().startedAt.has("parent")).toBe(true)
   })
 })

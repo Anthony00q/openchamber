@@ -18,7 +18,7 @@ import { usePermissionStore } from '@/stores/permissionStore';
 import { optimisticSend, patchSessionMetadata, waitForConnectionOrThrow } from '@/sync/session-actions';
 import { useSelectionStore } from '@/sync/selection-store';
 import { resolveSendSelection, useSessionUIStore } from '@/sync/session-ui-store';
-import { getSyncMessages, getSyncParts, getSyncSessionStatus, registerSessionDirectory } from '@/sync/sync-refs';
+import { getSyncMessages, getSyncParts, getSyncSessionStatus, getSyncSessions, registerSessionDirectory } from '@/sync/sync-refs';
 import { markPendingUserSendAnimation } from '@/lib/userSendAnimation';
 import { getRuntimeKey } from '@/lib/runtime-switch';
 import { fetchSessionKnowledge, reportSessionKnowledgeDelivered } from '@/lib/sessionKnowledgeApi';
@@ -108,9 +108,20 @@ const getLatestAssistantTextMessage = (
   return null;
 };
 
+/**
+ * The turn is over only when the session is idle and none of its subagents is
+ * still running. A parent goes idle while a background subagent works; OpenCode
+ * then hands the result back and the parent runs again, so the reply it left
+ * at that pause is not the finished work. Child statuses come from the same
+ * live directory store as the parent's.
+ */
 const isSessionIdle = (sessionID: string, directory: string): boolean => {
-  const status = getSyncSessionStatus(sessionID, directory);
-  return status?.type === 'idle';
+  if (getSyncSessionStatus(sessionID, directory)?.type !== 'idle') return false;
+  return !getSyncSessions(directory).some((session) => {
+    if (session.parentID !== sessionID) return false;
+    const childStatus = getSyncSessionStatus(session.id, directory);
+    return childStatus !== undefined && childStatus.type !== 'idle';
+  });
 };
 
 export const isAutoReviewRuntimeCurrent = (runtimeKey: string): boolean => runtimeKey === getRuntimeKey();
