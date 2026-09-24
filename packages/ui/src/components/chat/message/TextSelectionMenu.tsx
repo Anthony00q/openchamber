@@ -60,6 +60,9 @@ const normalizeDistilledInsight = (insight: string): string => (
 export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerRef }) => {
   const { t } = useI18n();
   const [position, setPosition] = React.useState<MenuPosition>({ x: 0, y: 0, placement: 'above', show: false });
+  // False while the chat has scrolled the selection out of view; the menu
+  // waits hidden instead of pinning itself to an edge.
+  const [anchorVisible, setAnchorVisible] = React.useState(true);
   const [selectedText, setSelectedText] = React.useState('');
   const [selectedTextMarkdown, setSelectedTextMarkdown] = React.useState('');
   const [selectedMessageId, setSelectedMessageId] = React.useState<string | null>(null);
@@ -174,6 +177,7 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
     setIsOpening(false);
 
     setPosition((prev) => ({ ...prev, show: false }));
+    setAnchorVisible(true);
     setSelectedText('');
     setSelectedTextMarkdown('');
     setSelectedMessageId(null);
@@ -290,6 +294,40 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
     // popup, so remeasuring on those keeps the cached size (and the placement
     // built from it) honest.
   }, [commentMode, commentText, getDesktopPosition, isMobile, position.show]);
+
+  // Desktop: the menu (and the comment input) ride along with the selection
+  // while the chat scrolls. Only the one open menu listens.
+  React.useEffect(() => {
+    if (!position.show || isMobile) {
+      return;
+    }
+    let frame: number | null = null;
+    const follow = () => {
+      if (frame !== null) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = null;
+        const range = pendingSelectionRef.current?.range;
+        if (!range) return;
+        const rect = range.getBoundingClientRect();
+        anchorRectRef.current = rect;
+        const boundary = containerRef.current
+          ?.closest('[data-scrollbar="chat"], [data-selection-menu-boundary]')
+          ?.getBoundingClientRect();
+        setAnchorVisible(!boundary || (rect.bottom > boundary.top && rect.top < boundary.bottom));
+        const next = getDesktopPosition(rect);
+        setPosition((prev) => (
+          prev.x === next.x && prev.y === next.y && prev.placement === next.placement
+            ? prev
+            : { ...prev, ...next }
+        ));
+      });
+    };
+    document.addEventListener('scroll', follow, { capture: true, passive: true });
+    return () => {
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      document.removeEventListener('scroll', follow, { capture: true });
+    };
+  }, [containerRef, getDesktopPosition, isMobile, position.show]);
 
   React.useEffect(() => {
     if (!position.show || isMobile) {
@@ -777,6 +815,7 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
       style={{
         left: position.x,
         top: position.y,
+        visibility: anchorVisible ? undefined : 'hidden',
         transform: position.placement === 'above' ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
       }}
     >
