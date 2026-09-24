@@ -1586,6 +1586,7 @@ export const dict: Record<I18nKey, string> = {
   'commandPalette.item.toggleTerminal': 'Przełącz terminal',
   'commandPalette.item.cycleTheme': 'Przełącz motyw',
   'commandPalette.item.showOpenCodeStatus': 'Pokaż status OpenCode',
+  'commandPalette.item.restartOpenCode': 'Uruchom ponownie OpenCode',
   'commandPalette.item.toggleMemoryDebug': 'Przełącz panel debugowania pamięci',
   'commandPalette.item.pinSession': 'Przypnij lub odepnij sesję',
   'commandPalette.item.copySessionId': 'Kopiuj ID sesji',

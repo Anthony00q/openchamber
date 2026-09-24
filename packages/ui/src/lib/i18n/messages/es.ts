@@ -2635,6 +2635,7 @@ export const dict: Record<I18nKey, string> = {
   "commandPalette.item.toggleTerminal": "Mostrar u ocultar terminal",
   "commandPalette.item.cycleTheme": "Cambiar tema",
   "commandPalette.item.showOpenCodeStatus": "Mostrar estado de OpenCode",
+  "commandPalette.item.restartOpenCode": "Reiniciar OpenCode",
   "commandPalette.item.toggleMemoryDebug": "Alternar panel de depuración de memoria",
   "commandPalette.item.pinSession": "Anclar o desanclar sesión",
   "commandPalette.item.copySessionId": "Copiar ID de sesión",

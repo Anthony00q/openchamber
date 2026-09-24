@@ -2668,6 +2668,7 @@ export const dict: Record<I18nKey, string> = {
   'commandPalette.item.toggleTerminal': 'ターミナルの切り替え',
   'commandPalette.item.cycleTheme': 'テーマを順に切替',
   'commandPalette.item.showOpenCodeStatus': 'OpenCode のステータスを表示',
+  'commandPalette.item.restartOpenCode': 'OpenCode を再起動',
   'commandPalette.item.toggleMemoryDebug': 'メモリデバッグパネルの切替',
   'commandPalette.item.pinSession': 'セッションをピン留め/解除',
   'commandPalette.item.copySessionId': 'セッションIDをコピー',

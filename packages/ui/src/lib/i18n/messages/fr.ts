@@ -2362,6 +2362,7 @@ export const dict = {
   'commandPalette.item.toggleTerminal': 'Basculer le terminal',
   'commandPalette.item.cycleTheme': 'Changer de thème',
   'commandPalette.item.showOpenCodeStatus': 'Afficher le statut OpenCode',
+  'commandPalette.item.restartOpenCode': 'Redémarrer OpenCode',
   'commandPalette.item.toggleMemoryDebug': 'Basculer le panneau de débogage mémoire',
   'commandPalette.item.pinSession': 'Épingler ou désépingler la session',
   'commandPalette.item.copySessionId': 'Copier l\'ID de session',

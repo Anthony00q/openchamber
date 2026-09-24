@@ -2639,6 +2639,7 @@ export const dict: Record<I18nKey, string> = {
   'commandPalette.item.toggleTerminal': '切換終端機',
   'commandPalette.item.cycleTheme': '輪換主題',
   'commandPalette.item.showOpenCodeStatus': '顯示 OpenCode 狀態',
+  'commandPalette.item.restartOpenCode': '重新啟動 OpenCode',
   'commandPalette.item.toggleMemoryDebug': '切換記憶體偵錯面板',
   'commandPalette.item.pinSession': '釘選或取消釘選會話',
   'commandPalette.item.copySessionId': '複製會話 ID',

@@ -2635,6 +2635,7 @@ export const dict: Record<I18nKey, string> = {
   "commandPalette.item.toggleTerminal": "Перемкнути термінал",
   "commandPalette.item.cycleTheme": "Перемкнути тему",
   "commandPalette.item.showOpenCodeStatus": "Показати статус OpenCode",
+  "commandPalette.item.restartOpenCode": "Перезапустити OpenCode",
   "commandPalette.item.toggleMemoryDebug": "Показати/сховати панель memory debug",
   "commandPalette.item.pinSession": "Прикріпити або відкріпити сесію",
   "commandPalette.item.copySessionId": "Скопіювати ID сесії",

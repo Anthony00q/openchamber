@@ -2669,6 +2669,7 @@ export const dict = {
   'commandPalette.item.toggleTerminal': 'Toggle Terminal',
   'commandPalette.item.cycleTheme': 'Cycle theme',
   'commandPalette.item.showOpenCodeStatus': 'Show OpenCode status',
+  'commandPalette.item.restartOpenCode': 'Restart OpenCode',
   'commandPalette.item.toggleMemoryDebug': 'Toggle memory debug panel',
   'commandPalette.item.pinSession': 'Pin or unpin session',
   'commandPalette.item.copySessionId': 'Copy session ID',

@@ -2458,6 +2458,7 @@ export const dict = {
   'commandPalette.item.toggleTerminal': 'Terminal umschalten',
   'commandPalette.item.cycleTheme': 'Thema wechseln',
   'commandPalette.item.showOpenCodeStatus': 'OpenCode-Status anzeigen',
+  'commandPalette.item.restartOpenCode': 'OpenCode neu starten',
   'commandPalette.item.toggleMemoryDebug': 'Memory-Debug-Panel umschalten',
   'commandPalette.item.pinSession': 'Sitzung anheften oder lösen',
   'commandPalette.item.copySessionId': 'Sitzungs-ID kopieren',

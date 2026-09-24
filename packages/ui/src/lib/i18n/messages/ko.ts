@@ -2669,6 +2669,7 @@ export const dict: Record<I18nKey, string> = {
   'commandPalette.item.toggleTerminal': '토글 터미널',
   'commandPalette.item.cycleTheme': '테마 순환',
   'commandPalette.item.showOpenCodeStatus': 'OpenCode 상태 표시',
+  'commandPalette.item.restartOpenCode': 'OpenCode 다시 시작',
   'commandPalette.item.toggleMemoryDebug': '메모리 디버그 패널 토글',
   'commandPalette.item.pinSession': '세션 고정 또는 고정 해제',
   'commandPalette.item.copySessionId': '세션 ID 복사',

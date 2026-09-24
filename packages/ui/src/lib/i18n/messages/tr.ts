@@ -3430,6 +3430,7 @@ export const dict = {
   'chat.textSelection.comment.attachFailed': 'Yorum eklenemedi. Yorumu kısaltın veya ekli diğer bağlamı kaldırıp tekrar deneyin.',
   'commandPalette.item.cycleTheme': 'Temayı değiştir',
   'commandPalette.item.showOpenCodeStatus': 'OpenCode durumunu göster',
+  'commandPalette.item.restartOpenCode': 'OpenCode\'u yeniden başlat',
   'commandPalette.item.toggleMemoryDebug': 'Memory debug panelini aç/kapat',
   'commandPalette.item.pinSession': 'Session\'ı sabitle/kaldır',
   'commandPalette.item.copySessionId': 'Session ID\'yi kopyala',

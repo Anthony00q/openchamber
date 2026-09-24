@@ -557,6 +557,13 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     isAvailable: (ctx) => !ctx.isVSCode,
   },
   {
+    id: 'sessions.opencode-restart',
+    page: 'general',
+    titleKey: 'settings.openchamber.opencodeCli.actions.restart',
+    keywords: ['opencode', 'restart', 'reload', 'plugin'],
+    isAvailable: (ctx) => !ctx.isVSCode,
+  },
+  {
     id: 'sessions.opencode-update-notifications',
     page: 'general',
     titleKey: 'settings.openchamber.opencodeCli.field.showUpdateNotifications',
