@@ -417,6 +417,13 @@ not the app's: startup completes so other projects stay reachable, and
 `ProjectConfigErrorToast` shows the file and message while that project is
 active.
 
+Any other failed `initializeApp` attempt records `lastInitFailure` (runtime-only,
+cleared on success and on runtime switch): which step failed —
+`serverUnreachable` (no answer or a gateway error), `openCodeUnavailable` (the
+server answered but OpenCode is not healthy), `loadAgents`, or `unexpected` —
+plus the error text when there is one. The startup recovery screen reads it, so
+only a real network failure tells the user to check that the server is running.
+
 #### What they hold: OpenCode 2 entity shapes
 
 The mutation payloads these stores send are the v2 entities documented in
