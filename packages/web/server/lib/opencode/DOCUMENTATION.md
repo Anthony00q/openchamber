@@ -244,7 +244,11 @@ limit, and the VS Code bridge does not apply its usual 30-second request timeout
 ### Migrating an installed v1 CLI
 
 `GET /api/opencode/compatibility` reads the local CLI version without starting
-its server, or probes an external server's JSON version contract. A confirmed
+its server, or probes an external server's JSON version contract (`/api/info`,
+then v1's `/global/health` even when the first probe fails or hangs). When
+`OPENCODE_HOST`/`OPENCODE_PORT` points at a server that identifies as v1 or a
+2.x below the minimum, startup attaches to it as external and not ready rather
+than spawning a managed instance, so this check reports its version. A confirmed
 managed v1 CLI on macOS, Linux or Windows (x64/arm64) advertises `canInstall`;
 bundled binaries and external connections do not.
 
