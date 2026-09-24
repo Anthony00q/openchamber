@@ -1780,6 +1780,8 @@ export const settingsDict = {
   "settings.openchamber.defaults.field.thinkingPlaceholder": "Pensando",
   "settings.openchamber.defaults.field.defaultAgent": "Agente por padrão",
   "settings.openchamber.defaults.field.showDeletionDialogAria": "Mostrar diálogo de eliminación",
+  "settings.openchamber.defaults.field.sessionWarming": "Manter sessões ociosas aquecidas",
+  "settings.openchamber.defaults.field.sessionWarmingInfo": "Alguns provedores esquecem o contexto em cache de uma conversa após alguns minutos de silêncio, então a próxima mensagem fica mais lenta e mais cara. Com isso ativado, o OpenCode envia uma pequena requisição \"OK\" a cada 4 minutos enquanto a sessão está ociosa, por até 30 minutos após sua última mensagem. Cada ping é cobrado como uma requisição pequena. Vale para todos os projetos.",
   "settings.openchamber.defaults.smallModel.title": "Modelo pequeno",
   "settings.openchamber.defaults.smallModel.description": "Um modelo barato para tarefas utilitárias rápidas, como recapitulações e resumos curtos.",
   "settings.openchamber.defaults.smallModel.useDefault": "Usar o modelo pequeno padrão",

@@ -31,6 +31,7 @@ import {
   parseModelSelection,
   formatModelSelection,
   writeWebSearchSelection,
+  writeWarmingEnabled,
   findWebSearchProjectOverride,
   type AgentEntity,
   type CommandEntity,
@@ -1580,6 +1581,15 @@ export const setWebSearchSelection = (selection: WebSearchSelection): { changed:
   const layers = readConfigLayers();
   const target = getJsonWriteTarget(layers, AGENT_SCOPE.USER);
   const changed = writeWebSearchSelection(target.config, selection);
+  if (changed) writeConfig(target.config, target.path);
+  return { changed };
+};
+
+/** Mirror of the web server's `setWarmingEnabled`: same target file as the web search choice. */
+export const setWarmingEnabled = (enabled: boolean): { changed: boolean } => {
+  const layers = readConfigLayers();
+  const target = getJsonWriteTarget(layers, AGENT_SCOPE.USER);
+  const changed = writeWarmingEnabled(target.config, enabled);
   if (changed) writeConfig(target.config, target.path);
   return { changed };
 };

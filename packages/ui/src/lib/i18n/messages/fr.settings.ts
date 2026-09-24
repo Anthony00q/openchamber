@@ -1698,6 +1698,8 @@ export const settingsDict = {
   'settings.openchamber.defaults.field.thinkingPlaceholder': 'Pensée',
   'settings.openchamber.defaults.field.defaultAgent': 'Agent par défaut',
   'settings.openchamber.defaults.field.showDeletionDialogAria': 'Afficher la boîte de dialogue de suppression',
+  'settings.openchamber.defaults.field.sessionWarming': 'Garder les sessions inactives au chaud',
+  'settings.openchamber.defaults.field.sessionWarmingInfo': 'Certains fournisseurs oublient le contexte mis en cache d\'une conversation après quelques minutes de silence : le message suivant est alors plus lent et plus cher. Avec cette option, OpenCode envoie une toute petite requête « OK » toutes les 4 minutes tant que la session est inactive, jusqu\'à 30 minutes après votre dernier message. Chaque ping est facturé comme une petite requête. S\'applique à tous les projets.',
   'settings.openchamber.defaults.smallModel.title': 'Petit modèle',
   'settings.openchamber.defaults.smallModel.description': 'Un modèle économique pour les tâches utilitaires rapides, comme les récapitulatifs et résumés courts.',
   'settings.openchamber.defaults.smallModel.useDefault': 'Utiliser le petit modèle par défaut',

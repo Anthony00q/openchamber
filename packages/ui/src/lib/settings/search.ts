@@ -442,6 +442,13 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     keywords: ['delete', 'confirmation'],
   },
   {
+    id: 'sessions.warming',
+    page: 'sessions',
+    titleKey: 'settings.openchamber.defaults.field.sessionWarming',
+    descriptionKey: 'settings.openchamber.defaults.field.sessionWarmingInfo',
+    keywords: ['warming', 'warm', 'cache', 'prompt cache', 'keep-alive', 'idle'],
+  },
+  {
     id: 'sessions.small-model',
     page: 'sessions',
     titleKey: 'settings.openchamber.defaults.smallModel.title',

@@ -742,6 +742,24 @@ function writeWebSearchSelection(config, selection) {
   return JSON.stringify(config.websearch) !== before;
 }
 
+// ============== SESSION WARMING ==============
+
+/**
+ * The `warming` key: `true` keeps idle sessions' prompt cache warm with
+ * OpenCode's defaults, an object tunes prompt/interval/duration. Turning it on
+ * keeps a hand-tuned object as is; turning it off removes the key (OpenCode's
+ * default is off). Returns whether the config changed.
+ */
+function writeWarmingEnabled(config, enabled) {
+  const before = JSON.stringify(config.warming);
+  if (!enabled) {
+    delete config.warming;
+  } else if (typeof config.warming !== 'object' || config.warming === null) {
+    config.warming = true;
+  }
+  return JSON.stringify(config.warming) !== before;
+}
+
 const hasWebSearchKey = (config) => config != null && Object.hasOwn(config, 'websearch');
 
 /**
@@ -798,4 +816,5 @@ export {
   parseWebSearchSelection,
   writeWebSearchSelection,
   findWebSearchProjectOverride,
+  writeWarmingEnabled,
 };

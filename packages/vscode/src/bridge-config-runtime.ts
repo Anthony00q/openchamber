@@ -54,6 +54,7 @@ import {
   deleteMcpConfig,
   expandSnippets,
   setWebSearchSelection,
+  setWarmingEnabled,
   getWebSearchSource,
   type SnippetScope,
 } from './opencodeConfig';
@@ -411,6 +412,17 @@ export async function handleConfigBridgeMessage(
         return { id, type, success: false, error: 'selection must be false, null, "random" or a provider id' };
       }
       const result = setWebSearchSelection(selection);
+      return { id, type, success: true, data: { success: true, changed: result.changed } };
+    }
+
+    // PUT /api/config/warming — see the web route in
+    // packages/web/server/lib/opencode/routes.js.
+    case 'api:config/warming': {
+      const enabled = (payload as { enabled?: unknown } | undefined)?.enabled;
+      if (typeof enabled !== 'boolean') {
+        return { id, type, success: false, error: 'enabled must be a boolean' };
+      }
+      const result = setWarmingEnabled(enabled);
       return { id, type, success: true, data: { success: true, changed: result.changed } };
     }
 

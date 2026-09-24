@@ -303,6 +303,9 @@ Bridge surface (`bridge-config-runtime.ts`), matching the web routes:
   the shared `writeWebSearchSelection` to `OPENCODE_CONFIG` or the user config.
   `{ method: "GET", directory }` returns `{ projectPath }` from the shared
   `findWebSearchProjectOverride`: the project config that overrides that write.
+- `api:config/warming` — `PUT /api/config/warming`; `{ enabled }` turns session
+  warming on (`true`, keeping a hand-tuned object) or off (removes the key),
+  written with the shared `writeWarmingEnabled` to the same file.
 
 ## Session archive and metadata
 

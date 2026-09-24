@@ -1803,6 +1803,8 @@ export const settingsDict = {
   'settings.openchamber.defaults.field.thinkingPlaceholder': 'Thinking',
   'settings.openchamber.defaults.field.defaultAgent': 'Default Agent',
   'settings.openchamber.defaults.field.showDeletionDialogAria': 'Show deletion dialog',
+  'settings.openchamber.defaults.field.sessionWarming': 'Keep idle sessions warm',
+  'settings.openchamber.defaults.field.sessionWarmingInfo': 'Some providers forget a conversation\'s cached context after a few minutes of silence, so the next message is slower and costs more. With this on, OpenCode sends a tiny "OK" request every 4 minutes while a session sits idle, for up to 30 minutes after your last message. Each ping is billed as a small request. Applies to all projects.',
   'settings.openchamber.defaults.field.showDeletionDialog': 'Show Deletion Dialog',
   'settings.openchamber.defaults.smallModel.title': 'Small Model',
   'settings.openchamber.defaults.smallModel.description': 'A cheap model for quick utility tasks like short recaps and summaries.',

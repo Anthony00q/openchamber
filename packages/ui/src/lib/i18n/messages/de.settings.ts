@@ -1747,6 +1747,8 @@ export const settingsDict = {
   'settings.openchamber.defaults.field.thinkingPlaceholder': 'Denken',
   'settings.openchamber.defaults.field.defaultAgent': 'Standard-Agent',
   'settings.openchamber.defaults.field.showDeletionDialogAria': 'Löschdialog anzeigen',
+  'settings.openchamber.defaults.field.sessionWarming': 'Inaktive Sitzungen warm halten',
+  'settings.openchamber.defaults.field.sessionWarmingInfo': 'Manche Anbieter vergessen den zwischengespeicherten Kontext eines Gesprächs nach ein paar Minuten Ruhe, dann ist die nächste Nachricht langsamer und teurer. Ist das aktiv, schickt OpenCode alle 4 Minuten eine winzige „OK“-Anfrage, solange die Sitzung ruht, bis zu 30 Minuten nach deiner letzten Nachricht. Jeder Ping wird als kleine Anfrage abgerechnet. Gilt für alle Projekte.',
   'settings.openchamber.defaults.field.showDeletionDialog': 'Löschdialog anzeigen',
   'settings.openchamber.defaults.smallModel.title': 'Kleines Modell',
   'settings.openchamber.defaults.smallModel.description': 'Ein günstiges Modell für schnelle Dienstaufgaben wie kurze Zusammenfassungen und Faziten.',
