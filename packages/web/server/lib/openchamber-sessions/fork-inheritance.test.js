@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { applyForkInheritance, sourceOwnedLinksPatch } from './fork-inheritance.js';
 
-const goal = (objectiveFile) => ({ id: 'goal_1', objective: objectiveFile ? '' : 'Ship it', objectiveFile, status: 'active' });
+const goal = (objectiveFile) => ({ id: 'goal_1', objective: objectiveFile ? '' : 'Ship it', objectiveFile, status: 'paused' });
 
 const harness = (metadata, overrides = {}) => {
   const deps = {
@@ -15,6 +15,12 @@ const harness = (metadata, overrides = {}) => {
 };
 
 describe('sourceOwnedLinksPatch', () => {
+  it('pauses an active goal so the fork does not pursue it in parallel', () => {
+    expect(sourceOwnedLinksPatch({ openchamber: { goal: { id: 'g', status: 'active' } } }))
+      .toEqual({ goal: { status: 'paused', statusReason: 'paused in fork' } });
+    expect(sourceOwnedLinksPatch({ openchamber: { goal: { id: 'g', status: 'complete' } } })).toBeNull();
+  });
+
   it('removes the btw and review links but keeps the goal', () => {
     expect(sourceOwnedLinksPatch({ openchamber: { goal: goal(false), btwSessionID: 'b', reviewSessionID: 'r' } }))
       .toEqual({ btwSessionID: null, reviewSessionID: null });

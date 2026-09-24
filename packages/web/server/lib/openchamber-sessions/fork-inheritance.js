@@ -43,6 +43,12 @@ export const sourceOwnedLinksPatch = (metadata) => {
       if (key in namespace) patch[key] = null;
     }
   }
+  // A fork must not pursue the source's goal in parallel: an active goal
+  // arrives paused and the user resumes it (same rule as UI forks).
+  const goal = namespace.goal;
+  if (goal && typeof goal === 'object' && !Array.isArray(goal) && goal.status === 'active') {
+    patch.goal = { status: 'paused', statusReason: 'paused in fork' };
+  }
   return Object.keys(patch).length > 0 ? patch : null;
 };
 
@@ -86,7 +92,7 @@ export const applyForkInheritance = async ({ sourceSessionID, fork, readObjectiv
 
   const namespacePatch = sourceOwnedLinksPatch(metadata) ?? {};
   if (inlineObjective !== null) {
-    namespacePatch.goal = { objective: inlineObjective, objectiveFile: false };
+    namespacePatch.goal = { ...namespacePatch.goal, objective: inlineObjective, objectiveFile: false };
   }
   if (Object.keys(namespacePatch).length === 0) return;
   try {

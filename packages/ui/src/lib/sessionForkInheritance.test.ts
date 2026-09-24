@@ -6,7 +6,7 @@ const goal = (objectiveFile: boolean) => ({
   id: 'goal_1',
   objective: objectiveFile ? '' : 'Ship it',
   objectiveFile,
-  status: 'active',
+  status: 'paused',
   tokensUsed: 10,
   turnsUsed: 2,
 });
@@ -45,6 +45,11 @@ const harness = (fork: Session, overrides: Partial<ForkInheritanceDeps> = {}) =>
 };
 
 describe('withoutSourceOwnedLinks', () => {
+  test('pauses an active goal so the fork does not pursue it in parallel', () => {
+    const result = withoutSourceOwnedLinks({ openchamber: { goal: { ...goal(false), status: 'active' } } });
+    expect(result).toEqual({ openchamber: { goal: { ...goal(false), status: 'paused', statusReason: 'paused in fork' } } });
+  });
+
   test('keeps the goal and drops the source btw and review links', () => {
     const metadata: Metadata = {
       other: 1,
