@@ -468,8 +468,11 @@ reduced motion keep the instant swap.
 A `chat-quote` draft carries an anchor (`lib/chatQuoteAnchor.ts`): the quoted
 text in its message's rendered text stream plus the characters around it. It
 is captured at selection time, persisted with the draft and sent in the
-context part's metadata. `hooks/useChatQuoteHighlights.ts` (one per
-`ChatContainer`) uses it to paint with the CSS Custom Highlight API. The
+context part's metadata. `message/ChatQuoteHighlightLayer.tsx` (one per
+`ChatContainer`, fed by the column's `hooks/chatQuoteHighlightStore.ts`) uses it
+to paint with the CSS Custom Highlight API. The store lives outside React state
+and the layer holds all hover and popover state, so none of it re-renders the
+chat column. The
 markdown DOM is never modified. While quotes wait as context chips they stay
 marked in their messages; the one hovered in the chip preview is drawn
 stronger. Resting the mouse on a mark, or tapping it on touch, opens

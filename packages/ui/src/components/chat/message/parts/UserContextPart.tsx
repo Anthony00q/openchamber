@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n';
 import type { ContextPartPayload } from '@/lib/messages/contextParts';
 import { cn } from '@/lib/utils';
 import { legacyChatQuoteAnchor } from '@/lib/chatQuoteAnchor';
-import { useChatQuoteHighlightApi } from '../../hooks/useChatQuoteHighlights';
+import { useChatQuoteHighlightApi } from '../../hooks/chatQuoteHighlightStore';
 
 /**
  * A context item attached to a user message: an inline code comment, a

@@ -26,7 +26,7 @@ import {
 } from '@/stores/useInlineCommentDraftStore';
 import type { Theme } from '@/types/theme';
 import { legacyChatQuoteAnchor } from '@/lib/chatQuoteAnchor';
-import { useChatQuoteHighlightApi, type ChatQuoteMark } from '../../hooks/useChatQuoteHighlights';
+import { useChatQuoteHighlightApi, type ChatQuoteMark } from '../../hooks/chatQuoteHighlightStore';
 
 export interface ComposerContextChipsProps {
     draftTarget: InlineCommentDraftTarget | null;

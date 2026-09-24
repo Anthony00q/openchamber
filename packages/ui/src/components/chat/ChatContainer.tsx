@@ -48,7 +48,8 @@ import { useChatTimelineScroll, type TimelineListHandle } from '@/hooks/useChatT
 import { useChatTimelineController } from './hooks/useChatTimelineController';
 import { TimelineDialog } from './TimelineDialog';
 import { useChatTurnNavigation } from './hooks/useChatTurnNavigation';
-import { ChatQuoteHighlightContext, useChatQuoteHighlights } from './hooks/useChatQuoteHighlights';
+import { ChatQuoteHighlightContext, useChatQuoteHighlightStore } from './hooks/chatQuoteHighlightStore';
+import { ChatQuoteHighlightLayer } from './message/ChatQuoteHighlightLayer';
 import { useChatSurfaceMode } from './useChatSurfaceMode';
 import { useDeviceInfo } from '@/lib/device';
 import { Button } from '@/components/ui/button';
@@ -1184,11 +1185,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     React.useEffect(() => {
         activeTurnChangeRef.current = timelineController.handleActiveTurnChange;
     }, [timelineController.handleActiveTurnChange]);
-
-    const { api: chatQuoteHighlights, popover: chatQuotePopover } = useChatQuoteHighlights({
-        scrollNode,
-        scrollToMessage: timelineController.scrollToMessage,
-    });
+    const chatQuoteHighlights = useChatQuoteHighlightStore();
 
     const navigation = useChatTurnNavigation({
         sessionId: currentSessionId,
@@ -1616,7 +1613,11 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
 		    comment into this column's composer, never a sibling's. */}
 		<MobileCommentComposerContext.Provider value={mobileCommentComposer}>
 		<ChatQuoteHighlightContext.Provider value={chatQuoteHighlights}>
-		{chatQuotePopover}
+		<ChatQuoteHighlightLayer
+			store={chatQuoteHighlights}
+			scrollNode={scrollNode}
+			scrollToMessage={timelineController.scrollToMessage}
+		/>
 		<div data-composer-bound className="relative flex min-w-0 flex-1 flex-col h-full bg-background">
 			{returnToParentButton}
 			{sessionSurface}

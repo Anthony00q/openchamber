@@ -7,9 +7,13 @@
  *   mark the user hovers in the chip preview is drawn stronger.
  * - Reveal: clicking a quote (a chip entry, or a sent quote card) scrolls to
  *   its message and briefly flashes the fragment.
- *
  * - Popover: hovering a mark (desktop) or tapping it (touch) opens its
  *   comment with edit and remove, acting on the draft through the publisher.
+ *
+ * The column owns a store (`hooks/chatQuoteHighlightStore.ts`) that publishers
+ * write to, and renders `ChatQuoteHighlightLayer`, which subscribes to it and holds
+ * all hover, popover and scroll-follow state. Highlight activity therefore
+ * re-renders only the layer, never the chat column.
  *
  * Ranges are re-resolved from their anchors whenever a marked message
  * re-renders or remounts in the virtualized list. Runtimes without
@@ -18,35 +22,14 @@
 
 import React from 'react';
 
-import { ChatQuoteMarkPopover } from '../message/ChatQuoteMarkPopover';
-
 import {
     findChatQuoteRoot,
     resolveChatQuoteAnchor,
     type ChatQuoteAnchor,
 } from '@/lib/chatQuoteAnchor';
 
-export type ChatQuoteMark = {
-    id: string;
-    messageId: string;
-    anchor: ChatQuoteAnchor;
-    comment: string;
-    updateComment: (text: string) => void;
-    remove: () => void;
-};
-
-interface ChatQuoteHighlightApi {
-    /** Replace the marks one publisher (a composer's chips) contributes. */
-    publishMarks: (publisher: string, marks: ChatQuoteMark[]) => void;
-    /** Draw one mark stronger, or none. */
-    focusMark: (markId: string | null) => void;
-    /** Scroll to the quoted fragment and flash it. */
-    reveal: (messageId: string, anchor: ChatQuoteAnchor) => void;
-}
-
-export const ChatQuoteHighlightContext = React.createContext<ChatQuoteHighlightApi | null>(null);
-
-export const useChatQuoteHighlightApi = (): ChatQuoteHighlightApi | null => React.useContext(ChatQuoteHighlightContext);
+import type { ChatQuoteHighlightStore } from '../hooks/chatQuoteHighlightStore';
+import { ChatQuoteMarkPopover } from './ChatQuoteMarkPopover';
 
 const MARK_HIGHLIGHT = 'oc-chat-quote';
 const FOCUS_HIGHLIGHT = 'oc-chat-quote-focus';
@@ -90,7 +73,8 @@ const nextFrame = (): Promise<void> => new Promise((resolve) => {
     window.requestAnimationFrame(() => resolve());
 });
 
-interface UseChatQuoteHighlightsOptions {
+interface ChatQuoteHighlightLayerProps {
+    store: ChatQuoteHighlightStore;
     scrollNode: HTMLElement | null;
     scrollToMessage: (messageId: string, options?: { behavior?: ScrollBehavior }) => Promise<boolean>;
 }
@@ -106,16 +90,13 @@ function markAtPoint(ranges: Map<string, Range>, x: number, y: number): string |
 
 type PopoverState = { markId: string; rect: DOMRect };
 
-interface ChatQuoteHighlights {
-    /** Provided to the column through ChatQuoteHighlightContext. */
-    api: ChatQuoteHighlightApi;
-    /** The open mark's popover, rendered by the column. */
-    popover: React.ReactNode;
-}
-
-export function useChatQuoteHighlights({ scrollNode, scrollToMessage }: UseChatQuoteHighlightsOptions): ChatQuoteHighlights {
-    const [marksByPublisher, setMarksByPublisher] = React.useState<Record<string, ChatQuoteMark[]>>({});
-    const [chipFocusedMarkId, setChipFocusedMarkId] = React.useState<string | null>(null);
+export const ChatQuoteHighlightLayer = React.memo(function ChatQuoteHighlightLayer({
+    store,
+    scrollNode,
+    scrollToMessage,
+}: ChatQuoteHighlightLayerProps) {
+    const marks = React.useSyncExternalStore(store.subscribe, store.getMarks);
+    const chipFocusedMarkId = React.useSyncExternalStore(store.subscribe, store.getChipFocus);
     const [popover, setPopover] = React.useState<PopoverState | null>(null);
     const [editing, setEditing] = React.useState(false);
     const focusedMarkId = chipFocusedMarkId ?? popover?.markId ?? null;
@@ -131,8 +112,6 @@ export function useChatQuoteHighlights({ scrollNode, scrollToMessage }: UseChatQ
     const scrollToMessageRef = React.useRef(scrollToMessage);
     scrollToMessageRef.current = scrollToMessage;
     const flashTimerRef = React.useRef<number | null>(null);
-
-    const marks = React.useMemo(() => Object.values(marksByPublisher).flat(), [marksByPublisher]);
 
     React.useEffect(() => {
         if (!scrollNode || marks.length === 0) return;
@@ -192,18 +171,6 @@ export function useChatQuoteHighlights({ scrollNode, scrollToMessage }: UseChatQ
         paintFlash([]);
     }, [paintFlash]);
 
-    const publishMarks = React.useCallback((publisher: string, next: ChatQuoteMark[]) => {
-        setMarksByPublisher((current) => {
-            if (next.length === 0) {
-                if (!(publisher in current)) return current;
-                const rest = { ...current };
-                delete rest[publisher];
-                return rest;
-            }
-            return { ...current, [publisher]: next };
-        });
-    }, []);
-
     const reveal = React.useCallback((messageId: string, anchor: ChatQuoteAnchor) => {
         void (async () => {
             // Scrolling through the timeline controller releases live follow
@@ -229,11 +196,10 @@ export function useChatQuoteHighlights({ scrollNode, scrollToMessage }: UseChatQ
         })();
     }, [paintFlash]);
 
-    const api = React.useMemo(() => ({
-        publishMarks,
-        focusMark: setChipFocusedMarkId,
-        reveal,
-    }), [publishMarks, reveal]);
+    React.useEffect(() => {
+        store.setRevealHandler(reveal);
+        return () => store.setRevealHandler(null);
+    }, [reveal, store]);
 
     const openMark = popover ? marks.find((mark) => mark.id === popover.markId) ?? null : null;
     const editingRef = React.useRef(editing);
@@ -308,20 +274,16 @@ export function useChatQuoteHighlights({ scrollNode, scrollToMessage }: UseChatQ
             lastPointerType = event.pointerType;
         };
 
-        // Desktop: a resting mouse opens the mark under it.
+        // Desktop: a resting mouse opens the mark under it. Keeping it open
+        // is decided by position alone while it is open (below).
         const handlePointerMove = (event: PointerEvent) => {
             if (event.pointerType !== 'mouse' || event.buttons !== 0 || editingRef.current) return;
             const hit = markAtPoint(rangesRef.current, event.clientX, event.clientY);
-            if (!hit) {
-                if (isInPopoverCorridor(event.clientX, event.clientY)) {
-                    cancelClose();
-                } else {
-                    scheduleClose();
-                }
+            if (!hit || popoverRef.current?.markId === hit) {
+                if (openTimerRef.current !== null) window.clearTimeout(openTimerRef.current);
+                openTimerRef.current = null;
                 return;
             }
-            cancelClose();
-            if (popoverRef.current?.markId === hit) return;
             if (openTimerRef.current !== null) window.clearTimeout(openTimerRef.current);
             openTimerRef.current = window.setTimeout(() => {
                 openTimerRef.current = null;
@@ -346,18 +308,18 @@ export function useChatQuoteHighlights({ scrollNode, scrollToMessage }: UseChatQ
 
         scrollNode.addEventListener('pointerdown', handlePointerDown);
         scrollNode.addEventListener('pointermove', handlePointerMove);
-        scrollNode.addEventListener('pointerleave', scheduleClose);
         scrollNode.addEventListener('click', handleClick);
         return () => {
             scrollNode.removeEventListener('pointerdown', handlePointerDown);
             scrollNode.removeEventListener('pointermove', handlePointerMove);
-            scrollNode.removeEventListener('pointerleave', scheduleClose);
             scrollNode.removeEventListener('click', handleClick);
         };
-    }, [cancelClose, closePopover, isInPopoverCorridor, marks.length, scheduleClose, scrollNode, showPopover]);
+    }, [closePopover, marks.length, scrollNode, showPopover]);
 
-    // While open: follow the mark as the chat scrolls, and close on a press
-    // anywhere but the popover or the mark itself.
+    // While open: stay open while the mouse is on the mark, the popover or the
+    // corridor between them (enter/leave events do not cross the portal
+    // reliably, so position decides), follow the mark as the chat scrolls,
+    // and close on a press anywhere but the popover or the mark itself.
     const openMarkId = popover?.markId ?? null;
     React.useEffect(() => {
         if (!openMarkId) return;
@@ -375,6 +337,15 @@ export function useChatQuoteHighlights({ scrollNode, scrollToMessage }: UseChatQ
                 setPopover((current) => (current && current.markId === openMarkId ? { ...current, rect } : current));
             });
         };
+        const handlePointerMove = (event: PointerEvent) => {
+            if (event.pointerType !== 'mouse' || editingRef.current) return;
+            if (isInPopoverCorridor(event.clientX, event.clientY)
+                || markAtPoint(rangesRef.current, event.clientX, event.clientY) === openMarkId) {
+                cancelClose();
+            } else {
+                scheduleClose();
+            }
+        };
         const handlePressOutside = (event: PointerEvent) => {
             // SAFETY: a pointer event target inside the document is always a
             // Node; `contains` only needs that.
@@ -385,15 +356,17 @@ export function useChatQuoteHighlights({ scrollNode, scrollToMessage }: UseChatQ
         document.addEventListener('scroll', follow, { capture: true, passive: true });
         window.addEventListener('resize', follow);
         document.addEventListener('pointerdown', handlePressOutside);
+        document.addEventListener('pointermove', handlePointerMove, { capture: true, passive: true });
         return () => {
             if (frame !== null) window.cancelAnimationFrame(frame);
             document.removeEventListener('scroll', follow, { capture: true });
             window.removeEventListener('resize', follow);
             document.removeEventListener('pointerdown', handlePressOutside);
+            document.removeEventListener('pointermove', handlePointerMove, { capture: true });
         };
-    }, [closePopover, openMarkId]);
+    }, [cancelClose, closePopover, isInPopoverCorridor, openMarkId, scheduleClose]);
 
-    const popoverNode = popover && openMark ? (
+    return popover && openMark ? (
         <ChatQuoteMarkPopover
             ref={popoverElementRef}
             anchorRect={popover.rect}
@@ -405,10 +378,6 @@ export function useChatQuoteHighlights({ scrollNode, scrollToMessage }: UseChatQ
                 openMark.remove();
                 closePopover();
             }}
-            onPointerEnter={cancelClose}
-            onPointerLeave={scheduleClose}
         />
     ) : null;
-
-    return { api, popover: popoverNode };
-}
+});

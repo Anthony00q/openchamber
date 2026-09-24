@@ -27,8 +27,6 @@ export interface ChatQuoteMarkPopoverProps {
     onEditingChange: (editing: boolean) => void;
     onSave: (text: string) => void;
     onRemove: () => void;
-    onPointerEnter: () => void;
-    onPointerLeave: () => void;
 }
 
 export function ChatQuoteMarkPopover({
@@ -39,8 +37,6 @@ export function ChatQuoteMarkPopover({
     onEditingChange,
     onSave,
     onRemove,
-    onPointerEnter,
-    onPointerLeave,
 }: ChatQuoteMarkPopoverProps) {
     const { t } = useI18n();
     const [draft, setDraft] = React.useState(comment);
@@ -87,8 +83,6 @@ export function ChatQuoteMarkPopover({
                 top: placeBelow ? anchorRect.bottom + POPOVER_GAP_PX : anchorRect.top - POPOVER_GAP_PX,
                 transform: placeBelow ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
             }}
-            onPointerEnter={onPointerEnter}
-            onPointerLeave={onPointerLeave}
         >
             {editing ? (
                 <div className="oc-glass-popover flex items-end gap-2 rounded-3xl border border-[var(--interactive-border)] py-1 pl-4 pr-1 shadow-[0_4px_16px_-4px_rgb(0_0_0_/_0.12)]">
