@@ -140,6 +140,8 @@ mock.module('@/stores/useProjectsStore', () => ({
 }));
 
 mock.module('@/lib/opencode/client', () => ({
+  OpencodeApiError: Error,
+  normalizeOpencodeError: (operation: string, error: unknown) => new Error(`${operation}: ${String(error)}`),
   opencodeClient: {
     setDirectory: mock(() => undefined),
     getDirectory: mock(() => DIRECTORY),
@@ -194,6 +196,7 @@ mock.module('@/lib/runtime-fetch', () => ({
 
 mock.module('@/lib/persistence', () => ({
   updateDesktopSettings: mock(async () => ({ ok: true })),
+  reportSettingsSaveState: () => undefined,
   // The store reads the shared document through this; an empty document
   // keeps every OpenChamber default unset, like the settings route used to.
   loadDesktopSettings: mock(async () => {
