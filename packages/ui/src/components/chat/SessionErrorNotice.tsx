@@ -4,7 +4,8 @@ import { useI18n } from '@/lib/i18n';
 import { getLastConversationMessage, type Message, type Part, type Session } from '@/lib/opencode/model';
 import { useLatestSessionError } from '@/sync/notification-store';
 import { useDirectoryStore, useSessionStatus } from '@/sync/sync-context';
-import { readLastMessageState, type LastMessageState } from './sessionErrorNoticeState';
+import { refetchSessionMessages } from '@/sync/session-actions';
+import { readLastMessageState, scheduleUnansweredRechecks, type LastMessageState } from './sessionErrorNoticeState';
 
 interface SessionErrorNoticeProps {
   sessionId: string;
@@ -148,7 +149,22 @@ export const SessionErrorNotice: React.FC<SessionErrorNoticeProps> = ({ sessionI
     const timer = window.setTimeout(() => setNow(Date.now()), remaining + 50);
     return () => window.clearTimeout(timer);
   }, [unansweredSince]);
-  const unanswered = unansweredSince !== null && Math.max(now, Date.now()) - unansweredSince >= UNANSWERED_AFTER_MS;
+  const unansweredDue = unansweredSince !== null && Math.max(now, Date.now()) - unansweredSince >= UNANSWERED_AFTER_MS;
+  // Looking unanswered is only a guess: the live stream may have dropped the
+  // reply. Re-read the session first and show the notice only once a read has
+  // settled with the prompt still last. The key ties that verdict to this
+  // session and prompt, so a new send or a session switch starts unverified.
+  const unansweredKey = unansweredDue && sessionId ? `${sessionId}:${unansweredSince}` : null;
+  const [verifiedKey, setVerifiedKey] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!unansweredKey || !sessionId) return undefined;
+    return scheduleUnansweredRechecks(
+      () => refetchSessionMessages(sessionId),
+      window,
+      () => setVerifiedKey(unansweredKey),
+    );
+  }, [unansweredKey, sessionId]);
+  const unanswered = unansweredKey !== null && verifiedKey === unansweredKey;
 
   if (!reportedError && !storedFailureApplies && !unanswered) return null;
 
