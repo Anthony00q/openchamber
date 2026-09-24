@@ -625,6 +625,7 @@ export const dict = {
   'sessions.sidebar.session.export.dialog.confirm': 'Dışa aktar',
   'sessions.sidebar.session.status.active': 'Session aktif',
   'sessions.sidebar.session.status.unread': 'Okunmamış güncellemeler',
+  'sessions.sidebar.session.status.nextStep': 'Sonraki adım: {suggestion}',
   'sessions.sidebar.session.status.pinned': 'Sabitlenmiş session',
   'sessions.sidebar.session.status.movingToWorktree': 'Session yeni bir worktree\'ye taşınıyor',
   'sessions.sidebar.session.status.permissionRequired': 'İzin gerekiyor',

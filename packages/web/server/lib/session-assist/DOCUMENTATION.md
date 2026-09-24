@@ -128,6 +128,12 @@ the session is idle. A new message invalidates it without clearing writes.
 - `packages/ui/src/hooks/useSessionAssist.ts` owns freshness/settings gating.
 - `SessionRecapSpacer` shows the reminder in the reserved gap under the reply.
 - `SessionSuggestionChip` fills the composer; it never sends automatically.
+- Sidebar rows (`SessionNodeItem`, both Projects and Timeline) mark a session
+  whose suggestion is still open with a small icon and the suggestion as its
+  title. Rows have no message store, so freshness there is `generatedAt >=
+  session.time.idle` (`getOpenSessionSuggestion`): the next finished turn moves
+  `idle` past it. The marker hides while a turn runs, on the open session, and
+  when `sessionSuggestionEnabled` is off.
 
 Web, Electron, hosted mobile, and Capacitor use the server watcher. VS Code's
 extension-only runtime does not generate assists; shared UI can render payloads
