@@ -231,8 +231,8 @@ Hard rules, verified against v2.0.8 (the completion stamp against v2.0.16)
 `upgrade`, without a shell or client-supplied arguments. OpenCode chooses the
 installer. Web, hosted mobile, Capacitor, and Desktop with a separately installed
 CLI use this server path. VS Code uses the same executor from its extension host.
-Bundled Desktop, external URL connections, unavailable CLIs, and the Windows
-ARM64 workaround remain unsupported at the host boundary.
+Bundled Desktop, external URL connections, and unavailable CLIs remain
+unsupported at the host boundary.
 
 An upgrade leaves the current server running. The toast's Reload action restarts
 it using the installed version. Failed installations return an error and can be
@@ -257,8 +257,8 @@ across concurrent clients. `v2-install.js` resolves a validated stable v2
 release from npm. On macOS/Linux it downloads the official
 `https://opencode.ai/v2/install` script and runs it with that release and
 `--no-modify-path`. That script is bash, so on Windows it downloads the npm
-platform package the script would fetch, `@opencode/cli-windows-x64-baseline`
-(arm64 too, like the desktop bundle), checks it against the `sha512` integrity
+platform package the script would fetch (`@opencode/cli-windows-arm64` on
+arm64, `@opencode/cli-windows-x64-baseline` on x64, like the desktop bundle), checks it against the `sha512` integrity
 npm publishes, and unpacks `opencode.exe` with the system `tar.exe`. Both
 paths then verify the resulting executable.
 It installs into the host user's standard `~/.opencode/bin`. Existing npm/Bun
