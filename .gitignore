@@ -39,6 +39,7 @@ local-dev*
 .hive
 docs/personal/*
 SECURITY_HARDENING_IMPLEMENTATION_PLAN.md
+electron-dev.bat
 
 # Build outputs
 packages/web/server/built-in-extensions/
