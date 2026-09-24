@@ -10,7 +10,7 @@ This module provides OpenCode server integration utilities for the web server ru
 - `packages/web/server/lib/opencode/cli-options.js`: CLI/environment option parsing for server startup arguments.
 - `packages/web/server/lib/opencode/cli-entry-runtime.js`: CLI entrypoint runtime that detects direct execution, parses CLI options, and starts server bootstrap.
 - `packages/web/server/lib/opencode/routes.js`: OpenCode/provider settings and auth-related route registration.
-- `packages/web/server/lib/opencode/v1-migration-topup.js`: re-arms OpenCode's own V1 -> V2 session import for V1 sessions created after that migration already completed; runs only before a managed spawn. See "v1-migration-topup.js" below.
+- `packages/web/server/lib/opencode/v1-migration-topup.js`: re-arms OpenCode's own V1 -> V2 session import for V1 sessions changed by 1.x after the last completed import; runs only before a managed spawn. See "v1-migration-topup.js" below.
 - `packages/web/server/lib/opencode/lifecycle.js`: OpenCode process lifecycle runtime (startup, restart, readiness, health monitoring). After readiness it warms the most recently used directories (`getWarmupDirectories` dep, sequential and best-effort) because OpenCode initializes each directory lazily on first request and that cost would otherwise be paid by the user's first interactive session open.
 - `packages/web/server/lib/opencode/provider-env-aliases.js`: mirrors known provider credential env aliases into the managed OpenCode process environment (for example `GEMINI_API_KEY` → `GOOGLE_GENERATIVE_AI_API_KEY`) so OpenCode connection detection and the upstream AI SDK agree on the same key names. Canonical implementation shared by web lifecycle and the VS Code managed spawn path (`packages/vscode/src/provider-env-aliases.ts` re-exports this module).
 - `packages/web/server/lib/opencode/env-runtime.js`: OpenCode CLI/binary resolution and shell environment runtime.
@@ -150,13 +150,14 @@ with the same loader strategy as `credential-db.js` — `node:sqlite` on Node,
 and logs one line; there is no HTTP route and no UI.
 
 What it does: when the migration row says `completed` and some `session` rows
-have no `session_v2` twin AND were created after the migration completed
-(`time_created` past the row's `time_updated`), it sets the row to
-`{"phase":"sessions","cursor":…}`. The time test matters because a v2 delete
-leaves the legacy row behind (`Session.remove` publishes `session.deleted`,
-`bus.remove` then wipes that session's durable events, `session_v2` cascades):
-a legacy session the migration already walked and that is absent now was
-deleted, not missed, and is never re-imported.
+have no `session_v2` twin AND were changed by 1.x after the last completed
+import (`session.time_updated` past the row's `time_updated`, which OpenCode
+stamps on completion), it sets the row to `{"phase":"sessions","cursor":…}`.
+The time test matters because a v2 delete leaves the legacy row behind
+(`Session.remove` publishes `session.deleted`, `bus.remove` then wipes that
+session's durable events, `session_v2` cascades), and only OpenCode 1.x writes
+the legacy table: when nobody ran 1.x since the last import, nothing qualifies
+and the top-up skips, so sessions deleted in v2 stay deleted.
 The cursor is the largest missing id plus `U+FFFF`, because OpenCode's loop
 walks `id < cursor` in descending id order and ids are fixed width, so nothing
 real can fall between an id and that cursor. Ids are compared the way SQLite
@@ -165,7 +166,7 @@ encode time descending in a field that wraps, so id order is **not** time
 order — an August session can sort far below a newer one, and the code never
 assumes otherwise.
 
-Two hard rules, both verified against v2.0.8
+Hard rules, verified against v2.0.8 (the completion stamp against v2.0.16)
 `packages/core/src/database/v1-migration.bun.ts`:
 
 - **Never clear or delete the `migration.v1-v2` row.** With no row at all
@@ -180,11 +181,10 @@ Two hard rules, both verified against v2.0.8
   `compaction`). Any hit and nothing is written: the outcome is `unsafe`
   (`revisited-sessions-have-v2-activity`) and a single warning names how many
   sessions stay missing.
-- **Never resurrect a session deleted in v2.** OpenCode's loop walks every
-  legacy row under the cursor, so a deleted session sorting below a
-  never-imported one would come back. The top-up refuses that too
-  (`unsafe`, `deleted-sessions-would-return`); the never-imported sessions
-  then stay missing until upstream offers an import route.
+- **Only 1.x activity triggers an import** (maintainer, 2026-09-24). When 1.x
+  was used again, OpenCode's loop still walks every legacy row under the
+  cursor, so a deleted session sorting below a fresh one comes back with it;
+  avoiding that needs an upstream import route that takes explicit ids.
 
 ## Public exports (providers.js)
 - `getProviderSources(providerId, workingDirectory)`: Resolves which OpenCode config layers define a provider.
