@@ -162,6 +162,7 @@ export function deleteMcpEntry(config: Record<string, unknown>, name: string): b
 export function toProviderPackage(value: unknown): string | undefined;
 export function toNpmPackage(value: unknown): string | undefined;
 export function toProviderEntity(raw: unknown): ProviderEntity;
+export function readStoredProviderEntry(configs: unknown[], providerId: string): ProviderEntity | null;
 
 export function toPluginEntity(raw: unknown): PluginEntity | null;
 export function fromPluginEntity(entity: unknown): string | PluginEntity | null;
