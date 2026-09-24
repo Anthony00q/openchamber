@@ -156,6 +156,13 @@
         "@openchamber/sdk": "workspace:*",
       },
     },
+    "packages/sdk/examples/git-graph-status": {
+      "name": "@openchamber/example-git-graph-status",
+      "version": "1.0.0",
+      "dependencies": {
+        "@openchamber/sdk": "workspace:*",
+      },
+    },
     "packages/sdk/examples/github-token": {
       "name": "@openchamber/example-github-token",
       "version": "1.1.0",
@@ -1081,6 +1088,8 @@
     "@openchamber/example-browser-provider-stub": ["@openchamber/example-browser-provider-stub@workspace:packages/sdk/examples/browser-provider-stub"],
 
     "@openchamber/example-config-editor": ["@openchamber/example-config-editor@workspace:packages/sdk/examples/config-editor"],
+
+    "@openchamber/example-git-graph-status": ["@openchamber/example-git-graph-status@workspace:packages/sdk/examples/git-graph-status"],
 
     "@openchamber/example-github-token": ["@openchamber/example-github-token@workspace:packages/sdk/examples/github-token"],
 

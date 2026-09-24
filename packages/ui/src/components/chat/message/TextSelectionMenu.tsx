@@ -25,6 +25,7 @@ import { rangeToMarkdown, trimSelectionValue, wrapMarkdownSelectionForChat } fro
 import { focusChatInput } from '@/components/chat/composer/editor/dom';
 import { registerActiveSelectionToolbar } from '@/lib/addSelectionToChat';
 import { collectSelectionOverlayRects } from '@/lib/selectionOverlayRects';
+import { captureChatQuoteAnchor, type ChatQuoteAnchor } from '@/lib/chatQuoteAnchor';
 import {
   DESKTOP_MENU_FALLBACK_HEIGHT_PX,
   DESKTOP_MENU_FALLBACK_WIDTH_PX,
@@ -62,6 +63,7 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
   const [selectedText, setSelectedText] = React.useState('');
   const [selectedTextMarkdown, setSelectedTextMarkdown] = React.useState('');
   const [selectedMessageId, setSelectedMessageId] = React.useState<string | null>(null);
+  const [selectedAnchor, setSelectedAnchor] = React.useState<ChatQuoteAnchor | null>(null);
   const [commentMode, setCommentMode] = React.useState(false);
   const commentModeRef = React.useRef(false);
   const [commentText, setCommentText] = React.useState('');
@@ -175,6 +177,7 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
     setSelectedText('');
     setSelectedTextMarkdown('');
     setSelectedMessageId(null);
+    setSelectedAnchor(null);
     setCommentMode(false);
     commentModeRef.current = false;
     setCommentText('');
@@ -463,8 +466,17 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
     });
   }, [currentSessionId, hideMenu, requestBtwComposer, selectedTextMarkdown]);
 
+  // Taken once the user commits to commenting, not on every selectionchange:
+  // it reads the whole message text.
+  const captureCommentAnchor = React.useCallback((): ChatQuoteAnchor | null => {
+    const container = containerRef.current;
+    const range = pendingSelectionRef.current?.range;
+    return container && range ? captureChatQuoteAnchor(container, range) : null;
+  }, [containerRef]);
+
   const handleOpenComment = React.useCallback(() => {
     if (!selectedTextMarkdown) return;
+    setSelectedAnchor(captureCommentAnchor());
     setCommentMode(true);
     commentModeRef.current = true;
     updateCommentRects();
@@ -472,7 +484,7 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
     queueMicrotask(() => {
       commentInputRef.current?.focus();
     });
-  }, [selectedTextMarkdown, updateCommentRects]);
+  }, [captureCommentAnchor, selectedTextMarkdown, updateCommentRects]);
 
   // Mobile: no floating input here. The quote is handed to this column's
   // composer, which swaps its input for the comment shell. The scope is
@@ -492,6 +504,7 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
       plainText: selectedText,
       markdownText: selectedTextMarkdown,
       messageId: selectedMessageId,
+      anchor: captureCommentAnchor(),
     };
     setCommentMode(true);
     commentModeRef.current = true;
@@ -503,7 +516,7 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
     if (!opened) {
       hideMenu();
     }
-  }, [hideMenu, mobileCommentController, selectedMessageId, selectedText, selectedTextMarkdown, updateCommentRects]);
+  }, [captureCommentAnchor, hideMenu, mobileCommentController, selectedMessageId, selectedText, selectedTextMarkdown, updateCommentRects]);
 
   const handleAttachComment = React.useCallback(() => {
     const sessionKey = currentSessionId ?? (newSessionDraftOpen ? 'draft' : null);
@@ -519,6 +532,7 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
       code: selectedTextMarkdown,
       language: '',
       text: commentText.trim(),
+      anchor: selectedAnchor ?? undefined,
     });
     if (!draftId) {
       toast.error(t('chat.textSelection.comment.attachFailed'));
@@ -528,7 +542,7 @@ export const TextSelectionMenu: React.FC<TextSelectionMenuProps> = ({ containerR
     queueMicrotask(() => {
       focusChatInput();
     });
-  }, [addContextDraft, commentText, currentSessionId, effectiveDirectory, hideMenu, newSessionDraftOpen, selectedMessageId, selectedTextMarkdown, t]);
+  }, [addContextDraft, commentText, currentSessionId, effectiveDirectory, hideMenu, newSessionDraftOpen, selectedAnchor, selectedMessageId, selectedTextMarkdown, t]);
 
   const currentSession = React.useMemo(() => {
     if (!currentSessionId) {
