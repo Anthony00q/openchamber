@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { z } from 'zod';
 import type { UpdateInfo, UpdateProgress } from '@/lib/desktop';
 import { getDeviceInfo } from '@/lib/device';
 import { useUIStore } from './useUIStore';
@@ -148,6 +149,7 @@ function parseUpdateCheckResponse(data: {
   nextSuggestedCheckInSec?: number;
   packageManager?: string;
   updateCommand?: string;
+  installBlocked?: string;
 }): UpdateInfo {
   return {
     available: data.available ?? false,
@@ -162,6 +164,7 @@ function parseUpdateCheckResponse(data: {
         : undefined,
     packageManager: data.packageManager,
     updateCommand: data.updateCommand,
+    installBlocked: data.installBlocked === 'service-manager' ? 'service-manager' : undefined,
   };
 }
 
@@ -191,6 +194,8 @@ async function checkForWebUpdates(runtime: ClientRuntime, currentVersion?: strin
   }
 }
 
+const updateCheckFailure = z.object({ error: z.string().trim().min(1) });
+
 /**
  * Checks the OpenChamber server the native app is connected to, not the app
  * itself. The shared store's `mobile` check is about the app build (store or
@@ -208,10 +213,14 @@ export async function checkConnectedServerForUpdates(): Promise<UpdateInfo> {
     method: 'GET',
     headers: { Accept: 'application/json' },
   });
+  const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    throw new Error(`Server responded with ${response.status}`);
+    // A desktop host that cannot update itself (for example a Linux build
+    // outside its AppImage) explains why in `error`; keep that reason.
+    const failure = updateCheckFailure.safeParse(payload);
+    throw new Error(failure.success ? failure.data.error : `Server responded with ${response.status}`);
   }
-  return parseUpdateCheckResponse(await response.json());
+  return parseUpdateCheckResponse(payload ?? {});
 }
 
 function detectRuntimeType(): 'desktop' | 'web' | 'vscode' | 'mobile' | null {
