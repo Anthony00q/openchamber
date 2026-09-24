@@ -1405,7 +1405,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.chatInput.toast.weighFailed': 'Nie udało się rozważyć opcji',
   'chat.chatInput.toast.exploreFailed': 'Nie udało się rozpocząć przeglądu',
   'chat.chatInput.toast.sendAttachmentsFailed': 'Nie udało się wysłać załączników. Spróbuj użyć mniejszej liczby plików lub mniejszych obrazów.',
-  'chat.chatInput.toast.skippedMissingAttachments': 'Pominięto załączniki dla brakujących plików, wysyłanie reszty: {names}',
   'chat.chatInput.toast.someFilesSkipped': 'Pominięto niektóre pliki:\n{summary}',
   'chat.chatInput.toast.summaryFailed': 'Nie udało się wygenerować podsumowania',
   'chat.messageBody.actions.sendReviewFeedback': 'Wyślij uwagi z przeglądu do agenta wdrażającego zmiany',

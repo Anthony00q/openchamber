@@ -1278,15 +1278,10 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
         // #3898: a queued message is delivered later without the composer, so
         // a phantom mention (`@masha.conner`) must be dropped now or the
         // delivery 400s.
-        const { sendable: mentionAttachments, skippedNames: skippedMentionNames } = await filterMissingInlineAttachments(
+        const { sendable: mentionAttachments } = await filterMissingInlineAttachments(
             extractedMentionAttachments,
             opencodeClient,
         );
-        if (skippedMentionNames.length > 0) {
-            toast.warning(t('chat.chatInput.toast.skippedMissingAttachments', {
-                names: skippedMentionNames.join(', '),
-            }));
-        }
         const availableSkillNames = new Set(
             selectSkillsForDirectory(useSkillsStore.getState(), currentDirectory).map((skill) => skill.name),
         );
@@ -1878,19 +1873,14 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
 
         // #3898: inline @-mentions resolve to server paths without checking
         // the file exists, and OpenCode 400s the whole prompt on a missing
-        // file. Drop the unresolvable ones with a warning and submit the rest;
+        // file. Silently drop the unresolvable ones and submit the rest;
         // the prompt text itself is untouched. Filtered once here so every
         // send path below (magic-prompt, btw fork, optimistic row, main send)
         // carries the same list.
-        const { sendable: sendableAttachments, skippedNames: skippedAttachmentNames } = await filterMissingInlineAttachments(
+        const { sendable: sendableAttachments } = await filterMissingInlineAttachments(
             primaryAttachments,
             opencodeClient,
         );
-        if (skippedAttachmentNames.length > 0) {
-            toast.warning(t('chat.chatInput.toast.skippedMissingAttachments', {
-                names: skippedAttachmentNames.join(', '),
-            }));
-        }
 
         // Clear input (the queue was taken above)
         if (!queuedOnly) {
