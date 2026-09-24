@@ -299,6 +299,7 @@ export const SETTINGS_REGISTRY = {
   // must not flip the desktop sidebar (and vice versa).
   sidebarViewMode: field({ scope: 'profile', perSurface: true, parse: parseOneOf(['projects', 'timeline']), ui: sessionDisplayField('sidebarViewMode') }),
   sidebarProjectSortOrder: field({ scope: 'profile', parse: parseOneOf(['manual', 'a-z', 'z-a', 'date-added', 'recent']), ui: sessionDisplayField('projectSortOrder') }),
+  sidebarWorktreeSortOrder: field({ scope: 'profile', parse: parseOneOf(['recent', 'manual', 'a-z']), ui: sessionDisplayField('worktreeSortOrder') }),
   sidebarShowRecentSection: field({ scope: 'profile', parse: parseBoolean, ui: sessionDisplayField('showRecentSection') }),
 
   // ── Work status ──

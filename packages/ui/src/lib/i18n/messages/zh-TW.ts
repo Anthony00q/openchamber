@@ -509,6 +509,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.header.actions.exitSelection': '退出選取',
   'sessions.sidebar.header.actions.selectSessions': '選擇會話',
   'sessions.sidebar.header.actions.sortProjects': '排序專案',
+  'sessions.sidebar.header.actions.sortWorktrees': '排序工作樹',
+  'sessions.sidebar.header.worktreeSort.recent': '最近活動',
   'sessions.sidebar.header.actions.sessionDisplayMode': '會話顯示模式',
   'sessions.sidebar.header.displayMode.label': '顯示模式',
   'sessions.sidebar.header.displayMode.default': '預設',

@@ -496,6 +496,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.header.actions.exitSelection': '선택 종료',
   'sessions.sidebar.header.actions.selectSessions': '세션 선택',
   'sessions.sidebar.header.actions.sortProjects': '프로젝트 정렬',
+  'sessions.sidebar.header.actions.sortWorktrees': '워크트리 정렬',
+  'sessions.sidebar.header.worktreeSort.recent': '최근 활동',
   'sessions.sidebar.header.actions.sessionDisplayMode': '세션 표시 모드',
   'sessions.sidebar.header.displayMode.label': '표시 모드',
   'sessions.sidebar.header.displayMode.default': '기본값',

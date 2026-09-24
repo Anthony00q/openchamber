@@ -496,6 +496,8 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.header.actions.exitSelection": "Вийти з вибору",
   "sessions.sidebar.header.actions.selectSessions": "Вибрати сесії",
   "sessions.sidebar.header.actions.sortProjects": "Сортувати проєкти",
+  "sessions.sidebar.header.actions.sortWorktrees": "Сортувати worktree",
+  "sessions.sidebar.header.worktreeSort.recent": "Остання активність",
   "sessions.sidebar.header.actions.sessionDisplayMode": "Режим відображення сесії",
   "sessions.sidebar.header.displayMode.label": "Режим відображення",
   "sessions.sidebar.header.displayMode.default": "За замовчуванням",

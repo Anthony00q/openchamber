@@ -482,6 +482,8 @@ export const dict = {
   'sessions.sidebar.header.actions.exitSelection': 'Seçimden çık',
   'sessions.sidebar.header.actions.selectSessions': 'Session\'ları seç',
   'sessions.sidebar.header.actions.sortProjects': 'Projeleri sırala',
+  'sessions.sidebar.header.actions.sortWorktrees': "Worktree'leri sırala",
+  'sessions.sidebar.header.worktreeSort.recent': 'Son etkinlik',
   'sessions.sidebar.header.actions.sessionDisplayMode': 'Session görüntüleme modu',
   'sessions.sidebar.header.displayMode.label': 'Görüntüleme modu',
   'sessions.sidebar.header.displayMode.default': 'Varsayılan',

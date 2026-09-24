@@ -495,6 +495,8 @@ export const dict = {
   'sessions.sidebar.header.actions.exitSelection': 'Exit selection',
   'sessions.sidebar.header.actions.selectSessions': 'Select sessions',
   'sessions.sidebar.header.actions.sortProjects': 'Sort projects',
+  'sessions.sidebar.header.actions.sortWorktrees': 'Sort worktrees',
+  'sessions.sidebar.header.worktreeSort.recent': 'Recent activity',
   'sessions.sidebar.header.actions.sessionDisplayMode': 'Session display mode',
   'sessions.sidebar.header.displayMode.label': 'Display mode',
   'sessions.sidebar.header.displayMode.default': 'Default',

@@ -453,6 +453,8 @@ export const dict = {
   'sessions.sidebar.header.actions.exitSelection': 'Auswahl beenden',
   'sessions.sidebar.header.actions.selectSessions': 'Sitzungen auswählen',
   'sessions.sidebar.header.actions.sortProjects': 'Projekte sortieren',
+  'sessions.sidebar.header.actions.sortWorktrees': 'Worktrees sortieren',
+  'sessions.sidebar.header.worktreeSort.recent': 'Letzte Aktivität',
   'sessions.sidebar.header.actions.sessionDisplayMode': 'Sitzungs-Anzeigemodus',
   'sessions.sidebar.header.displayMode.label': 'Anzeigemodus',
   'sessions.sidebar.header.displayMode.default': 'Standard',

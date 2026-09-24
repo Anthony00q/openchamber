@@ -306,6 +306,8 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.header.actions.exitSelection': 'Wyjdź z zaznaczenia',
   'sessions.sidebar.header.actions.selectSessions': 'Wybierz sesje',
   'sessions.sidebar.header.actions.sortProjects': 'Sortuj projekty',
+  'sessions.sidebar.header.actions.sortWorktrees': 'Sortuj worktree',
+  'sessions.sidebar.header.worktreeSort.recent': 'Ostatnia aktywność',
   'sessions.sidebar.header.actions.sessionDisplayMode': 'Tryb wyświetlania sesji',
   'sessions.sidebar.header.displayMode.label': 'Tryb wyświetlania',
   'sessions.sidebar.header.displayMode.default': 'Domyślny',
