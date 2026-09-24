@@ -668,6 +668,28 @@ function toProviderEntity(raw) {
   ]);
 }
 
+/**
+ * The provider entry an editor should start from: the winning config layer's
+ * stored entry (layers passed highest precedence first) in v2 shape, without
+ * the literal `settings.apiKey` secret. Returns null when no layer defines it.
+ * Unlike the live provider OpenCode serves, this carries `env` and only the
+ * reasoning levels the user wrote.
+ */
+function readStoredProviderEntry(configs, providerId) {
+  for (const config of configs) {
+    const { value } = readSectionEntry(config, 'providers', providerId);
+    if (value === undefined) continue;
+    const entity = toProviderEntity(value);
+    if (entity.settings && 'apiKey' in entity.settings) {
+      const { apiKey: _secret, ...settings } = entity.settings;
+      if (Object.keys(settings).length) entity.settings = settings;
+      else delete entity.settings;
+    }
+    return entity;
+  }
+  return null;
+}
+
 // ============== PLUGINS ==============
 
 const PLUGIN_SECTION = { v2: 'plugins', v1: 'plugin' };
@@ -810,6 +832,7 @@ export {
   toProviderPackage,
   toNpmPackage,
   toProviderEntity,
+  readStoredProviderEntry,
   toPluginEntity,
   fromPluginEntity,
   readPluginList,

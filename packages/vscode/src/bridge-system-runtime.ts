@@ -3,7 +3,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
-import { getProviderSources, upsertProviderConfig } from './opencodeConfig';
+import { getProviderSources, getStoredProviderConfig, upsertProviderConfig } from './opencodeConfig';
 import { getProviderAuth } from './opencodeAuth';
 import { OpenCode } from '@opencode/client';
 import { asSessionId, asSessionIdList, asSessionMetadata, asTimestamp, parseJson, type JsonValue, type SessionMetadataOnOpenCode, type SessionStateStore } from './openchamberSessionState';
@@ -431,7 +431,8 @@ export async function handleSystemBridgeMessage(
         const sources = getProviderSources(providerId, workingDirectory);
         const auth = getProviderAuth(providerId);
         sources.auth.exists = Boolean(auth);
-        return { id, type, success: true, data: { providerId, sources } };
+        const config = getStoredProviderConfig(providerId, workingDirectory);
+        return { id, type, success: true, data: { providerId, sources, config } };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         return { id, type, success: false, error: errorMessage };

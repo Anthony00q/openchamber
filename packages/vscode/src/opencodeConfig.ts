@@ -13,6 +13,7 @@ import {
   isLegacyCommandFrontmatter,
   toMcpEntity,
   toProviderEntity,
+  readStoredProviderEntry,
   toProviderPackage,
   toNpmPackage,
   toPluginEntity,
@@ -2159,6 +2160,12 @@ export const getProviderSources = (providerId: string, workingDirectory?: string
     project: { exists: providerExistsIn(layers.projectConfig, providerId), path: layers.paths.projectPath ?? null },
     custom: { exists: providerExistsIn(layers.customConfig, providerId), path: layers.paths.customPath },
   };
+};
+
+/** The stored entry the edit form starts from; custom > project > user, like the edit scope. */
+export const getStoredProviderConfig = (providerId: string, workingDirectory?: string) => {
+  const layers = readConfigLayers(workingDirectory);
+  return readStoredProviderEntry([layers.customConfig, layers.projectConfig, layers.userConfig], providerId);
 };
 
 export const removeProviderConfig = (providerId: string, workingDirectory?: string, scope: 'user' | 'project' | 'custom' = 'user') => {

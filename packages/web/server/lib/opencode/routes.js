@@ -287,6 +287,7 @@ export const registerOpenCodeRoutes = (app, dependencies) => {
       return res.json({
         providerId,
         sources: sources.sources,
+        config: sources.config,
       });
     } catch (error) {
       console.error('Failed to get provider sources:', error);
