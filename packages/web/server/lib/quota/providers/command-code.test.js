@@ -95,6 +95,19 @@ describe('Command Code quota provider', () => {
     }
   });
 
+  it('resolves every logo-fallback id spelling', async () => {
+    for (const id of ['command-code', 'commandcode', 'command_code', 'command code']) {
+      expect(isConfigured({ [id]: { key: 'test-token' } })).toBe(true);
+      const result = await fetchQuota({ readAuth: () => ({ [id]: { key: 'test-token' } }), fetchImpl: fetchSequence([
+        ['/alpha/whoami', Response.json(personalWhoami)],
+        ['/alpha/billing/credits', Response.json(creditsPayload)],
+        ['/alpha/billing/subscriptions', Response.json({})]
+      ]) });
+      expect(result.ok).toBe(true);
+      expect(result.providerId).toBe('command-code');
+    }
+  });
+
   it('stays successful with balance-only data when windows are absent (Provider plan)', async () => {
     const result = await fetchQuota({ readAuth, fetchImpl: fetchSequence([
       ['/alpha/whoami', Response.json(personalWhoami)],

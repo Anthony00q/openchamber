@@ -492,6 +492,22 @@ describe('Command Code quota provider (VS Code parity)', () => {
     assert.ok(!(requested.find((url) => url.includes('/alpha/billing/credits')) ?? '').includes('orgId'));
   });
 
+  test('resolves every logo-fallback id spelling', async () => {
+    const readAuthFor = (id: string) => () => ({ [id]: { key: 'test-token' } });
+    for (const id of ['command-code', 'commandcode', 'command_code', 'command code']) {
+      const result = await fetchCommandCodeQuota({
+        readAuth: readAuthFor(id),
+        fetchImpl: routeFetch([
+          ['/alpha/whoami', Response.json(personalWhoami)],
+          ['/alpha/billing/credits', Response.json(creditsPayload)],
+          ['/alpha/billing/subscriptions', Response.json({})],
+        ]),
+      });
+      assert.equal(result.ok, true, id);
+      assert.equal(result.providerId, 'command-code', id);
+    }
+  });
+
   test('dispatches through the generic quota API', async () => {
     const fsMock = fs as unknown as { readFileSync: unknown };
     const previous = fsMock.readFileSync;

@@ -299,6 +299,25 @@ const getAuthEntry = (auth: AuthFile, aliases: string[]) => {
   return null;
 };
 
+// Matches the model-picker logo fallback (`command-code`, `commandcode`,
+// `command_code`, `command code`): quota resolves the same spellings so the
+// tile and the logo never disagree about what counts as Command Code.
+const COMMAND_CODE_AUTH_ALIASES = ['command-code', 'commandcode', 'command_code', 'command code'] as const;
+
+const normalizeCommandCodeId = (value: unknown): string | null => {
+  const normalized = asNonEmptyString(value)?.toLowerCase();
+  if (!normalized) return null;
+  if ((COMMAND_CODE_AUTH_ALIASES as readonly string[]).includes(normalized)) return 'command-code';
+  return null;
+};
+
+const getCommandCodeAuth = (auth: AuthFile) => {
+  for (const [id, entry] of Object.entries(auth)) {
+    if (normalizeCommandCodeId(id)) return entry;
+  }
+  return null;
+};
+
 const normalizeAuthEntry = (entry: AuthEntry | null) => {
   if (!entry) return null;
   if (typeof entry === 'string') {
@@ -836,7 +855,7 @@ export const listConfiguredQuotaProviders = () => {
     configured.add('deepseek');
   }
 
-  const commandCodeAuth = normalizeAuthEntry(getAuthEntry(auth, ['command-code', 'commandcode'])) as Record<string, unknown> | null;
+  const commandCodeAuth = normalizeAuthEntry(getCommandCodeAuth(auth)) as Record<string, unknown> | null;
   if (commandCodeAuth && (
     asNonEmptyString(commandCodeAuth.access) || asNonEmptyString(commandCodeAuth.key) || asNonEmptyString(commandCodeAuth.token)
     || asNonEmptyString((globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process?.env?.COMMAND_CODE_API_KEY)
@@ -2923,16 +2942,15 @@ type CommandCodeQuotaDependencies = {
 
 // Parse at the I/O boundary: raw JSON becomes a flat string|number record, so
 // downstream code branches on domain values instead of unknown shapes.
-const flattenJsonRecord = (payload: { [key: string]: unknown }, keys: string[]): Record<string, string | number | null> => {
-  const record: Record<string, string | number | null> = {};
+type CommandCodeScalarRecord = Record<string, string | number | null>;
+const flattenJsonRecord = (payload: { [key: string]: unknown }): CommandCodeScalarRecord => {
+  const record: CommandCodeScalarRecord = {};
   for (const [key, value] of Object.entries(payload)) {
-    // SAFETY: JSON payloads only carry string/number/boolean/null scalars at
-    // the leaves; nested objects are skipped and re-flattened by the caller.
-    const scalar = value as string | number | boolean | null;
-    if (typeof scalar === 'string' || typeof scalar === 'number') record[key] = scalar;
-    else if (scalar === null) record[key] = null;
+    // SAFETY: only JSON scalar leaves are kept; nested objects are skipped
+    // and re-flattened by the caller, arrays and booleans are dropped.
+    if (typeof value === 'string' || typeof value === 'number') record[key] = value;
+    else if (value === null) record[key] = null;
   }
-  void keys;
   return record;
 };
 
@@ -2942,7 +2960,7 @@ const flattenJsonRecord = (payload: { [key: string]: unknown }, keys: string[]):
 // guessed at.
 const parseCommandCodeServerWindow = (payload: { [key: string]: unknown } | null): { usedPercent: number; resetAt: number | null } | null => {
   if (!payload) return null;
-  const record = flattenJsonRecord(payload, []);
+  const record = flattenJsonRecord(payload);
   const entry: CommandCodeServerWindow = {
     used: pickField(record, ['used', 'usage', 'usedCredits', 'used_credits']),
     limit: pickField(record, ['cap', 'limit', 'capCredits', 'cap_credits']),
@@ -2957,10 +2975,16 @@ const parseCommandCodeServerWindow = (payload: { [key: string]: unknown } | null
   };
 };
 
+type CommandCodeJsonObject = { [key: string]: unknown };
 type CommandCodeJsonResponse = {
   status?: number;
-  payload: { [key: string]: unknown } | null;
+  payload: CommandCodeJsonObject | null;
 };
+
+const parseCommandCodeJsonBody = (body: unknown): CommandCodeJsonObject | null =>
+  body !== null && typeof body === 'object' && !Array.isArray(body)
+    ? body as CommandCodeJsonObject
+    : null;
 
 const requestCommandCodeJson = async (
   fetchImpl: (url: string, options: RequestInit) => Promise<Response>,
@@ -2978,15 +3002,15 @@ const requestCommandCodeJson = async (
     signal,
   });
   if (!response.ok) return { status: response.status, payload: null };
-  // SAFETY: upstream returns a JSON object on 2xx; non-object payloads are
-  // rejected by the asObject guard at each call site.
-  const body = await response.json() as { [key: string]: unknown };
+  // Non-object 2xx payloads are rejected here; every call site receives an
+  // object or null, never raw unknown JSON.
+  const body = parseCommandCodeJsonBody(await response.json());
   return { payload: body };
 };
 
 export const fetchCommandCodeQuota = async ({ readAuth = readAuthFile, fetchImpl = fetch }: CommandCodeQuotaDependencies = {}): Promise<ProviderResult> => {
   const auth = readAuth();
-  const entry = normalizeAuthEntry(getAuthEntry(auth, ['command-code', 'commandcode'])) as Record<string, unknown> | null;
+  const entry = normalizeAuthEntry(getCommandCodeAuth(auth)) as Record<string, unknown> | null;
   const apiKey = asNonEmptyString(entry?.access)
     ?? asNonEmptyString(entry?.key)
     ?? asNonEmptyString(entry?.token)
@@ -3005,27 +3029,24 @@ export const fetchCommandCodeQuota = async ({ readAuth = readAuthFile, fetchImpl
   const timeoutSignal = AbortSignal.timeout(15_000);
 
   // Unwrap one level of server envelope: payloads arrive flat or under `data`.
-  const unwrapEnvelope = (payload: { [key: string]: unknown }): { [key: string]: unknown } => {
+  // The guards below are the module's only narrowing for these payloads.
+  const isPlainJsonObject = (value: unknown): value is CommandCodeJsonObject =>
+    value !== null && typeof value === 'object' && !Array.isArray(value);
+  const unwrapEnvelope = (payload: CommandCodeJsonObject): CommandCodeJsonObject => {
     const nested = payload.data;
-    // SAFETY: only plain JSON objects are unwrapped; arrays and scalars stay.
-    if (nested !== null && typeof nested === 'object' && !Array.isArray(nested)) {
-      return nested as { [key: string]: unknown };
-    }
-    return payload;
+    return isPlainJsonObject(nested) ? nested : payload;
   };
-  const pickFirst = (payload: { [key: string]: unknown } | null, keys: string[]): { [key: string]: unknown } | null => {
+  const pickFirst = (payload: CommandCodeJsonObject | null, keys: string[]): CommandCodeJsonObject | null => {
     if (!payload) return null;
     for (const key of keys) {
       const value = payload[key];
-      // SAFETY: quota payloads nest one level deep; deeper shapes are skipped
+      // Quota payloads nest one level deep; deeper shapes are skipped
       // rather than traversed blindly.
-      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-        return value as { [key: string]: unknown };
-      }
+      if (isPlainJsonObject(value)) return value;
     }
     return null;
   };
-  const pickScalar = (payload: { [key: string]: unknown } | null, keys: string[]): string | number | null => {
+  const pickScalar = (payload: CommandCodeJsonObject | null, keys: string[]): string | number | null => {
     if (!payload) return null;
     for (const key of keys) {
       const value = payload[key];

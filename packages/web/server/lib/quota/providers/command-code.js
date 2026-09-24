@@ -13,9 +13,9 @@ import {
 
 export const providerId = 'command-code';
 export const providerName = 'Command Code';
-// Both spellings exist in the wild: OpenCode plugins register either
-// `command-code` or `commandcode` in auth.json.
-export const aliases = ['command-code', 'commandcode'];
+// Spellings recognized by the model-picker logo fallback: quota resolves the
+// same ids so the tile and the logo never disagree about Command Code.
+export const aliases = ['command-code', 'commandcode', 'command_code', 'command code'];
 const COMMAND_CODE_API_BASE = 'https://api.commandcode.ai';
 const FIVE_HOUR_SECONDS = 5 * 60 * 60;
 const WEEK_SECONDS = 7 * 24 * 60 * 60;
