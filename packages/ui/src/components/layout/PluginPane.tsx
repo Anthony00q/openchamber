@@ -49,6 +49,7 @@ import { useGuestFrameUrl } from '@/lib/guests/useGuestFrameUrl';
 import { useGuestItemStore } from '@/lib/guests/item-store';
 import { fetchHostLinearIssueGet } from '@/lib/guests/host-linear-request';
 import { loadGuestServiceStatus, proxyGuestServiceRequest } from '@/lib/guests/service';
+import { getSurfaceViewerId } from '@/lib/guests/surface-viewers';
 import {
   AUTHORIZATION_POLL_MS,
   AUTHORIZATION_WATCH_MS,
@@ -542,7 +543,7 @@ export const PluginPane: React.FC<PluginPaneProps> = ({
               message: 'This extension is disabled in Settings → Extensions.',
             });
           }
-          return proxyGuestServiceRequest(guestIdRef.current, request);
+          return proxyGuestServiceRequest(guestIdRef.current, request, getSurfaceViewerId(guestIdRef.current));
         },
         serviceStatus: () => loadGuestServiceStatus(guestIdRef.current),
         file: (request) => {

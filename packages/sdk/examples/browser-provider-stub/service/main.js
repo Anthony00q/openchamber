@@ -230,10 +230,13 @@ var readSurfaceControlNotice = (body) => {
   }
   if (Object(parsed) !== parsed || parsed === null)
     return null;
-  const { controller } = parsed;
+  const { controller, viewer } = parsed;
   if (!isText(controller) || !CONTROLLERS.has(controller))
     return null;
-  return { controller };
+  const notice = { controller };
+  if (controller === "user" && isText(viewer) && viewer.length > 0)
+    notice.viewer = viewer;
+  return notice;
 };
 var readSurfaceResizeRequest = (body) => {
   let parsed;
