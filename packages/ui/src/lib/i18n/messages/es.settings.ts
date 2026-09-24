@@ -583,6 +583,7 @@ export const settingsDict = {
   "settings.agents.page.field.agentNamePlaceholder": "nombre-agente",
   "settings.agents.page.field.scopePlaceholder": "Ámbito",
   "settings.agents.page.field.descriptionPlaceholder": "¿Qué hace este agente?",
+  "settings.agents.page.runtimeProvided.note": "Proporcionado por OpenCode o un plugin, sin archivo de configuración propio. Las pistas en gris muestran sus valores actuales; lo que escribas se guarda como una anulación.",
   "settings.agents.page.field.mode": "Modo",
   "settings.agents.page.field.modeTooltip": "Visibilidad principal vs subagente",
   "settings.agents.page.field.overrideModel": "Sobrescribir modelo",

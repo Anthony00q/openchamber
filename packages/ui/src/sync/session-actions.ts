@@ -2345,7 +2345,7 @@ function openForkedSession(store: DirectoryStoreApi, forkedSession: Session, dir
  * is the first user message after it; with none, the whole transcript is copied.
  * The composer stays empty since there is no prompt to rewrite.
  */
-export async function forkAfterMessage(sessionId: string, messageId: string): Promise<void> {
+export async function forkAfterMessage(sessionId: string, messageId: string): Promise<Session | null> {
   const expectedRuntimeKey = getRuntimeKey()
   const { store, directory } = dirStoreForSession(sessionId)
   const messages = store.getState().message[sessionId] ?? []
@@ -2354,8 +2354,54 @@ export async function forkAfterMessage(sessionId: string, messageId: string): Pr
   const nextUserMessage = messages.slice(index + 1).find((message) => message.role === "user")
 
   const forkedSession = await opencodeClient.forkSession(sessionId, { before: nextUserMessage?.id, directory })
-  if (isStaleRuntime(expectedRuntimeKey)) return
+  if (isStaleRuntime(expectedRuntimeKey)) return null
   openForkedSession(store, forkedSession, resolveSessionOwnedDirectory(forkedSession) ?? directory)
+  return forkedSession
+}
+
+/**
+ * The last assistant message of the last finished turn, or null when there is
+ * none. While a turn runs, everything from its prompt (the last user message)
+ * on is excluded: a step inside it can already carry `time.completed` while the
+ * turn keeps going, so only turns before it count as stable.
+ */
+export function findLastCompletedTurnMessageId(messages: readonly Message[], turnRunning: boolean): string | null {
+  let end = messages.length
+  if (turnRunning) {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index].role === "user") {
+        end = index
+        break
+      }
+    }
+  }
+  for (let index = end - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    if (message.role === "assistant" && message.time.completed !== undefined) return message.id
+  }
+  return null
+}
+
+/** The session has no finished turn yet, so a fork would copy nothing stable. */
+export class NothingToForkError extends Error {
+  constructor() {
+    super("No completed turn to fork from")
+    this.name = "NothingToForkError"
+  }
+}
+
+/**
+ * `/fork`: fork after the last finished turn and open the fork. A running turn
+ * in the source session is left alone and not copied.
+ */
+export async function forkFromLastCompletedTurn(sessionId: string): Promise<Session | null> {
+  const { store } = dirStoreForSession(sessionId)
+  const state = store.getState()
+  const status = state.session_status?.[sessionId]
+  const turnRunning = status !== undefined && status.type !== "idle"
+  const messageId = findLastCompletedTurnMessageId(state.message[sessionId] ?? [], turnRunning)
+  if (!messageId) throw new NothingToForkError()
+  return forkAfterMessage(sessionId, messageId)
 }
 
 /**

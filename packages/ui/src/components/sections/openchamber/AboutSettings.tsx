@@ -1,5 +1,7 @@
 import React from 'react';
-import { useUpdateStore } from '@/stores/useUpdateStore';
+import { checkConnectedServerForUpdates, useUpdateStore } from '@/stores/useUpdateStore';
+import type { UpdateInfo } from '@/lib/desktop';
+import { isCapacitorApp } from '@/lib/platform';
 import { useShallow } from 'zustand/react/shallow';
 import { UpdateDialog } from '@/components/ui/UpdateDialog';
 import { useDeviceInfo } from '@/lib/device';
@@ -21,6 +23,64 @@ const DISCORD_URL = 'https://discord.gg/ZYRSdnwwKA';
 const X_URL = 'https://x.com/openchamber_dev';
 
 const MIN_CHECKING_DURATION = 800; // ms
+
+type ConnectedServerUpdate = {
+  info: UpdateInfo | null;
+  checking: boolean;
+  available: boolean;
+  error: string | null;
+};
+
+const IDLE_SERVER_UPDATE: ConnectedServerUpdate = { info: null, checking: false, available: false, error: null };
+
+/**
+ * The native app's About page is about the server it is connected to. The
+ * shared update store checks the app build itself on Capacitor (store/APK),
+ * so the server check lives here, in page-local state, and installs through
+ * the server's own update route (the dialog's `web` flow).
+ */
+function useConnectedServerUpdate(enabled: boolean) {
+  const [state, setState] = React.useState<ConnectedServerUpdate>(IDLE_SERVER_UPDATE);
+
+  const check = React.useCallback(async () => {
+    if (!enabled) return;
+    setState((current) => ({ ...current, checking: true, error: null }));
+    try {
+      const info = await checkConnectedServerForUpdates();
+      setState({ info, checking: false, available: info.available, error: null });
+    } catch (error) {
+      setState({
+        info: null,
+        checking: false,
+        available: false,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [enabled]);
+
+  return { ...state, check };
+}
+
+/** Version of the installed native app build (Capacitor only). */
+function useNativeAppVersion(enabled: boolean): string | null {
+  const [version, setVersion] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    void import('@capacitor/app')
+      .then(({ App }) => App.getInfo())
+      .then((info) => {
+        if (!cancelled) setVersion(info.version.trim() || null);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+
+  return version;
+}
 
 type AboutSettingsProps = {
   initialUpdateDialogOpen?: boolean;
@@ -46,8 +106,30 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
     restartToUpdate: s.restartToUpdate,
   })));
   const { isMobile } = useDeviceInfo();
+  // Native app: updates target the connected server; the app itself updates
+  // through its store, which is not actionable from here.
+  const isNativeApp = React.useMemo(() => isCapacitorApp(), []);
+  const serverUpdate = useConnectedServerUpdate(isNativeApp);
+  const nativeAppVersion = useNativeAppVersion(isNativeApp);
+  const update = isNativeApp
+    ? {
+      info: serverUpdate.info,
+      checking: serverUpdate.checking,
+      available: serverUpdate.available,
+      error: serverUpdate.error,
+      checkForUpdates: serverUpdate.check,
+      runtimeType: 'web' as const,
+    }
+    : {
+      info: updateStore.info,
+      checking: updateStore.checking,
+      available: updateStore.available,
+      error: updateStore.error,
+      checkForUpdates: updateStore.checkForUpdates,
+      runtimeType: updateStore.runtimeType,
+    };
 
-  const currentVersion = openChamberVersion || updateStore.info?.currentVersion || 'unknown';
+  const currentVersion = openChamberVersion || update.info?.currentVersion || 'unknown';
 
   React.useEffect(() => {
     let cancelled = false;
@@ -108,23 +190,23 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
 
   // Ensure minimum visible duration for checking animation
   React.useEffect(() => {
-    if (updateStore.checking) {
+    if (update.checking) {
       setShowChecking(true);
       didInitiateCheck.current = true;
     } else if (showChecking) {
       const timer = setTimeout(() => {
         setShowChecking(false);
         // Show toast if check completed with no update available
-        if (didInitiateCheck.current && !updateStore.available && !updateStore.error) {
+        if (didInitiateCheck.current && !update.available && !update.error) {
           toast.success(t('settings.openchamber.about.toast.latestVersion'));
           didInitiateCheck.current = false;
         }
       }, MIN_CHECKING_DURATION);
       return () => clearTimeout(timer);
     }
-  }, [t, updateStore.checking, showChecking, updateStore.available, updateStore.error]);
+  }, [t, update.checking, showChecking, update.available, update.error]);
 
-  const isChecking = updateStore.checking || showChecking;
+  const isChecking = update.checking || showChecking;
 
   if (isMobile) {
     return (
@@ -135,17 +217,18 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
           <div className="mt-2 space-y-1 typography-ui text-muted-foreground">
             <p>{t('aboutDialog.openChamberVersionLabel', { version: currentVersion })}</p>
             <p>{t('aboutDialog.openCodeVersionLabel', { version: openCodeVersion || t('settings.openchamber.about.state.unknown') })}</p>
+            {nativeAppVersion && <p>{t('aboutDialog.appVersionLabel', { version: nativeAppVersion })}</p>}
           </div>
           <InstanceServiceUrls />
         </div>
 
         <div className="flex justify-center">
-          {!updateStore.available && !updateStore.error && (
+          {!update.available && !update.error && (
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => updateStore.checkForUpdates()}
+              onClick={() => update.checkForUpdates()}
               disabled={isChecking}
               className="h-10 w-auto justify-center gap-2 rounded-xl px-4"
             >
@@ -154,7 +237,7 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
             </Button>
           )}
 
-          {!isChecking && updateStore.available && (
+          {!isChecking && update.available && (
             <Button
               type="button"
               variant="default"
@@ -163,14 +246,14 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
               className="h-10 w-auto justify-center gap-2 rounded-xl px-4"
             >
               <Icon name="download" className="size-4" />
-              {t('settings.openchamber.about.actions.updateToVersion', { version: updateStore.info?.version || '' })}
+              {t('settings.openchamber.about.actions.updateToVersion', { version: update.info?.version || '' })}
             </Button>
           )}
         </div>
 
-        {updateStore.error && (
+        {update.error && (
           <p className="rounded-xl border border-[var(--status-error-border)] bg-[var(--status-error-background)] px-3 py-2 typography-meta text-[var(--status-error)]">
-            {updateStore.error}
+            {update.error}
           </p>
         )}
 
@@ -215,14 +298,14 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
         <UpdateDialog
           open={updateDialogOpen}
           onOpenChange={setUpdateDialogOpen}
-          info={updateStore.info}
+          info={update.info}
           downloading={updateStore.downloading}
           downloaded={updateStore.downloaded}
           progress={updateStore.progress}
-          error={updateStore.error}
+          error={update.error}
           onDownload={updateStore.downloadUpdate}
           onRestart={updateStore.restartToUpdate}
-          runtimeType={updateStore.runtimeType}
+          runtimeType={update.runtimeType}
         />
       </div>
     );
@@ -243,40 +326,40 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
           </div>
           
           <div className="flex items-center gap-3">
-            {updateStore.checking && (
+            {update.checking && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Icon name="loader" className="h-4 w-4 animate-spin" />
                 <span className="typography-meta">{t('settings.openchamber.about.state.checking')}</span>
               </div>
             )}
 
-            {!updateStore.checking && updateStore.available && (
+            {!update.checking && update.available && (
               <Button size="sm"
                 variant="default"
                 onClick={() => setUpdateDialogOpen(true)}
               >
                 <Icon name="download" className="h-4 w-4 mr-1" />
-                {t('settings.openchamber.about.actions.updateToVersion', { version: updateStore.info?.version || '' })}
+                {t('settings.openchamber.about.actions.updateToVersion', { version: update.info?.version || '' })}
               </Button>
             )}
 
-            {!updateStore.checking && !updateStore.available && !updateStore.error && (
+            {!update.checking && !update.available && !update.error && (
               <span className="typography-meta text-muted-foreground">{t('settings.openchamber.about.state.upToDate')}</span>
             )}
 
             <Button size="sm"
               variant="outline"
-              onClick={() => updateStore.checkForUpdates()}
-              disabled={updateStore.checking}
+              onClick={() => update.checkForUpdates()}
+              disabled={update.checking}
             >
               {t('settings.openchamber.about.actions.checkForUpdates')}
             </Button>
           </div>
         </div>
         
-        {updateStore.error && (
+        {update.error && (
           <div className="px-3 py-2 border-b border-border/40">
-            <p className="typography-meta text-[var(--status-error)]">{updateStore.error}</p>
+            <p className="typography-meta text-[var(--status-error)]">{update.error}</p>
           </div>
         )}
 
@@ -311,14 +394,14 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
       <UpdateDialog
         open={updateDialogOpen}
         onOpenChange={setUpdateDialogOpen}
-        info={updateStore.info}
+        info={update.info}
         downloading={updateStore.downloading}
         downloaded={updateStore.downloaded}
         progress={updateStore.progress}
-        error={updateStore.error}
+        error={update.error}
         onDownload={updateStore.downloadUpdate}
         onRestart={updateStore.restartToUpdate}
-        runtimeType={updateStore.runtimeType}
+        runtimeType={update.runtimeType}
       />
     </SettingsSection>
   );

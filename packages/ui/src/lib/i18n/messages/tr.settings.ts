@@ -611,6 +611,7 @@ export const settingsDict = {
   'settings.agents.page.field.agentNamePlaceholder': 'agent-name',
   'settings.agents.page.field.scopePlaceholder': 'Kapsam',
   'settings.agents.page.field.descriptionPlaceholder': 'Bu agent ne yapar?',
+  'settings.agents.page.runtimeProvided.note': 'OpenCode veya bir eklenti tarafından sağlanır ve kendi yapılandırma dosyası yoktur. Gri ipuçları mevcut değerleri gösterir; girdiğiniz her şey geçersiz kılma olarak kaydedilir.',
   'settings.agents.page.field.mode': 'Mod',
   'settings.agents.page.field.modeTooltip': 'Birincil ve alt agent görünürlüğü',
   'settings.agents.page.field.overrideModel': 'Modeli geçersiz kıl',

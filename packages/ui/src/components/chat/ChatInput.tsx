@@ -166,6 +166,7 @@ import {
     findMagicPromptCommand,
     planLocalSlashCommand,
 } from './composer/submit/slashCommands';
+import { runForkCommand } from './composer/submit/forkCommand';
 import { useAutocompletePosition } from './composer/state/useAutocompletePosition';
 import { useMessageHistory } from './composer/state/useMessageHistory';
 import { useComposerDraft } from './composer/state/useComposerDraft';
@@ -769,7 +770,7 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
     const availableSkills = useSkillsStore((s) => selectSkillsForDirectory(s, currentDirectory));
     const knownSlashNames = React.useMemo(() => {
         const names = new Set<string>([
-            'init', 'review', 'undo', 'redo', 'timeline', 'compact', 'btw', 'summary', 'workspace-review', 'plan-feature', 'craft-goal', 'schedule-task', 'catch-up', 'debug', 'weigh', 'explore',
+            'init', 'review', 'undo', 'redo', 'timeline', 'compact', 'fork', 'btw', 'summary', 'workspace-review', 'plan-feature', 'craft-goal', 'schedule-task', 'catch-up', 'debug', 'weigh', 'explore',
         ]);
         if (!isMobile && !isVSCodeRuntime()) names.add('handoff-review');
         for (const command of availableCommands) names.add(command.name.toLowerCase());
@@ -1672,6 +1673,33 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                     setTimelineDialogOpen(true);
                 } else if (actionName === 'handoff-review') {
                     setReviewDialogOpen(true);
+                } else if (actionName === 'fork') {
+                    const forkOutcome = await runForkCommand(currentSessionId, commandPlan.command.argument, {
+                        // The fork branches the main session, so it keeps that session's
+                        // selection even while the btw panel owns the composer.
+                        providerID: capturedSendConfig?.providerID ?? currentProviderId,
+                        modelID: capturedSendConfig?.modelID ?? currentModelId,
+                        agent: capturedSendConfig?.agent ?? currentAgentName,
+                        variant: capturedSendConfig?.variant ?? currentVariant ?? undefined,
+                    }, {
+                        fork: sessionActions.forkFromLastCompletedTurn,
+                        directoryFor: (session) => useSessionUIStore.getState().getDirectoryForSession(session.id) || session.directory || null,
+                        send: (text, selection, target) => useSessionUIStore.getState().sendMessage(
+                            text,
+                            selection.providerID,
+                            selection.modelID,
+                            selection.agent,
+                            undefined,
+                            undefined,
+                            undefined,
+                            selection.variant,
+                            'normal',
+                            target,
+                        ),
+                        draftIdentity: (directory, sessionId) => createChatDraftIdentity(getRuntimeKey(), directory, sessionId),
+                        restoreText: (target, text) => useInputStore.setState({ pendingComposerRestore: { target, text, files: [] } }),
+                    });
+                    if (forkOutcome === 'send-failed') toast.error(t('chat.chatInput.toast.forkSendFailed'));
                 } else if (actionName === 'compact') {
                     await sessionActions.waitForConnectionOrThrow();
                     const compactDirectory = useSessionUIStore.getState().getDirectoryForSession(currentSessionId) || currentDirectory || undefined;
@@ -1679,6 +1707,12 @@ const ChatInputComponent: React.FC<ChatInputProps> = ({
                 }
             } catch (error) {
                 restoreComposerText();
+                if (actionName === 'fork') {
+                    toast.error(error instanceof sessionActions.NothingToForkError
+                        ? t('chat.chatInput.toast.forkNothingToFork')
+                        : getSubmitErrorMessage(error, t('chat.chatInput.toast.forkFailed')));
+                    return;
+                }
                 if (actionName !== 'compact') throw error;
                 toast.error(getSubmitErrorMessage(error, t('chat.chatInput.toast.compactFailed')));
             }

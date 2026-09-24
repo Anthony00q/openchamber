@@ -583,6 +583,7 @@ export const settingsDict = {
   "settings.agents.page.field.agentNamePlaceholder": "Ім’я агента",
   "settings.agents.page.field.scopePlaceholder": "Область",
   "settings.agents.page.field.descriptionPlaceholder": "Що робить цей агент?",
+  "settings.agents.page.runtimeProvided.note": "Надається OpenCode або плагіном і не має власного файлу конфігурації. Сірі підказки показують поточні значення; усе, що ви введете, збережеться як перевизначення.",
   "settings.agents.page.field.mode": "Режим",
   "settings.agents.page.field.modeTooltip": "Видимість основного або субагента",
   "settings.agents.page.field.overrideModel": "Перевизначити модель",
