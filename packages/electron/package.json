@@ -166,7 +166,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "openchamber",
+      "owner": "Anthony00q",
       "repo": "openchamber"
     }
   }

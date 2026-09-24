@@ -10,7 +10,7 @@
 // Any failure (network, 404, unexpected shape) yields null: the update is
 // still offered, only without notes.
 
-export const CHANGELOG_INDEX_URL = 'https://raw.githubusercontent.com/openchamber/openchamber/main/changelog/index.json';
+export const CHANGELOG_INDEX_URL = 'https://raw.githubusercontent.com/Anthony00q/openchamber/fork/changelog/index.json';
 
 const GROUPS = [
   ['new', 'New'],

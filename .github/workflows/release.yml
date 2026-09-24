@@ -68,6 +68,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-npm:
+    if: false
     needs: create-release
     runs-on: ubuntu-latest
     steps:
@@ -120,6 +121,7 @@ jobs:
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   build-desktop-electron-macos:
+    if: false
     needs: create-release
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -506,7 +508,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   combine-electron-manifests:
-    needs: [create-release, build-desktop-electron-macos, build-desktop-electron-windows]
+    needs: [create-release, build-desktop-electron-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -542,7 +544,7 @@ jobs:
 
   mobile-release:
     needs: create-release
-    if: ${{ github.event.inputs.dry_run != 'true' }}
+    if: false
     uses: ./.github/workflows/mobile-release.yml
     with:
       version_name: ${{ needs.create-release.outputs.version }}
@@ -552,7 +554,7 @@ jobs:
     secrets: inherit
 
   finalize-release:
-    needs: [create-release, build-desktop-electron-macos, build-desktop-electron-windows, build-desktop-electron-linux, publish-electron-linux, publish-npm, combine-electron-manifests, mobile-release]
+    needs: [create-release, build-desktop-electron-windows, build-desktop-electron-linux, publish-electron-linux, combine-electron-manifests]
     runs-on: ubuntu-latest
     env:
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
