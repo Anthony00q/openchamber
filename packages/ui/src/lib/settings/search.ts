@@ -290,7 +290,6 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     page: 'chat',
     titleKey: 'settings.openchamber.visual.field.promptNavigatorEnabled',
     keywords: ['prompt', 'navigator', 'navigation', 'timeline', 'scroll'],
-    isAvailable: (ctx) => !ctx.isVSCode,
   },
   {
     id: 'chat.collapsible-user-messages',
