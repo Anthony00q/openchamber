@@ -2525,7 +2525,6 @@ export const ModelControls: React.FC<ModelControlsProps> = ({
                                 providers={providers}
                                 favoriteModels={favoriteModelsList}
                                 recentModels={recentModelsList}
-                                modelsMetadata={useConfigStore.getState().modelsMetadata}
                                 searchQuery={desktopModelQuery}
                                 onSearchQueryChange={setDesktopModelQuery}
                                 onSelect={handleSharedModelSelect}

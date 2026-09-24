@@ -552,14 +552,24 @@ const buildModelMetadataKey = (providerId: string, modelId: string) => {
  * Fallback metadata for models models.dev does not list (custom providers,
  * proxies). v2 prices a model per context tier; the untiered entry is the base
  * price, so that is what the UI quotes.
+ *
+ * v2 has no reasoning capability flag. Its model record signals reasoning only
+ * through reasoning variants (effort levels) and the reasoning compatibility
+ * fields, so reasoning is claimed when one of those is present and left
+ * unknown otherwise.
  */
 const deriveModelMetadata = (providerId: string, model: ProviderModel): ModelMetadata => {
     const baseCost = model.cost.find((entry) => !entry.tier) ?? model.cost[0];
+    const hasReasoningSignal = model.variants.length > 0
+        || model.compatibility?.reasoningField !== undefined
+        || model.compatibility?.requireReasoning === true;
     return {
         id: model.modelID,
         providerId,
         name: model.name,
         tool_call: model.capabilities.tools,
+        attachment: model.capabilities.input.includes('image'),
+        ...(hasReasoningSignal ? { reasoning: true } : {}),
         modalities: {
             input: model.capabilities.input,
             output: model.capabilities.output,
