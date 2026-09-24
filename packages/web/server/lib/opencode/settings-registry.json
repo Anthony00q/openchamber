@@ -680,6 +680,14 @@
       "scope": "device",
       "local": true
     },
+    "diffFileListMode": {
+      "scope": "device",
+      "local": true
+    },
+    "diffFileTreeWidth": {
+      "scope": "device",
+      "local": true
+    },
     "linearIssueListStatus": {
       "scope": "device",
       "local": true

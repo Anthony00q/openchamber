@@ -557,6 +557,8 @@ export const LOCAL_DEVICE_KEYS = [
   'autoDeleteLastRunAt',
   'messageLimit',
   'walkthroughTocWidth',
+  'diffFileListMode',
+  'diffFileTreeWidth',
   'linearIssueListStatus',
   'linearIssueListAssignee',
   'linearIssueListTeamIdByRuntime',
