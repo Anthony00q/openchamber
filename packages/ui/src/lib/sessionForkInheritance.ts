@@ -62,6 +62,8 @@ function withInlineGoalObjective(metadata: Metadata, goalId: string, objective: 
 }
 
 export interface ForkInheritanceDeps {
+  /** The fork's current goal id, read from the authoritative session record. */
+  readGoalId: (sessionId: string) => Promise<string | null>;
   readObjective: (sessionId: string) => Promise<string | null>;
   writeObjective: (sessionId: string, content: string) => Promise<boolean>;
   patchMetadata: (sessionId: string, updater: (metadata: Metadata) => Metadata) => Promise<void>;
@@ -88,6 +90,10 @@ export async function applyForkInheritance(
         // Nothing to copy: the goal keeps its inline fallback, same as a
         // source whose file went missing.
         console.warn('[fork] source goal objective unavailable; fork keeps the inline fallback');
+      } else if ((await deps.readGoalId(fork.id)) !== goal.id) {
+        // The user armed a new goal on the fork meanwhile; its objective file
+        // is newer than the source's and must not be overwritten.
+        console.warn('[fork] fork goal changed before the objective copy; skipping it');
       } else if (!(await deps.writeObjective(fork.id, content))) {
         inlineObjective = content;
       }

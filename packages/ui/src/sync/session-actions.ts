@@ -47,6 +47,7 @@ import { createChatDraftIdentity } from "@/lib/chatDraftPersistence"
 import { cancelSessionTitleGeneration } from "./session-title-generation"
 import { recordSessionActionFailure } from "./session-action-failures"
 import { applyForkInheritance } from "@/lib/sessionForkInheritance"
+import { getSessionGoal } from "@/lib/sessionGoalMetadata"
 import { fetchGoalObjectiveContent, writeGoalObjectiveFile } from "@/lib/goalObjectiveFiles"
 
 const MESSAGE_REFETCH_LIMIT = 100
@@ -2344,10 +2345,12 @@ function openForkedSession(store: DirectoryStoreApi, forkedSession: Session, dir
 /**
  * The fork keeps the source's goal (OpenCode copies metadata) but not the
  * source's btw/review links; a file-backed objective is copied to the fork.
- * Awaited so a goal armed right after the fork cannot be overwritten by it.
+ * The objective copy re-reads the fork's goal id first and is skipped when the
+ * user armed a new goal on the fork in the meantime.
  */
 function inheritForkMetadata(sourceSessionId: string, forkedSession: Session, directory: string | null | undefined, expectedRuntimeKey: string) {
   return applyForkInheritance(sourceSessionId, forkedSession, {
+    readGoalId: async (sessionId) => getSessionGoal(await opencodeClient.getSession(sessionId, directory))?.id ?? null,
     readObjective: fetchGoalObjectiveContent,
     writeObjective: writeGoalObjectiveFile,
     patchMetadata: async (sessionId, updater) => {

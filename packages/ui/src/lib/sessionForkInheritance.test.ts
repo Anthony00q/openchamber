@@ -27,6 +27,7 @@ const harness = (fork: Session, overrides: Partial<ForkInheritanceDeps> = {}) =>
   const writes: Array<[string, string]> = [];
   const patches: Metadata[] = [];
   const deps: ForkInheritanceDeps = {
+    readGoalId: async () => 'goal_1',
     readObjective: async (sessionId) => {
       reads.push(sessionId);
       return 'Objective from file';
@@ -79,6 +80,20 @@ describe('applyForkInheritance', () => {
     await applyForkInheritance('ses_source', fork, h.deps);
     expect(h.reads).toEqual(['ses_source']);
     expect(h.writes).toEqual([['ses_fork', 'Objective from file']]);
+    expect(h.patches).toEqual([]);
+  });
+
+  test('skips the copy when the fork got a new goal meanwhile', async () => {
+    const fork = forkWith({ openchamber: { goal: goal(true) } });
+    const h = harness(fork, { readGoalId: async () => 'goal_new' });
+    const warn = console.warn;
+    console.warn = () => undefined;
+    try {
+      await applyForkInheritance('ses_source', fork, h.deps);
+    } finally {
+      console.warn = warn;
+    }
+    expect(h.writes).toEqual([]);
     expect(h.patches).toEqual([]);
   });
 
