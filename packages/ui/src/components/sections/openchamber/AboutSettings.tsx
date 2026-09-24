@@ -79,12 +79,15 @@ function useOpenCodeUpgrade(failedFallback: string) {
   const [status, setStatus] = React.useState<OpenCodeUpgradeStatus | null>(null);
   const [phase, setPhase] = React.useState<OpenCodeUpgradePhase>({ kind: 'idle' });
 
-  const refresh = React.useCallback(async () => {
+  const refresh = React.useCallback(async (): Promise<OpenCodeUpgradeStatus | null> => {
     try {
-      setStatus(await fetchOpenCodeUpgradeStatus());
+      const next = await fetchOpenCodeUpgradeStatus();
+      setStatus(next);
+      return next;
     } catch {
       // Best effort: About still shows the OpenChamber half. The stale status
       // stays rather than turning into "no update".
+      return null;
     }
   }, []);
 
@@ -102,7 +105,24 @@ function useOpenCodeUpgrade(failedFallback: string) {
     }
   }, [failedFallback]);
 
-  return { status, phase, refresh, upgrade };
+  /**
+   * Restarts OpenCode after an upgrade, then re-reads the running version.
+   * The "installed, reload to use it" phase is a temporary stand-in: once the
+   * server reports the installed version as running, the authoritative status
+   * replaces it.
+   */
+  const reloadAfterUpgrade = React.useCallback(async (reload: () => Promise<void>) => {
+    await reload().catch(() => undefined);
+    const next = await refresh();
+    if (!next?.currentVersion) return;
+    setPhase((current) => {
+      if (current.kind !== 'installed') return current;
+      if (current.version && current.version.replace(/^v/, '') !== next.currentVersion) return current;
+      return { kind: 'idle' };
+    });
+  }, [refresh]);
+
+  return { status, phase, refresh, upgrade, reloadAfterUpgrade };
 }
 
 /** Version of the installed native app build (Capacitor only). */
@@ -204,11 +224,13 @@ export const AboutSettings: React.FC<AboutSettingsProps> = ({ initialUpdateDialo
   };
 
   const reloadOpenCode = () => {
-    void reloadOpenCodeConfiguration({
-      message: t('opencodeUpdate.toast.reload.message'),
-      mode: 'projects',
-      scopes: ['all'],
-    }).catch(() => undefined);
+    void openCode.reloadAfterUpgrade(async () => {
+      await reloadOpenCodeConfiguration({
+        message: t('opencodeUpdate.toast.reload.message'),
+        mode: 'projects',
+        scopes: ['all'],
+      });
+    });
   };
 
   const manualUpdateNotice = installBlocked ? (
