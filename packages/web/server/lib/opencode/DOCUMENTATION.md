@@ -920,8 +920,12 @@ through the process environment, because an environment variable cannot change
 under a running child.
 
 - Contract: the managed child gets `OPENCODE_CONFIG=<data-dir>/opencode.managed.json`.
-  The file contains only `plugins`, holding the absolute directory of every
-  OpenChamber plugin currently switched on. Its layer sits above the user's
+  The file contains only `plugins`: `-opencode.browser` first, then the absolute
+  directory of every OpenChamber plugin currently switched on. OpenCode's
+  built-in browser tools need OpenCode's own desktop app to attach a browser;
+  OpenChamber does not, so they would always fail with `browser.disconnected`
+  and steer agents away from `openchamber_web`. A project config listing
+  `opencode.browser` re-enables it. The fallback path merges the same entry. Its layer sits above the user's
   global `opencode.json` and below their project config.
 - `OPENCODE_CONFIG_CONTENT` is passed through untouched, so whatever the user
   put there still applies.
