@@ -557,7 +557,7 @@ export const dict = {
   'sessions.sidebar.session.export.dialog.confirm': 'Exportieren',
   'sessions.sidebar.session.status.active': 'Sitzung aktiv',
   'sessions.sidebar.session.status.unread': 'Ungelesene Updates',
-  'sessions.sidebar.session.status.nextStep': 'Nächster Schritt: {suggestion}',
+  'sessions.sidebar.session.status.nextStep': 'Vorgeschlagener nächster Schritt: {suggestion}',
   'sessions.sidebar.session.status.pinned': 'Angeheftete Sitzung',
   'sessions.sidebar.session.status.permissionRequired': 'Berechtigung erforderlich',
   'sessions.sidebar.session.status.questionPendingSingle': '1 ausstehende Frage',

@@ -644,7 +644,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.session.export.dialog.confirm': '导出',
   'sessions.sidebar.session.status.active': '会话活跃中',
   'sessions.sidebar.session.status.unread': '有未读更新',
-  'sessions.sidebar.session.status.nextStep': '下一步：{suggestion}',
+  'sessions.sidebar.session.status.nextStep': '建议的下一步：{suggestion}',
   'sessions.sidebar.session.status.pinned': '已置顶会话',
   'sessions.sidebar.session.status.movingToWorktree': '正在将会话移至新工作树',
   'sessions.sidebar.session.status.permissionRequired': '需要权限',

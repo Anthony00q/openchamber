@@ -643,7 +643,7 @@ export const dict = {
   'sessions.sidebar.session.export.dialog.confirm': 'Export',
   'sessions.sidebar.session.status.active': 'Session active',
   'sessions.sidebar.session.status.unread': 'Unread updates',
-  'sessions.sidebar.session.status.nextStep': 'Next step: {suggestion}',
+  'sessions.sidebar.session.status.nextStep': 'Suggested next step: {suggestion}',
   'sessions.sidebar.session.status.pinned': 'Pinned session',
   'sessions.sidebar.session.status.movingToWorktree': 'Moving session to a new worktree',
   'sessions.sidebar.session.status.permissionRequired': 'Permission required',

@@ -1395,11 +1395,29 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   const nextStepLabel = openSuggestion
     ? t('sessions.sidebar.session.status.nextStep', { suggestion: openSuggestion })
     : '';
-  const nextStepBadge = (className?: string) => (openSuggestion ? (
-    <span className={cn('inline-flex flex-shrink-0 items-center text-status-info', className)} title={nextStepLabel} aria-label={nextStepLabel}>
-      <Icon name="pencil-ai-2" className="h-3 w-3" />
-    </span>
-  ) : null);
+  // Projects rows list the suggestion in the whole-row tooltip (a nested
+  // badge tooltip would open alongside it). Elsewhere the badge fades under
+  // the hover actions like the permission badge, so only the three-line
+  // timeline row, whose badges sit on the third line and stay visible, gives
+  // the badge its own tooltip, like its PR badge.
+  const badgeCarriesTooltip = isTimelineRow && !isTimelineChatRow;
+  const nextStepBadge = (className?: string) => {
+    if (!openSuggestion) return null;
+    const badge = (
+      <span className={cn('inline-flex flex-shrink-0 items-center text-status-info', className)} aria-label={nextStepLabel}>
+        <Icon name="pencil-ai-2" className="h-3 w-3" />
+      </span>
+    );
+    if (!badgeCarriesTooltip) return badge;
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{badge}</TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6} className="max-w-xs">
+          <p>{nextStepLabel}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
   const rowBadges = (pendingPermissionCount > 0 || pendingFormCount > 0 || openSuggestion) ? (
     <>
       {nextStepBadge()}
@@ -1736,6 +1754,12 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                         <span className="min-w-0 truncate" style={prIconColor ? { color: prIconColor } : undefined}>
                           #{prSummary.number} · {prStatusLabel}
                         </span>
+                      </div>
+                    ) : null}
+                    {openSuggestion ? (
+                      <div className="flex min-w-0 items-start gap-1.5 text-status-info">
+                        <Icon name="pencil-ai-2" className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                        <span className="min-w-0 line-clamp-3">{nextStepLabel}</span>
                       </div>
                     ) : null}
                   </div>

@@ -644,7 +644,7 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.session.export.dialog.confirm": "Exportar",
   "sessions.sidebar.session.status.active": "Sesión activa",
   "sessions.sidebar.session.status.unread": "Actualizaciones no leídas",
-  "sessions.sidebar.session.status.nextStep": "Siguiente paso: {suggestion}",
+  "sessions.sidebar.session.status.nextStep": "Siguiente paso sugerido: {suggestion}",
   "sessions.sidebar.session.status.pinned": "Sesión anclada",
   "sessions.sidebar.session.status.movingToWorktree": "Moviendo la sesión a un worktree nuevo",
   "sessions.sidebar.session.status.permissionRequired": "Permiso requerido",
