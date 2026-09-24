@@ -77,6 +77,18 @@ export const OPENCHAMBER_MEMORY_ACTIONS = Object.freeze(
 );
 
 /**
+ * Notify is its own tool so it can stay off by default and disappear
+ * completely: an agent that can page the user is a choice the user makes.
+ */
+export const OPENCHAMBER_NOTIFY_ACTION_DEFINITIONS = Object.freeze([
+  { action: 'notify.send', title: 'Notify the user', description: 'Send the user a notification; requires title, body is optional. By default it appears only while the user is away from OpenChamber; set showWhenFocused only when it cannot wait' },
+]);
+
+export const OPENCHAMBER_NOTIFY_ACTIONS = Object.freeze(
+  OPENCHAMBER_NOTIFY_ACTION_DEFINITIONS.map(({ action }) => action),
+);
+
+/**
  * Which actions each managed tool may ask for.
  *
  * The callback needs this because models routinely drop the namespace: asked
@@ -90,6 +102,7 @@ const ACTIONS_BY_TOOL = Object.freeze({
   openchamber: OPENCHAMBER_AGENT_TOOL_ACTIONS,
   openchamber_web: OPENCHAMBER_WEB_ACTIONS,
   openchamber_memory: OPENCHAMBER_MEMORY_ACTIONS,
+  openchamber_notify: OPENCHAMBER_NOTIFY_ACTIONS,
 });
 
 const bareName = (action) => {
@@ -136,4 +149,5 @@ export const OPENCHAMBER_ALL_ACTIONS = Object.freeze([
   ...OPENCHAMBER_CONTROL_ACTIONS,
   ...OPENCHAMBER_WEB_ACTIONS,
   ...OPENCHAMBER_MEMORY_ACTIONS,
+  ...OPENCHAMBER_NOTIFY_ACTIONS,
 ]);

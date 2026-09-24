@@ -107,6 +107,22 @@ describe('managed OpenCode config file', () => {
       includeControl: false,
       includeWeb: true,
       includeMemory: false,
+      includeNotify: false,
+    });
+  });
+
+  it('injects the notify tool only when it is switched on', async () => {
+    const { runtime, agentToolRuntime } = await createHarness({
+      settings: { agentControlToolEnabled: false, agentWebToolEnabled: false, agentNotifyToolEnabled: true },
+    });
+
+    await runtime.buildManagedChildEnv();
+
+    expect(agentToolRuntime.materializePlugin).toHaveBeenCalledWith({
+      includeControl: false,
+      includeWeb: false,
+      includeMemory: false,
+      includeNotify: true,
     });
   });
 

@@ -594,6 +594,14 @@ const SETTINGS_SEARCH_ITEMS: readonly SettingsSearchItem[] = [
     isAvailable: (ctx) => !ctx.isVSCode,
   },
   {
+    id: 'sessions.agent-notify-tool',
+    page: 'general',
+    titleKey: 'settings.openchamber.tools.field.agentNotifyTool',
+    descriptionKey: 'settings.openchamber.tools.field.agentNotifyToolInfo',
+    keywords: ['agent', 'tool', 'notify', 'notification', 'alert', 'ping', 'openchamber'],
+    isAvailable: (ctx) => !ctx.isVSCode,
+  },
+  {
     id: 'sessions.agent-memory-tool',
     page: 'general',
     titleKey: 'settings.openchamber.tools.field.agentMemoryTool',

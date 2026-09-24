@@ -933,7 +933,8 @@ under a running child.
   always in the child environment, including while every managed tool is off —
   a tool switched on later then reaches a process that can already call back.
 - `persistSettings` rewrites the file (temp + rename) whenever
-  `agentControlToolEnabled`, `agentWebToolEnabled` or `agentMemoryToolEnabled`
+  `agentControlToolEnabled`, `agentWebToolEnabled`, `agentMemoryToolEnabled` or
+  `agentNotifyToolEnabled`
   changes. Plugin directories are written before the
   file names them, and a disabled plugin is removed from the list. OpenCode
   reloads within a couple of seconds; no restart is involved.
