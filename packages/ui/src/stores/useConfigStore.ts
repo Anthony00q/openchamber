@@ -6,6 +6,7 @@ import { devtools, persist } from "zustand/middleware";
 import type { Provider, Model, Agent, Config } from "@/lib/opencode/model";
 import type { DesktopSettings } from "@/lib/desktop";
 import { opencodeClient } from "@/lib/opencode/client";
+import { isSameProjectConfigError, readProjectConfigError, type ProjectConfigError } from "@/lib/opencode/configError";
 import { scopeMatches, subscribeToConfigChanges } from "@/lib/configSync";
 import type { ModelMetadata } from "@/types";
 import { createDeferredSafeJSONStorage } from "./utils/safeStorage";
@@ -930,6 +931,15 @@ const getConfigLoadKey = (context: ConfigRuntimeContext, directoryKey: string): 
     JSON.stringify([context.generation, context.runtimeKey, directoryKey])
 );
 
+const clearProjectConfigError = (directoryKey: string): void => {
+    if (!useConfigStore.getState().projectConfigErrors[directoryKey]) return;
+    useConfigStore.setState((state) => {
+        const next = { ...state.projectConfigErrors };
+        delete next[directoryKey];
+        return { projectConfigErrors: next };
+    });
+};
+
 subscribeRuntimeEndpointChanged((detail) => {
     configRuntimeGeneration += 1;
     invalidateOpenChamberDefaultsCache();
@@ -940,6 +950,7 @@ subscribeRuntimeEndpointChanged((detail) => {
     useConfigStore.setState({
         configRuntimeKey: detail.runtimeKey,
         directoryScoped: {},
+        projectConfigErrors: {},
         providers: [],
         agents: [],
         providersLoaded: false,
@@ -1139,6 +1150,8 @@ interface ConfigStore {
     hasEverConnected: boolean;
     connectionPhase: "connecting" | "connected" | "reconnecting";
     lastDisconnectReason: string | null;
+    /** Projects whose OpenCode config OpenCode refused to load, keyed by config-directory key. Runtime-only. */
+    projectConfigErrors: Record<string, ProjectConfigError>;
     isInitialized: boolean;
     modelsMetadata: Map<string, ModelMetadata>;
     // OpenChamber settings-based defaults (take precedence over agent preferences)
@@ -1360,6 +1373,7 @@ export const useConfigStore = create<ConfigStore>()(
                 hasEverConnected: false,
                 connectionPhase: "connecting",
                 lastDisconnectReason: null,
+                projectConfigErrors: {},
                 isInitialized: false,
                 modelsMetadata: new Map<string, ModelMetadata>(),
                 settingsDefaultModel: undefined,
@@ -2510,6 +2524,7 @@ export const useConfigStore = create<ConfigStore>()(
                                     agents: safeAgents.length,
                                 });
                                 _agentsLoadedAt.set(directoryKey, Date.now());
+                                clearProjectConfigError(directoryKey);
                                 return true;
                             }
 
@@ -2617,6 +2632,7 @@ export const useConfigStore = create<ConfigStore>()(
                                 agents: safeAgents.length,
                             });
                             _agentsLoadedAt.set(directoryKey, Date.now());
+                            clearProjectConfigError(directoryKey);
                             return true;
                         } catch (error) {
                             lastError = error;
@@ -2628,6 +2644,9 @@ export const useConfigStore = create<ConfigStore>()(
                                 attempt: attempt + 1,
                                 error: error instanceof Error ? error.message : String(error),
                             });
+                            // A rejected project config fails the same way until the
+                            // user edits the file; retrying only delays the message.
+                            if (readProjectConfigError(error)) break;
                             const waitMs = 200 * (attempt + 1);
                             await new Promise((resolve) => setTimeout(resolve, waitMs));
                             if (!isConfigRuntimeContextCurrent(runtimeContext)) return false;
@@ -2636,6 +2655,10 @@ export const useConfigStore = create<ConfigStore>()(
 
                     if (!isConfigRuntimeContextCurrent(runtimeContext)) return false;
                     console.error("Failed to load agents:", lastError);
+                    const configError = readProjectConfigError(lastError);
+                    if (configError && !isSameProjectConfigError(get().projectConfigErrors[directoryKey], configError)) {
+                        set((state) => ({ projectConfigErrors: { ...state.projectConfigErrors, [directoryKey]: configError } }));
+                    }
                     markStartupTrace('loadAgents:error', {
                         directoryKey,
                         source,
@@ -3645,7 +3668,14 @@ export const useConfigStore = create<ConfigStore>()(
                             ]);
 
                             if (!isConfigRuntimeContextCurrent(runtimeContext)) return;
-                            if (!agentsLoaded) return;
+                            if (!agentsLoaded) {
+                                // A broken config belongs to this one project. Finish startup
+                                // so the user can read the error and move to another project;
+                                // any other failure keeps the startup retry loop going.
+                                const configError = get().projectConfigErrors[configDirectoryKey];
+                                if (!configError) return;
+                                markStartupTrace('initializeApp:projectConfigInvalid', { configDirectoryKey, name: configError.name });
+                            }
                             set({ isInitialized: true, isConnected: true, hasEverConnected: true, connectionPhase: "connected" });
                             void get().prewarmProjectConfigs(configDirectory);
                             const initEnded = typeof performance !== 'undefined' ? performance.now() : Date.now();

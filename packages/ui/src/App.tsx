@@ -70,6 +70,7 @@ import { SyncAppEffects } from '@/apps/AppEffects';
 import { resetAppForRuntimeEndpointChange } from '@/apps/runtimeEndpointReset';
 import { useAppFontEffects } from '@/apps/useAppFontEffects';
 import { OpenCodeUpdateToast } from '@/components/update/OpenCodeUpdateToast';
+import { ProjectConfigErrorToast } from '@/components/projects/ProjectConfigErrorToast';
 import { markStartupTrace, startupTraceEnabled } from '@/lib/startupTrace';
 import { fetchStartupDiagnostics, type StartupDiagnostics } from '@/lib/startupDiagnostics';
 
@@ -974,6 +975,7 @@ function App({ apis }: AppProps) {
                 <div className={isDesktopRuntime ? 'h-full text-foreground bg-transparent' : 'h-full text-foreground bg-background'}>
                   <SyncAppEffects embeddedBackgroundWorkEnabled={embeddedBackgroundWorkEnabled} />
                   <OpenCodeUpdateToast />
+                  <ProjectConfigErrorToast />
                   <MainLayout />
                   <AppStartupOverlay ready={isInitialized && (!isDesktopRuntime || (bootOutcomeKnown && bootViewIsMain))} />
                   <Toaster />

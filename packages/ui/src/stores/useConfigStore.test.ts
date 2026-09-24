@@ -299,6 +299,7 @@ describe('useConfigStore provider persistence', () => {
       selectionSource: 'auto',
       isConnected: true,
       isInitialized: false,
+      projectConfigErrors: {},
     });
     // The defaults loader has a short-lived module cache. Reset it between
     // tests through the same setter the settings page uses for a user edit.
@@ -1132,6 +1133,29 @@ describe('useConfigStore provider persistence', () => {
 
     expect(useConfigStore.getState().settingsDefaultModel).toBe('second/second-model');
     expect(settingsLoadCalls).toBe(2);
+  });
+
+  test('an invalid project config finishes startup and stays scoped to that project', async () => {
+    listAgentsImpl = async () => {
+      throw new Error('agent.list failed (400)', {
+        cause: Object.assign(new Error('bad file reference'), {
+          name: 'ConfigInvalidError',
+          data: { path: `${DIRECTORY}/opencode.json`, message: 'bad file reference' },
+        }),
+      });
+    };
+    await useConfigStore.getState().initializeApp();
+
+    expect(useConfigStore.getState().isInitialized).toBe(true);
+    expect(listAgentsCalls).toBe(1);
+    expect(useConfigStore.getState().projectConfigErrors).toEqual({
+      [DIRECTORY]: { name: 'ConfigInvalidError', path: `${DIRECTORY}/opencode.json`, message: 'bad file reference' },
+    });
+
+    listAgentsImpl = null;
+    liveAgents = [testAgent('build')];
+    await useConfigStore.getState().loadAgents({ directory: DIRECTORY, source: 'test:fixed' });
+    expect(useConfigStore.getState().projectConfigErrors).toEqual({});
   });
 
   test('publishes configured defaults before slow catalogs finish', async () => {

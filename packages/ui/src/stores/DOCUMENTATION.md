@@ -409,6 +409,14 @@ Each of them therefore keeps two things:
 - a flat mirror (`agents`, `commands`, `skills`, `mcpServers`, `providers`) that
   tracks the **active** project only.
 
+A project whose OpenCode config OpenCode rejects (`ConfigInvalidError` and the
+other `Config*Error` names) is recorded in `useConfigStore.projectConfigErrors`,
+keyed by config directory, runtime-only. `loadAgents` stops retrying on it and a
+successful load clears it. `initializeApp` treats it as that project's failure,
+not the app's: startup completes so other projects stay reachable, and
+`ProjectConfigErrorToast` shows the file and message while that project is
+active.
+
 #### What they hold: OpenCode 2 entity shapes
 
 The mutation payloads these stores send are the v2 entities documented in
