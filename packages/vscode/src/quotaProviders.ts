@@ -854,6 +854,14 @@ export const listConfiguredQuotaProviders = () => {
     configured.add('deepseek');
   }
 
+  const commandCodeAuth = normalizeAuthEntry(getAuthEntry(auth, ['command-code', 'commandcode'])) as Record<string, unknown> | null;
+  if (commandCodeAuth && (
+    asNonEmptyString(commandCodeAuth.access) || asNonEmptyString(commandCodeAuth.key) || asNonEmptyString(commandCodeAuth.token)
+    || asNonEmptyString((globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process?.env?.COMMAND_CODE_API_KEY)
+  )) {
+    configured.add('command-code');
+  }
+
   if (getHyperApiKey(auth)) {
     configured.add('hyper');
   }
@@ -2876,6 +2884,340 @@ const fetchDeepseekQuota = async (): Promise<ProviderResult> => {
   }
 };
 
+const COMMAND_CODE_API_BASE = 'https://api.commandcode.ai';
+const COMMAND_CODE_FIVE_HOUR_SECONDS = 5 * 60 * 60;
+const COMMAND_CODE_WEEK_SECONDS = 7 * 24 * 60 * 60;
+
+// Command Code emits one rolling-window object per limit; the upstream fields
+// drift between camelCase/snake_case spellings and epoch/ISO timestamps, so
+// the parse tolerates every observed spelling and rejects unparseable windows.
+type CommandCodeServerWindow = {
+  used: number | string | null;
+  limit: number | string | null;
+  resetsAt: number | string | null;
+};
+
+type CommandCodeCredits = {
+  monthly: number | null;
+  planId: string | null;
+};
+
+const pickField = (record: Record<string, string | number | null>, keys: string[]): string | number | null => {
+  for (const key of keys) {
+    const value = record[key];
+    if (value !== undefined && value !== null) return value;
+  }
+  return null;
+};
+
+// Reverse-engineered from the official CLI by the community; Command Code
+// documents plans and limits but not the subscription payload. Unknown plan
+// ids are reported verbatim so a new plan never hides quota data.
+const COMMAND_CODE_KNOWN_PLANS = {
+  'individual-pro-v1': 'Pro',
+  'individual-pro': 'Pro',
+  'individual-goat': 'GOAT',
+  'individual-go': 'Go',
+  'individual-provider': 'Provider',
+  'individual-max': 'Max',
+  'individual-ultra': 'Ultra',
+  'teams-pro': 'Teams Pro',
+} as const;
+
+const resolveCommandCodePlanLabel = (planId: string | null): string | null => {
+  const id = asNonEmptyString(planId);
+  if (!id) return null;
+  const normalized = id.toLowerCase().replace(/_/g, '-');
+  for (const [prefix, name] of Object.entries(COMMAND_CODE_KNOWN_PLANS)) {
+    if (normalized.startsWith(prefix)) return name;
+  }
+  return id;
+};
+
+type CommandCodeQuotaDependencies = {
+  readAuth?: () => AuthFile;
+  fetchImpl?: (url: string, options: RequestInit) => Promise<Response>;
+};
+
+// Parse at the I/O boundary: raw JSON becomes a flat string|number record, so
+// downstream code branches on domain values instead of unknown shapes.
+const flattenJsonRecord = (payload: { [key: string]: unknown }, keys: string[]): Record<string, string | number | null> => {
+  const record: Record<string, string | number | null> = {};
+  for (const [key, value] of Object.entries(payload)) {
+    // SAFETY: JSON payloads only carry string/number/boolean/null scalars at
+    // the leaves; nested objects are skipped and re-flattened by the caller.
+    const scalar = value as string | number | boolean | null;
+    if (typeof scalar === 'string' || typeof scalar === 'number') record[key] = scalar;
+    else if (scalar === null) record[key] = null;
+  }
+  void keys;
+  return record;
+};
+
+// The /alpha endpoints are CLI-internal and undocumented: accept camelCase or
+// snake_case keys, epoch seconds/milliseconds or ISO timestamps, and payloads
+// either flat or wrapped in `data`. Anything unrecognized is skipped, never
+// guessed at.
+const parseCommandCodeServerWindow = (payload: { [key: string]: unknown } | null): { usedPercent: number; resetAt: number | null } | null => {
+  if (!payload) return null;
+  const record = flattenJsonRecord(payload, []);
+  const entry: CommandCodeServerWindow = {
+    used: pickField(record, ['used', 'usage', 'usedCredits', 'used_credits']),
+    limit: pickField(record, ['cap', 'limit', 'capCredits', 'cap_credits']),
+    resetsAt: pickField(record, ['resetAt', 'reset_at', 'resetsAt', 'resets_at']),
+  };
+  const used = toNumber(entry.used);
+  const cap = toNumber(entry.limit);
+  if (used === null || cap === null || cap <= 0) return null;
+  return {
+    usedPercent: Math.max(0, Math.min(100, (used / cap) * 100)),
+    resetAt: toTimestamp(entry.resetsAt),
+  };
+};
+
+type CommandCodeJsonResponse = {
+  status?: number;
+  payload: { [key: string]: unknown } | null;
+};
+
+const requestCommandCodeJson = async (
+  fetchImpl: (url: string, options: RequestInit) => Promise<Response>,
+  url: string,
+  apiKey: string,
+  signal: AbortSignal,
+): Promise<CommandCodeJsonResponse> => {
+  const response = await fetchImpl(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: 'application/json',
+      'Accept-Encoding': 'identity',
+    },
+    signal,
+  });
+  if (!response.ok) return { status: response.status, payload: null };
+  // SAFETY: upstream returns a JSON object on 2xx; non-object payloads are
+  // rejected by the asObject guard at each call site.
+  const body = await response.json() as { [key: string]: unknown };
+  return { payload: body };
+};
+
+export const fetchCommandCodeQuota = async ({ readAuth = readAuthFile, fetchImpl = fetch }: CommandCodeQuotaDependencies = {}): Promise<ProviderResult> => {
+  const auth = readAuth();
+  const entry = normalizeAuthEntry(getAuthEntry(auth, ['command-code', 'commandcode'])) as Record<string, unknown> | null;
+  const apiKey = asNonEmptyString(entry?.access)
+    ?? asNonEmptyString(entry?.key)
+    ?? asNonEmptyString(entry?.token)
+    ?? asNonEmptyString((globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process?.env?.COMMAND_CODE_API_KEY);
+
+  if (!apiKey) {
+    return buildResult({
+      providerId: 'command-code',
+      providerName: 'Command Code',
+      ok: false,
+      configured: false,
+      error: 'Not configured',
+    });
+  }
+
+  const timeoutSignal = AbortSignal.timeout(15_000);
+
+  // Unwrap one level of server envelope: payloads arrive flat or under `data`.
+  const unwrapEnvelope = (payload: { [key: string]: unknown }): { [key: string]: unknown } => {
+    const nested = payload.data;
+    // SAFETY: only plain JSON objects are unwrapped; arrays and scalars stay.
+    if (nested !== null && typeof nested === 'object' && !Array.isArray(nested)) {
+      return nested as { [key: string]: unknown };
+    }
+    return payload;
+  };
+  const pickFirst = (payload: { [key: string]: unknown } | null, keys: string[]): { [key: string]: unknown } | null => {
+    if (!payload) return null;
+    for (const key of keys) {
+      const value = payload[key];
+      // SAFETY: quota payloads nest one level deep; deeper shapes are skipped
+      // rather than traversed blindly.
+      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+        return value as { [key: string]: unknown };
+      }
+    }
+    return null;
+  };
+  const pickScalar = (payload: { [key: string]: unknown } | null, keys: string[]): string | number | null => {
+    if (!payload) return null;
+    for (const key of keys) {
+      const value = payload[key];
+      if (typeof value === 'string' || typeof value === 'number') return value;
+    }
+    return null;
+  };
+
+  try {
+    // 1. whoami resolves the account scope for the subscriptions query.
+    // Personal accounts return `org: null` and need no org parameter.
+    let orgId: string | null = null;
+    try {
+      const whoami = await requestCommandCodeJson(fetchImpl, `${COMMAND_CODE_API_BASE}/alpha/whoami`, apiKey, timeoutSignal);
+      if (!whoami.payload) {
+        if (whoami.status === 401 || whoami.status === 403) {
+          return buildResult({
+            providerId: 'command-code',
+            providerName: 'Command Code',
+            ok: false,
+            configured: true,
+            error: 'Session expired — please re-authenticate with Command Code',
+          });
+        }
+      } else {
+        const whoamiRoot = unwrapEnvelope(whoami.payload);
+        orgId = asNonEmptyString(pickScalar(pickFirst(whoamiRoot, ['org']), ['id']));
+      }
+    } catch (error) {
+      const isTimeout = error instanceof DOMException && (
+        error.name === 'TimeoutError' || (error.name === 'AbortError' && timeoutSignal.aborted)
+      );
+      const isParseError = error instanceof SyntaxError;
+      // A failed whoami only loses the org scope — unless it was a timeout or
+      // a malformed payload, in which case the failure must stay visible.
+      if (isTimeout || isParseError) {
+        return buildResult({
+          providerId: 'command-code',
+          providerName: 'Command Code',
+          ok: false,
+          configured: true,
+          error: isTimeout ? 'Request timed out' : 'Invalid response from provider',
+        });
+      }
+    }
+
+    // 2. billing/credits carries balances and the 5-hour/weekly windows.
+    let creditsPayload: { [key: string]: unknown };
+    try {
+      const creditsResponse = await requestCommandCodeJson(fetchImpl, `${COMMAND_CODE_API_BASE}/alpha/billing/credits`, apiKey, timeoutSignal);
+      if (!creditsResponse.payload) {
+        return buildResult({
+          providerId: 'command-code',
+          providerName: 'Command Code',
+          ok: false,
+          configured: true,
+          error: creditsResponse.status === 401 || creditsResponse.status === 403
+            ? 'Session expired — please re-authenticate with Command Code'
+            : `API error: ${creditsResponse.status ?? 'unknown'}`,
+        });
+      }
+      creditsPayload = unwrapEnvelope(creditsResponse.payload);
+    } catch (error) {
+      const isTimeout = error instanceof DOMException && (
+        error.name === 'TimeoutError' || (error.name === 'AbortError' && timeoutSignal.aborted)
+      );
+      const isParseError = error instanceof SyntaxError;
+      return buildResult({
+        providerId: 'command-code',
+        providerName: 'Command Code',
+        ok: false,
+        configured: true,
+        error: isTimeout
+          ? 'Request timed out'
+          : isParseError
+            ? 'Invalid response from provider'
+            : (error instanceof Error ? error.message : 'Request failed'),
+      });
+    }
+
+    const credits = pickFirst(creditsPayload, ['credits']);
+    const windowLimits = pickFirst(creditsPayload, ['windowLimits', 'window_limits']);
+
+    const windows: Record<string, UsageWindow> = {};
+    const fiveHour = parseCommandCodeServerWindow(pickFirst(windowLimits, ['fiveHour', 'five_hour', 'rolling5h', '5h']));
+    if (fiveHour) {
+      windows['5h'] = toUsageWindow({
+        usedPercent: fiveHour.usedPercent,
+        windowSeconds: COMMAND_CODE_FIVE_HOUR_SECONDS,
+        resetAt: fiveHour.resetAt,
+      });
+    }
+    const weekly = parseCommandCodeServerWindow(pickFirst(windowLimits, ['weekly', 'week']));
+    if (weekly) {
+      windows.weekly = toUsageWindow({
+        usedPercent: weekly.usedPercent,
+        windowSeconds: COMMAND_CODE_WEEK_SECONDS,
+        resetAt: weekly.resetAt,
+      });
+    }
+
+    // Only the monthly balance is surfaced: purchased and free balances are
+    // intentionally omitted so Usage shows 5h, weekly, and monthly only.
+    const balances: CommandCodeCredits = {
+      monthly: credits ? toNumber(pickScalar(credits, ['monthlyCredits', 'monthly_credits'])) : null,
+      planId: credits ? asNonEmptyString(pickScalar(credits, ['planId', 'plan_id'])) : null,
+    };
+    if (balances.monthly !== null) {
+      const valueLabel = formatMoney(balances.monthly);
+      if (valueLabel !== null) {
+        windows.monthly_credits = toUsageWindow({
+          usedPercent: null,
+          windowSeconds: null,
+          resetAt: null,
+          valueLabel: `$${valueLabel}`,
+        });
+      }
+    }
+
+    if (Object.keys(windows).length === 0) {
+      return buildResult({
+        providerId: 'command-code',
+        providerName: 'Command Code',
+        ok: false,
+        configured: true,
+        error: 'No quota data in response',
+      });
+    }
+
+    // 3. billing/subscriptions carries the plan and billing period. Optional:
+    // losing it costs the plan label, not the quota data.
+    let planLabel = resolveCommandCodePlanLabel(balances.planId);
+    try {
+      const subscriptionsUrl = orgId
+        ? `${COMMAND_CODE_API_BASE}/alpha/billing/subscriptions?orgId=${encodeURIComponent(orgId)}`
+        : `${COMMAND_CODE_API_BASE}/alpha/billing/subscriptions`;
+      const subscriptionsResponse = await requestCommandCodeJson(fetchImpl, subscriptionsUrl, apiKey, timeoutSignal);
+      if (subscriptionsResponse.payload) {
+        const subscriptionsRoot = unwrapEnvelope(subscriptionsResponse.payload);
+        const subscription = pickFirst(subscriptionsRoot, ['subscription']) ?? subscriptionsRoot;
+        const subscriptionLabel = resolveCommandCodePlanLabel(asNonEmptyString(pickScalar(subscription, ['planId', 'plan_id'])));
+        if (subscriptionLabel) planLabel = subscriptionLabel;
+      }
+    } catch {
+      // Keep the windows without a plan label.
+    }
+
+    return buildResult({
+      providerId: 'command-code',
+      providerName: 'Command Code',
+      ok: true,
+      configured: true,
+      usage: { windows },
+      planLabel,
+    });
+  } catch (error) {
+    const isTimeout = error instanceof DOMException && (
+      error.name === 'TimeoutError' || (error.name === 'AbortError' && timeoutSignal.aborted)
+    );
+    const isParseError = error instanceof SyntaxError;
+    return buildResult({
+      providerId: 'command-code',
+      providerName: 'Command Code',
+      ok: false,
+      configured: true,
+      error: isTimeout
+        ? 'Request timed out'
+        : isParseError
+          ? 'Invalid response from provider'
+          : (error instanceof Error ? error.message : 'Request failed'),
+    });
+  }
+};
+
 const HYPER_QUOTA_URL = 'https://hyper.charm.land/v1/credits';
 const HYPER_CREDIT_TO_USD = 0.05;
 
@@ -3102,6 +3444,8 @@ const fetchQuotaForProviderUncoalesced = async (providerId: string): Promise<Pro
       return fetchCursorQuota();
     case 'cline-pass':
       return fetchClinePassQuota();
+    case 'command-code':
+      return fetchCommandCodeQuota();
     case 'deepseek':
       return fetchDeepseekQuota();
     case 'hyper':

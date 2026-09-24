@@ -10,6 +10,7 @@ import { buildResult } from '../utils/index.js';
 import * as claude from './claude/index.js';
 import * as clinePass from './cline-pass.js';
 import * as codex from './codex.js';
+import * as commandCode from './command-code.js';
 import * as copilot from './copilot.js';
 import * as cursor from './cursor.js';
 import * as deepseek from './deepseek.js';
@@ -48,6 +49,12 @@ const registry = {
     providerName: codex.providerName,
     isConfigured: codex.isConfigured,
     fetchQuota: codex.fetchQuota
+  },
+  'command-code': {
+    providerId: commandCode.providerId,
+    providerName: commandCode.providerName,
+    isConfigured: commandCode.isConfigured,
+    fetchQuota: commandCode.fetchQuota
   },
   cursor: {
     providerId: cursor.providerId,
@@ -225,6 +232,7 @@ export const fetchClaudeQuota = claude.fetchQuota;
 export const fetchOpenaiQuota = openai.fetchQuota;
 export const fetchGoogleQuota = google.fetchGoogleQuota;
 export const fetchCodexQuota = codex.fetchQuota;
+export const fetchCommandCodeQuota = commandCode.fetchQuota;
 export const fetchCursorQuota = cursor.fetchQuota;
 export const fetchDeepseekQuota = deepseek.fetchQuota;
 export const fetchHyperQuota = hyper.fetchQuota;

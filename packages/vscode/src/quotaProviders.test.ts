@@ -27,7 +27,7 @@ const AUTH = JSON.stringify({
 ((fs as unknown) as { existsSync: () => boolean }).existsSync = () => true;
 ((fs as unknown) as { readFileSync: () => string }).readFileSync = () => AUTH;
 
-import { fetchClinePassQuota, fetchHyperQuota, fetchOllamaCloudQuota, fetchQuotaForProvider } from './quotaProviders';
+import { fetchClinePassQuota, fetchCommandCodeQuota, fetchHyperQuota, fetchOllamaCloudQuota, fetchQuotaForProvider } from './quotaProviders';
 import { validateCredential } from './quotaCredentials';
 
 type MockResponseInit = { ok?: boolean; status?: number };
@@ -401,6 +401,139 @@ describe('ClinePass quota provider (VS Code parity)', () => {
     assert.equal(result.configured, true);
     assert.equal(result.usage, null);
     assert.equal(result.error, 'Request timed out');
+  });
+});
+
+describe('Command Code quota provider (VS Code parity)', () => {
+  const personalWhoami = { user: { name: 'dev' }, org: null };
+  const creditsPayload = {
+    credits: { monthlyCredits: 50, purchasedCredits: 10, freeCredits: 0, planId: 'individual-pro-v1' },
+    windowLimits: {
+      fiveHour: { used: 4, cap: 16, resetAt: '2026-09-23T20:00:00.000Z' },
+      weekly: { used: 10, cap: 40, reset_at: 1784491827000 },
+    },
+  };
+  const routeFetch = (routes: Array<[string, Response]>) => async (url: string, options: RequestInit) => {
+    assert.equal(new Headers(options.headers).get('Authorization'), 'Bearer test-token');
+    assert.ok(options.signal instanceof AbortSignal);
+    for (const [match, response] of routes) {
+      if (url.includes(match)) return response;
+    }
+    throw new Error(`Unexpected quota request: ${url}`);
+  };
+
+  test('maps windows and monthly balance for a personal account', async () => {
+    const readAuth = () => ({ 'command-code': { key: 'test-token' } });
+    const result = await fetchCommandCodeQuota({
+      readAuth,
+      fetchImpl: routeFetch([
+        ['/alpha/whoami', Response.json(personalWhoami)],
+        ['/alpha/billing/credits', Response.json(creditsPayload)],
+        ['/alpha/billing/subscriptions', Response.json({ data: { planId: 'individual-pro-v1' } })],
+      ]),
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.providerId, 'command-code');
+    assert.equal(result.planLabel, 'Pro');
+    assert.equal(result.usage?.windows['5h']?.usedPercent, 25);
+    assert.equal(result.usage?.windows['5h']?.windowSeconds, 18_000);
+    assert.equal(result.usage?.windows['5h']?.resetAt, Date.parse('2026-09-23T20:00:00.000Z'));
+    assert.equal(result.usage?.windows.weekly?.usedPercent, 25);
+    assert.equal(result.usage?.windows.monthly_credits?.valueLabel, '$50.00');
+    assert.equal(result.usage?.windows.monthly_credits?.usedPercent, null);
+    assert.equal(result.usage?.windows.purchased_credits, undefined);
+    assert.equal(result.usage?.windows.free_credits, undefined);
+  });
+
+  test('omits purchased and free balances, showing 5h, weekly, and monthly only', async () => {
+    const result = await fetchCommandCodeQuota({
+      readAuth: () => ({ 'command-code': { key: 'test-token' } }),
+      fetchImpl: routeFetch([
+        ['/alpha/whoami', Response.json(personalWhoami)],
+        ['/alpha/billing/credits', Response.json({
+          credits: { monthlyCredits: 50, purchasedCredits: 10, freeCredits: 5 },
+          windowLimits: {
+            fiveHour: { used: 4, cap: 16 },
+            weekly: { used: 10, cap: 40 },
+          },
+        })],
+        ['/alpha/billing/subscriptions', Response.json({})],
+      ]),
+    });
+    assert.equal(result.ok, true);
+    assert.deepEqual(Object.keys(result.usage?.windows ?? {}), ['5h', 'weekly', 'monthly_credits']);
+  });
+
+  test('passes the org id to subscriptions for organization accounts', async () => {
+    const requested: string[] = [];
+    const result = await fetchCommandCodeQuota({
+      readAuth: () => ({ 'command-code': { key: 'test-token' } }),
+      fetchImpl: async (url: string, options: RequestInit) => {
+        requested.push(url);
+        return routeFetch([
+          ['/alpha/whoami', Response.json({ data: { org: { id: 'org-1' } } })],
+          ['/alpha/billing/credits', Response.json(creditsPayload)],
+          ['/alpha/billing/subscriptions', Response.json({ data: { planId: 'teams-pro' } })],
+        ])(url, options);
+      },
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.planLabel, 'Teams Pro');
+    assert.ok(requested.find((url) => url.includes('/alpha/billing/subscriptions'))?.includes('orgId=org-1'));
+    assert.ok(!(requested.find((url) => url.includes('/alpha/billing/credits')) ?? '').includes('orgId'));
+  });
+
+  test('dispatches through the generic quota API', async () => {
+    const fsMock = fs as unknown as { readFileSync: unknown };
+    const previous = fsMock.readFileSync;
+    fsMock.readFileSync = () => JSON.stringify({ 'command-code': { key: 'test-token' } });
+    try {
+      stubFetchReturning(() => Promise.resolve(mockResponse(creditsPayload)));
+      const result = await fetchQuotaForProvider('command-code');
+      // whoami + credits + subscriptions all resolve from the stubbed payload.
+      assert.equal(result.providerId, 'command-code');
+    } finally {
+      fsMock.readFileSync = previous;
+    }
+  });
+
+  test('stays successful with balance-only data when windows are absent', async () => {
+    const result = await fetchCommandCodeQuota({
+      readAuth: () => ({ 'command-code': { access: 'test-token' } }),
+      fetchImpl: routeFetch([
+        ['/alpha/whoami', Response.json(personalWhoami)],
+        ['/alpha/billing/credits', Response.json({ data: { credits: { monthly_credits: 5 } } })],
+        ['/alpha/billing/subscriptions', new Response(null, { status: 404 })],
+      ]),
+    });
+    assert.equal(result.ok, true);
+    assert.deepEqual(Object.keys(result.usage?.windows ?? {}), ['monthly_credits']);
+  });
+
+  test('reports expired session on 401 and empty payload without quota data', async () => {
+    const expired = await fetchCommandCodeQuota({
+      readAuth: () => ({ 'command-code': { key: 'test-token' } }),
+      fetchImpl: routeFetch([
+        ['/alpha/whoami', new Response(null, { status: 401 })],
+        ['/alpha/billing/credits', Response.json(creditsPayload)],
+        ['/alpha/billing/subscriptions', Response.json({})],
+      ]),
+    });
+    assert.equal(expired.ok, false);
+    assert.equal(expired.error, 'Session expired — please re-authenticate with Command Code');
+
+    const empty = await fetchCommandCodeQuota({
+      readAuth: () => ({ 'command-code': { key: 'test-token' } }),
+      fetchImpl: routeFetch([
+        ['/alpha/whoami', Response.json(personalWhoami)],
+        ['/alpha/billing/credits', Response.json({})],
+        ['/alpha/billing/subscriptions', Response.json({})],
+      ]),
+    });
+    assert.equal(empty.ok, false);
+    assert.equal(empty.error, 'No quota data in response');
   });
 });
 

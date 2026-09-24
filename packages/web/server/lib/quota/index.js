@@ -12,6 +12,7 @@ export {
   fetchOpenaiQuota,
   fetchGoogleQuota,
   fetchCodexQuota,
+  fetchCommandCodeQuota,
   fetchCursorQuota,
   fetchDeepseekQuota,
   fetchHyperQuota,
