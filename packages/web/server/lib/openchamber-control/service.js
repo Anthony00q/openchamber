@@ -365,6 +365,12 @@ export const createOpenChamberControlService = (dependencies) => {
    */
   const browserAction = async (action, input, signal, contextDirectory, contextSessionId) => {
     const parameters = {};
+    // Any action may name a tab; the browser that issued the id resolves it.
+    const tabId = asNonEmptyString(input.tabId);
+    if (tabId) {
+      if (tabId.length > 128) throw new OpenChamberControlError('tabId must be an id from browser.snapshot tabs', 400);
+      parameters.tabId = tabId;
+    }
 
     const readViewport = (required) => {
       const viewport = asNonEmptyString(input.viewport);

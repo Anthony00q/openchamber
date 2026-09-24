@@ -338,6 +338,12 @@ describe('browser capture', () => {
     await expect(service.execute('browser.capture', {})).rejects.toThrow(/directory is required/);
   });
 
+  it('passes the tab the agent named to the browser', async () => {
+    const { service, directory, request } = await createBrowserService({ base64: pixel, mime: 'image/png' });
+    await service.execute('browser.capture', { tabId: ' tab-2 ' }, directory);
+    expect(request).toHaveBeenCalledWith('browser.capture', { tabId: 'tab-2' }, expect.anything());
+  });
+
   it('passes a label through to the browser and leaves other actions untouched', async () => {
     const { service, directory, request } = await createBrowserService({ base64: pixel, mime: 'image/png' });
     await service.execute('browser.capture', { label: 'before' }, directory);

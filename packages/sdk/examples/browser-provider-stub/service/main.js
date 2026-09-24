@@ -295,6 +295,9 @@ var lastCaller = { directory: null, sessionId: null };
 var handle = (request) => {
   markAgentActive();
   lastCaller = request.context;
+  if (request.parameters.tabId !== undefined) {
+    return { ok: false, error: "This browser has a single page and no tabs; omit tabId." };
+  }
   switch (request.action) {
     case "browser.open":
       navigate(request.parameters.url);

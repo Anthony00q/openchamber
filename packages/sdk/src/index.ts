@@ -310,6 +310,8 @@ export type {
   BrowserSnapshotData,
   BrowserSnapshotElement,
   BrowserSnapshotParameters,
+  BrowserTab,
+  BrowserTabTarget,
   BrowserTypeData,
   BrowserTypeParameters,
   BrowserViewportMode,

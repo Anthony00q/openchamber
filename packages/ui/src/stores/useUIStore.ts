@@ -1037,6 +1037,8 @@ interface UIStore {
   openContextPreview: (directory: string, url: string) => void;
   openContextBrowser: (directory: string, url?: string, options?: { reveal?: boolean }) => void;
   openNewContextBrowserTab: (directory: string) => void;
+  /** A new background browser tab for an agent at `url`; returns its tab id, or null where there is no browser. */
+  openAgentBrowserTab: (directory: string, url: string) => string | null;
   setContextPanelTabTargetPath: (directory: string, tabID: string, targetPath: string) => void;
   setActiveContextPanelTab: (directory: string, tabID: string) => void;
   reorderContextPanelTabs: (directory: string, activeTabID: string, overTabID: string) => void;
@@ -1604,6 +1606,22 @@ export const useUIStore = create<UIStore>()(
             dedupeKey: normalizedUrl,
             label: null,
           });
+        },
+        // An agent's page gets its own tab in the background: never the tab
+        // the user is on, never an existing tab that happens to show the same
+        // address, and the panel stays as the user left it.
+        openAgentBrowserTab: (directory, url) => {
+          const normalizedDirectory = normalizeDirectoryPath((directory || '').trim());
+          if (!normalizedDirectory || isVSCodeRuntime()) return null;
+          browserTabSequence += 1;
+          const dedupeKey = `browser:agent:${Date.now()}-${browserTabSequence}`;
+          get().openContextPanelTab(normalizedDirectory, {
+            mode: 'browser',
+            targetPath: url.trim(),
+            dedupeKey,
+            label: null,
+          }, { reveal: false });
+          return buildContextPanelTabID('browser', dedupeKey);
         },
         // Always a new tab, never the existing one: the whole point of asking
         // for one is to keep what is already open.

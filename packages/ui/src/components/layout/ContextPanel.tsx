@@ -35,7 +35,7 @@ import { setExternallyViewedSession, useDirectoryStore } from '@/sync/sync-conte
 import { ContextPanelContent } from './ContextSidebarTab';
 import { BrowserPane } from '@/components/browser/BrowserPane';
 import { browserUrlLabel } from '@/lib/browser/url';
-import { registerBrowserOpener } from '@/lib/browser/controlClient';
+import { registerBrowserOpener, setShownBrowserTab } from '@/lib/browser/controlClient';
 import { subscribeOpenchamberEvents } from '@/lib/openchamberEvents';
 import { getRuntimeBearerTokenSync, getRuntimeExtraHeadersSync } from '@/lib/runtime-auth';
 import { getRuntimeApiBaseUrl, getRuntimeKey } from '@/lib/runtime-switch';
@@ -527,18 +527,18 @@ export const ContextPanel: React.FC = () => {
   const toggleContextPanelExpanded = useUIStore((state) => state.toggleContextPanelExpanded);
   const setContextPanelWidth = useUIStore((state) => state.setContextPanelWidth);
   const setActiveContextPanelTab = useUIStore((state) => state.setActiveContextPanelTab);
-  const openContextBrowser = useUIStore((state) => state.openContextBrowser);
+  const openAgentBrowserTab = useUIStore((state) => state.openAgentBrowserTab);
 
-  // Lets an agent's browser.open create the tab it needs when none is open yet.
-  // Registered from the panel because opening a tab is panel state, not
+  // Lets an agent's browser.open create its own tab; the id goes back to the
+  // agent so it keeps working there. Registered from the panel because opening a tab is panel state, not
   // something the browser view itself can do before it exists. Background on
   // purpose: an agent working a page must not pop the panel open or steal the
   // active tab while the user reads something else. The tab appears in the
   // strip; browser.capture shows it only for the moment of the screenshot.
   React.useEffect(() => {
     if (!effectiveDirectory) return;
-    return registerBrowserOpener((url) => openContextBrowser(effectiveDirectory, url, { reveal: false }));
-  }, [effectiveDirectory, openContextBrowser]);
+    return registerBrowserOpener((url) => openAgentBrowserTab(effectiveDirectory, url));
+  }, [effectiveDirectory, openAgentBrowserTab]);
   // The agent asked for a file to be shown. It opens in front of whatever tab
   // the user had, on purpose: the agent is pointing at a result, and the prior
   // tab is one click away.
@@ -564,6 +564,11 @@ export const ContextPanel: React.FC = () => {
 
   const tabs = React.useMemo(() => panelState?.tabs ?? [], [panelState?.tabs]);
   const activeTab = tabs.find((tab) => tab.id === panelState?.activeTabId) ?? tabs[tabs.length - 1] ?? null;
+  // Agent actions that name no tab go to the browser tab the user last had in front of them.
+  const shownBrowserTabId = activeTab?.mode === 'browser' ? activeTab.id : null;
+  React.useEffect(() => {
+    if (shownBrowserTabId) setShownBrowserTab(shownBrowserTabId);
+  }, [shownBrowserTabId]);
   const isOpen = Boolean(panelState?.isOpen && activeTab);
   const [availablePanelAreaWidth, setAvailablePanelAreaWidth] = React.useState<number | null>(null);
   const hasOpenEditorFile = React.useMemo(
