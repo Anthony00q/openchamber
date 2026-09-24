@@ -53,6 +53,8 @@ import {
   applySessionEventsToGlobalSessions,
 } from "./session-event-router"
 import { shouldConsumeBulkArchiveEcho } from "./bulk-archive-echo"
+import { applyForkedSession, noteForkedSessionPatched } from "./forked-session"
+import { useBtwStore } from "@/stores/useBtwStore"
 import { selectNewChildSessions } from "./child-session-discovery"
 import { syncDebug } from "./debug"
 import { getReconnectCandidateSessionIds, mergeBootstrapSessions } from "./reconnect-recovery"
@@ -1656,6 +1658,34 @@ export function handleEvent(
     ) {
       childStores.requestBootstrap({ directory, priority: "selected", reason: "location-shutdown", force: true })
     }
+    return
+  }
+
+  if (payload.type === "session.patched") {
+    noteForkedSessionPatched(payload.properties.sessionID)
+  }
+
+  if (payload.type === "session.forked") {
+    void applyForkedSession(
+      {
+        sessionID: payload.properties.sessionID,
+        parentID: payload.properties.parentID,
+        directory: directory && directory !== "global" ? directory : undefined,
+      },
+      {
+        isKnown: (sessionID) => useGlobalSessionsStore.getState().entityById.has(sessionID),
+        isCreatingLocally: (parentID) => useBtwStore.getState().byParent[parentID]?.creating === true,
+        getSession: (sessionID, sessionDirectory) => opencodeClient.getSession(sessionID, sessionDirectory),
+        isCurrent: () => expectedRuntimeKey === getRuntimeKey(),
+        apply: (info) => handleEvent(
+          rawDirectory,
+          { type: "session.created", properties: { info } },
+          childStores,
+          routingIndex,
+          expectedRuntimeKey,
+        ),
+      },
+    )
     return
   }
 
