@@ -219,7 +219,20 @@ export const createEmptyCustomProviderForm = (): CustomProviderFormState => ({
   headers: [createHeaderRow()],
 });
 
+/**
+ * The live provider list reports OpenCode's own implementation of an `aisdk:`
+ * package (`aisdk:@ai-sdk/openai` is served as `@opencode/ai/providers/openai`),
+ * so both spellings map to the protocol the form saved.
+ */
+const NATIVE_CUSTOM_PROVIDER_PACKAGES: Record<string, CustomProviderProtocol> = {
+  '@opencode/ai/providers/openai-compatible': 'openai-chat',
+  '@opencode/ai/providers/openai': 'openai-responses',
+  '@opencode/ai/providers/anthropic': 'anthropic-messages',
+};
+
 function protocolFromPackage(pkg: string | undefined): CustomProviderProtocol {
+  const native = pkg ? NATIVE_CUSTOM_PROVIDER_PACKAGES[pkg] : undefined;
+  if (native) return native;
   switch (pkg) {
     case 'aisdk:@ai-sdk/openai':
     case '@ai-sdk/openai':
@@ -252,7 +265,10 @@ export function isCustomOpenAICompatibleProvider(provider: ProviderLikeForCustom
     return true;
   }
 
-  const knownPackages = new Set<string>(Object.values(CUSTOM_PROVIDER_PROTOCOLS));
+  const knownPackages = new Set<string>([
+    ...Object.values(CUSTOM_PROVIDER_PROTOCOLS),
+    ...Object.keys(NATIVE_CUSTOM_PROVIDER_PACKAGES),
+  ]);
   if (knownPackages.has(readPackage(provider) ?? '')) {
     return true;
   }

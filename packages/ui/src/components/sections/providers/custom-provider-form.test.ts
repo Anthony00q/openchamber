@@ -463,3 +463,25 @@ describe('custom provider reasoning levels', () => {
     expect(cleared.result?.config.models['model-a'].variants).toEqual([]);
   });
 });
+
+describe('live OpenCode 2 provider shape', () => {
+  // OpenCode serves an `aisdk:` package through its own implementation, so the
+  // provider list never echoes the package the form saved.
+  const live = (pkg: string) => ({
+    id: 'my-provider',
+    name: 'My Provider',
+    package: pkg,
+    settings: { baseURL: 'https://example.invalid/v1', provider: 'my-provider' },
+    models: [{ id: 'm-1', modelID: 'm-1', name: 'M1', package: pkg, variants: [] }],
+  });
+
+  test('keeps the saved protocol when editing', () => {
+    expect(providerToCustomFormState(live('@opencode/ai/providers/openai-compatible')).protocol).toBe('openai-chat');
+    expect(providerToCustomFormState(live('@opencode/ai/providers/openai')).protocol).toBe('openai-responses');
+    expect(providerToCustomFormState(live('@opencode/ai/providers/anthropic')).protocol).toBe('anthropic-messages');
+  });
+
+  test('recognises the native package without a base URL', () => {
+    expect(isCustomOpenAICompatibleProvider({ ...live('@opencode/ai/providers/anthropic'), settings: {} })).toBe(true);
+  });
+});
