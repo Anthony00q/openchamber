@@ -32,6 +32,10 @@ jobs:
       version: ${{ steps.get_version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Fork: tag-triggered runs check out the tag ref; without the full
+          # history the changelog lookup below cannot see changelog/<v>.md.
+          fetch-depth: 0
 
       - name: Get version
         id: get_version
