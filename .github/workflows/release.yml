@@ -514,9 +514,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   combine-electron-manifests:
-    # Fork: Windows + macOS are disabled, so there is no per-arch feed to
-    # combine. Keep the job defined for a clean upstream re-merge and skip it.
-    if: false
+    # Fork: no macOS target is built, so the macOS half of the combined feed is
+    # skipped by finalize-latest-yml.mjs. The Windows half still matters: both
+    # matrix legs publish a per-arch latest.yml, and without this job the
+    # release ships no latest.yml and the desktop updater finds no feed.
+    if: ${{ !cancelled() && needs.create-release.result == 'success' }}
     needs: [create-release, build-desktop-electron-windows]
     runs-on: ubuntu-latest
     steps:
@@ -541,10 +543,7 @@ jobs:
         run: node packages/electron/scripts/finalize-latest-yml.mjs
 
       - name: Upload combined manifests to release
-        # Fork: no macOS target is built here, and without Windows manifests the
-        # combined Windows feed cannot be resolved. Gate the upload until the
-        # fork re-enables a Windows feed to combine.
-        if: false
+        if: ${{ github.event.inputs.dry_run != 'true' }}
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: v${{ needs.create-release.outputs.version }}
@@ -567,8 +566,10 @@ jobs:
     secrets: inherit
 
   finalize-release:
-    # Fork: combine-electron-manifests is skipped (no Windows/macOS feeds).
-    needs: [create-release, build-desktop-electron-windows, build-desktop-electron-linux, publish-electron-linux]
+    # Fork: macOS, npm and mobile are disabled, so they are absent from needs.
+    # combine-electron-manifests stays: the release must not be published before
+    # latest.yml is attached, or the desktop updater finds no feed.
+    needs: [create-release, build-desktop-electron-windows, build-desktop-electron-linux, publish-electron-linux, combine-electron-manifests]
     runs-on: ubuntu-latest
     env:
       DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
