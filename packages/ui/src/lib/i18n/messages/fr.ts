@@ -7,6 +7,7 @@ import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
+import { providersI18n } from './providers.i18n';
 
 export const dict = {
   "opencodeCompatibility.bundled": "OpenCode est inclus dans OpenChamber. Mettez OpenChamber à jour pour obtenir OpenCode v2.",
@@ -60,6 +61,7 @@ export const dict = {
   ...fileArtifactsI18n.fr,
   ...usageStatsI18n.fr,
   ...webSearchI18n.fr,
+  ...providersI18n.fr,
   'terminalView.actions.attachSelection': 'Joindre la sortie sélectionnée',
   'terminalView.actions.copySelection': 'Copier la sortie sélectionnée',
   'terminalView.toast.selectionCopied': 'Sortie copiée',
@@ -593,6 +595,10 @@ export const dict = {
   'sessions.sidebar.sessionDialogs.worktree.attachedArchivedPlural': 'Worktrees joints archivés.',
   'sessions.sidebar.sessionDialogs.worktree.archivedAndRemoteRemoved': 'Worktrees archivés et branches du dépôt distant supprimées.',
   'sessions.sidebar.group.worktreeMissing': 'Le dossier du worktree est introuvable',
+  'sessions.sidebar.project.folderMissing': 'Le dossier du projet est introuvable ou indisponible',
+  'sessions.sidebar.group.space': 'Espace isolé',
+  'sessions.sidebar.group.spaceStale': 'L’espace ne répond pas. Voici les sessions qu’il a signalées en dernier.',
+  'sessions.sidebar.grouping.spaceUnnamed': 'Espace isolé',
   'sessions.sidebar.sessionDialogs.worktree.label': 'Worktree',
   'sessions.sidebar.sessionDialogs.worktree.pathUnavailable': 'Chemin du worktree indisponible.',
   'sessions.sidebar.sessionDialogs.worktree.uncommittedWarning': 'Les modifications non validées seront ignorées.',
@@ -2351,9 +2357,6 @@ export const dict = {
   'chat.messageBody.subtask.hidePrompt': 'Masquer le prompt',
   'chat.messageBody.subtask.showPrompt': 'Afficher le prompt',
   'chat.messageBody.subtask.openSession': 'Ouvrir une session de sous-tâche',
-  'chat.messageBody.shellCommand.title': 'Commande Shell',
-  'chat.messageBody.shellCommand.hideOutput': 'Masquer la sortie',
-  'chat.messageBody.shellCommand.showOutput': 'Afficher la sortie',
   'chat.messageBody.shellCommand.copied': 'Copié',
   'chat.messageBody.shellCommand.copyOutput': 'Copier la sortie',
   'commandPalette.title': 'Palette de commandes',
@@ -3505,13 +3508,13 @@ export const dict = {
   'chat.permissionCard.alwaysAllowPatterns': 'Toujours : {patterns}',
   'chat.permissionCard.deny': 'Refuser',
   'chat.permissionCard.replaceAll': 'Remplace toutes les occurrences',
-  'chat.compaction.running': 'Compaction de la conversation…',
+  'chat.compaction.running': 'Compaction de la conversation',
   'chat.compaction.completed': 'Conversation compactée',
   'chat.compaction.failed': 'La compaction a échoué',
   'chat.compaction.showSummary': 'Afficher le résumé',
   'chat.compaction.hideSummary': 'Masquer le résumé',
-  'chat.revertPopover.staged': '{count} messages prêts à être supprimés',
-  'chat.revertPopover.clear': 'Conserver les messages',
-  'chat.revertPopover.commit': 'Supprimer définitivement',
+  'chat.revertPopover.staged': 'Annulés : {count}',
+  'chat.revertPopover.clear': 'Conserver',
+  'chat.revertPopover.commit': 'Supprimer',
   'chat.workStatus.mcp.needsAuthHint': 'Connectez-vous à ce serveur MCP depuis Paramètres → MCP.',
 } as const;

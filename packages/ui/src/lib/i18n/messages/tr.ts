@@ -7,6 +7,7 @@ import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
+import { providersI18n } from './providers.i18n';
 
 export const dict = {
   "opencodeCompatibility.bundled": "OpenCode, OpenChamber ile birlikte gelir. OpenCode v2 için OpenChamber’ı güncelleyin.",
@@ -60,6 +61,7 @@ export const dict = {
   ...fileArtifactsI18n.tr,
   ...usageStatsI18n.tr,
   ...webSearchI18n.tr,
+  ...providersI18n.tr,
   'terminalView.actions.attachSelection': 'Seçili çıktıyı ekle',
   'terminalView.actions.copySelection': 'Seçili çıktıyı kopyala',
   'terminalView.toast.selectionCopied': 'Çıktı kopyalandı',
@@ -750,6 +752,10 @@ export const dict = {
   'sessions.sidebar.sessionDialogs.worktree.attachedArchivedPlural': 'Bağlı worktree\'ler arşivlendi.',
   'sessions.sidebar.sessionDialogs.worktree.archivedAndRemoteRemoved': 'Worktree\'ler arşivlendi ve uzak branch\'ler kaldırıldı.',
   'sessions.sidebar.group.worktreeMissing': 'Worktree klasörü eksik',
+  'sessions.sidebar.project.folderMissing': 'Proje klasörü bulunamıyor veya kullanılamıyor',
+  'sessions.sidebar.group.space': 'Yalıtılmış alan',
+  'sessions.sidebar.group.spaceStale': 'Alan yanıt vermiyor. Bunlar en son bildirdiği oturumlar.',
+  'sessions.sidebar.grouping.spaceUnnamed': 'Yalıtılmış alan',
   'sessions.sidebar.sessionDialogs.worktree.label': 'Worktree',
   'sessions.sidebar.sessionDialogs.worktree.pathUnavailable': 'Worktree yolu kullanılamıyor.',
   'sessions.sidebar.sessionDialogs.worktree.uncommittedWarning': 'Commit edilmemiş değişiklikler atılacak.',
@@ -2589,9 +2595,6 @@ export const dict = {
   'chat.messageBody.subtask.hidePrompt': 'Prompt\'u gizle',
   'chat.messageBody.subtask.showPrompt': 'Prompt\'u göster',
   'chat.messageBody.subtask.openSession': 'Alt görev session\'ını aç',
-  'chat.messageBody.shellCommand.title': 'Shell komutu',
-  'chat.messageBody.shellCommand.hideOutput': 'Çıktıyı gizle',
-  'chat.messageBody.shellCommand.showOutput': 'Çıktıyı göster',
   'chat.messageBody.shellCommand.copied': 'Kopyalandı',
   'chat.messageBody.shellCommand.copyOutput': 'Çıktıyı kopyala',
   'commandPalette.title': 'Komut Paleti',
@@ -3505,13 +3508,13 @@ export const dict = {
   'chat.permissionCard.alwaysAllowPatterns': 'Her zaman: {patterns}',
   'chat.permissionCard.deny': 'Reddet',
   'chat.permissionCard.replaceAll': 'Tüm eşleşmeleri değiştirir',
-  'chat.compaction.running': 'Sohbet sıkıştırılıyor…',
+  'chat.compaction.running': 'Sohbet sıkıştırılıyor',
   'chat.compaction.completed': 'Sohbet sıkıştırıldı',
   'chat.compaction.failed': 'Sıkıştırma başarısız oldu',
   'chat.compaction.showSummary': 'Özeti göster',
   'chat.compaction.hideSummary': 'Özeti gizle',
-  'chat.revertPopover.staged': '{count} mesaj kaldırılmak üzere işaretlendi',
-  'chat.revertPopover.clear': 'Mesajları koru',
-  'chat.revertPopover.commit': 'Kalıcı olarak kaldır',
+  'chat.revertPopover.staged': 'Geri alınan: {count}',
+  'chat.revertPopover.clear': 'Koru',
+  'chat.revertPopover.commit': 'Kaldır',
   'chat.workStatus.mcp.needsAuthHint': 'Bu MCP sunucusuna Ayarlar → MCP üzerinden giriş yapın.',
 };

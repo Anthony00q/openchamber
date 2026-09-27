@@ -7,6 +7,7 @@ import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
+import { providersI18n } from './providers.i18n';
 
 export const dict = {
   "opencodeCompatibility.bundled": "OpenCode ist in OpenChamber enthalten. Aktualisieren Sie OpenChamber, um OpenCode v2 zu erhalten.",
@@ -60,6 +61,7 @@ export const dict = {
   ...fileArtifactsI18n.de,
   ...usageStatsI18n.de,
   ...webSearchI18n.de,
+  ...providersI18n.de,
   'common.language.german': 'Deutsch',
   'common.loading': 'Wird geladen...',
   'common.unavailable': 'Nicht verfügbar',
@@ -681,6 +683,10 @@ export const dict = {
   'sessions.sidebar.sessionDialogs.worktree.attachedArchivedPlural': 'Angefügte Worktrees archiviert.',
   'sessions.sidebar.sessionDialogs.worktree.archivedAndRemoteRemoved': 'Archivierte Worktrees und entfernte Remote-Branches.',
   'sessions.sidebar.group.worktreeMissing': 'Worktree-Ordner fehlt',
+  'sessions.sidebar.project.folderMissing': 'Projektordner fehlt oder ist nicht verfügbar',
+  'sessions.sidebar.group.space': 'Isolierter Bereich',
+  'sessions.sidebar.group.spaceStale': 'Der Bereich antwortet nicht. Das sind die Sitzungen, die er zuletzt gemeldet hat.',
+  'sessions.sidebar.grouping.spaceUnnamed': 'Isolierter Bereich',
   'sessions.sidebar.sessionDialogs.worktree.label': 'Worktree',
   'sessions.sidebar.sessionDialogs.worktree.pathUnavailable': 'Worktree-Pfad nicht verfügbar.',
   'sessions.sidebar.sessionDialogs.worktree.uncommittedWarning': 'Nicht committete Änderungen werden verworfen.',
@@ -2446,9 +2452,6 @@ export const dict = {
   'chat.messageBody.subtask.hidePrompt': 'Eingabe ausblenden',
   'chat.messageBody.subtask.showPrompt': 'Eingabe anzeigen',
   'chat.messageBody.subtask.openSession': 'Unteraufgaben-Sitzung öffnen',
-  'chat.messageBody.shellCommand.title': 'Shell-Befehl',
-  'chat.messageBody.shellCommand.hideOutput': 'Ausgabe ausblenden',
-  'chat.messageBody.shellCommand.showOutput': 'Ausgabe anzeigen',
   'chat.messageBody.shellCommand.copied': 'Kopiert',
   'chat.messageBody.shellCommand.copyOutput': 'Ausgabe kopieren',
   'commandPalette.title': 'Befehlspalette',
@@ -3505,13 +3508,13 @@ export const dict = {
   'chat.permissionCard.alwaysAllowPatterns': 'Immer: {patterns}',
   'chat.permissionCard.deny': 'Ablehnen',
   'chat.permissionCard.replaceAll': 'Ersetzt jedes Vorkommen',
-  'chat.compaction.running': 'Unterhaltung wird komprimiert…',
+  'chat.compaction.running': 'Unterhaltung wird komprimiert',
   'chat.compaction.completed': 'Unterhaltung komprimiert',
   'chat.compaction.failed': 'Komprimierung fehlgeschlagen',
   'chat.compaction.showSummary': 'Zusammenfassung anzeigen',
   'chat.compaction.hideSummary': 'Zusammenfassung ausblenden',
-  'chat.revertPopover.staged': '{count} Nachrichten zum Entfernen vorgemerkt',
-  'chat.revertPopover.clear': 'Nachrichten behalten',
-  'chat.revertPopover.commit': 'Endgültig entfernen',
+  'chat.revertPopover.staged': 'Zurückgesetzt: {count}',
+  'chat.revertPopover.clear': 'Behalten',
+  'chat.revertPopover.commit': 'Entfernen',
   'chat.workStatus.mcp.needsAuthHint': 'Melden Sie sich bei diesem MCP-Server unter Einstellungen → MCP an.',
 };

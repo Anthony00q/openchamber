@@ -8,6 +8,7 @@ import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
+import { providersI18n } from './providers.i18n';
 
 export const dict: Record<I18nKey, string> = {
   "opencodeCompatibility.bundled": "OpenCode 随 OpenChamber 一起提供。请更新 OpenChamber 以获取 OpenCode v2。",
@@ -61,6 +62,7 @@ export const dict: Record<I18nKey, string> = {
   ...fileArtifactsI18n['zh-CN'],
   ...usageStatsI18n['zh-CN'],
   ...webSearchI18n['zh-CN'],
+  ...providersI18n['zh-CN'],
   'terminalView.actions.attachSelection': '附加所选输出',
   'terminalView.actions.copySelection': '复制所选输出',
   'terminalView.toast.selectionCopied': '已复制输出',
@@ -770,6 +772,10 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.sessionDialogs.worktree.attachedArchivedPlural': '关联工作树已归档。',
   'sessions.sidebar.sessionDialogs.worktree.archivedAndRemoteRemoved': '工作树已归档且远程分支已移除。',
   'sessions.sidebar.group.worktreeMissing': '工作树文件夹缺失',
+  'sessions.sidebar.project.folderMissing': '项目文件夹不存在或不可用',
+  'sessions.sidebar.group.space': '隔离空间',
+  'sessions.sidebar.group.spaceStale': '该空间没有响应。这些是它最后一次报告的会话。',
+  'sessions.sidebar.grouping.spaceUnnamed': '隔离空间',
   'sessions.sidebar.sessionDialogs.worktree.label': '工作树',
   'sessions.sidebar.sessionDialogs.worktree.pathUnavailable': '工作树路径不可用。',
   'sessions.sidebar.sessionDialogs.worktree.uncommittedWarning': '未提交的更改将被丢弃。',
@@ -2624,9 +2630,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.messageBody.subtask.hidePrompt': '隐藏提示',
   'chat.messageBody.subtask.showPrompt': '显示提示',
   'chat.messageBody.subtask.openSession': '打开子任务会话',
-  'chat.messageBody.shellCommand.title': 'Shell 命令',
-  'chat.messageBody.shellCommand.hideOutput': '隐藏输出',
-  'chat.messageBody.shellCommand.showOutput': '显示输出',
   'chat.messageBody.shellCommand.copied': '已复制',
   'chat.messageBody.shellCommand.copyOutput': '复制输出',
   'commandPalette.title': '命令面板',
@@ -3508,13 +3511,13 @@ export const dict: Record<I18nKey, string> = {
   'chat.permissionCard.alwaysAllowPatterns': '始终：{patterns}',
   'chat.permissionCard.deny': '拒绝',
   'chat.permissionCard.replaceAll': '替换所有匹配项',
-  'chat.compaction.running': '正在压缩对话…',
+  'chat.compaction.running': '正在压缩对话',
   'chat.compaction.completed': '对话已压缩',
   'chat.compaction.failed': '压缩失败',
   'chat.compaction.showSummary': '显示摘要',
   'chat.compaction.hideSummary': '隐藏摘要',
-  'chat.revertPopover.staged': '{count} 条消息待删除',
-  'chat.revertPopover.clear': '保留消息',
-  'chat.revertPopover.commit': '永久删除',
+  'chat.revertPopover.staged': '已撤回：{count}',
+  'chat.revertPopover.clear': '保留',
+  'chat.revertPopover.commit': '删除',
   'chat.workStatus.mcp.needsAuthHint': '请在“设置 → MCP”中登录此 MCP 服务器。',
 };

@@ -8,6 +8,7 @@ import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
+import { providersI18n } from './providers.i18n';
 
 export const dict: Record<I18nKey, string> = {
   "opencodeCompatibility.bundled": "O OpenCode está incluído no OpenChamber. Atualize o OpenChamber para obter o OpenCode v2.",
@@ -61,6 +62,7 @@ export const dict: Record<I18nKey, string> = {
   ...fileArtifactsI18n['pt-BR'],
   ...usageStatsI18n['pt-BR'],
   ...webSearchI18n['pt-BR'],
+  ...providersI18n['pt-BR'],
   'terminalView.actions.attachSelection': 'Anexar saída selecionada',
   'terminalView.actions.copySelection': 'Copiar saída selecionada',
   'terminalView.toast.selectionCopied': 'Saída copiada',
@@ -770,6 +772,10 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.sessionDialogs.worktree.attachedArchivedPlural": "Worktrees adjuntos archivados.",
   "sessions.sidebar.sessionDialogs.worktree.archivedAndRemoteRemoved": "Worktrees archivados e branches remotas excluídas.",
   "sessions.sidebar.group.worktreeMissing": "A pasta do worktree está ausente",
+  "sessions.sidebar.project.folderMissing": "A pasta do projeto não existe ou está indisponível",
+  "sessions.sidebar.group.space": "Espaço isolado",
+  "sessions.sidebar.group.spaceStale": "O espaço não está respondendo. Estas são as sessões que ele informou por último.",
+  "sessions.sidebar.grouping.spaceUnnamed": "Espaço isolado",
   "sessions.sidebar.sessionDialogs.worktree.label": "Worktree",
   "sessions.sidebar.sessionDialogs.worktree.pathUnavailable": "Caminho de worktree não disponível.",
   "sessions.sidebar.sessionDialogs.worktree.uncommittedWarning": "As alterações sem commit serão perdidas.",
@@ -2624,9 +2630,6 @@ export const dict: Record<I18nKey, string> = {
   "chat.messageBody.subtask.hidePrompt": "Ocultar prompt",
   "chat.messageBody.subtask.showPrompt": "Mostrar prompt",
   "chat.messageBody.subtask.openSession": "Abrir sessão de subtarefa",
-  "chat.messageBody.shellCommand.title": "Comando de shell",
-  "chat.messageBody.shellCommand.hideOutput": "Ocultar saída",
-  "chat.messageBody.shellCommand.showOutput": "Mostrar saída",
   "chat.messageBody.shellCommand.copied": "Copiado",
   "chat.messageBody.shellCommand.copyOutput": "Copiar saída",
   "commandPalette.title": "Paleta de comandos",
@@ -3508,13 +3511,13 @@ export const dict: Record<I18nKey, string> = {
   'chat.permissionCard.alwaysAllowPatterns': 'Sempre: {patterns}',
   'chat.permissionCard.deny': 'Negar',
   'chat.permissionCard.replaceAll': 'Substitui todas as ocorrências',
-  'chat.compaction.running': 'Compactando a conversa…',
+  'chat.compaction.running': 'Compactando a conversa',
   'chat.compaction.completed': 'Conversa compactada',
   'chat.compaction.failed': 'Falha na compactação',
   'chat.compaction.showSummary': 'Mostrar resumo',
   'chat.compaction.hideSummary': 'Ocultar resumo',
-  'chat.revertPopover.staged': '{count} mensagens marcadas para remoção',
-  'chat.revertPopover.clear': 'Manter mensagens',
-  'chat.revertPopover.commit': 'Remover definitivamente',
+  'chat.revertPopover.staged': 'Revertidas: {count}',
+  'chat.revertPopover.clear': 'Manter',
+  'chat.revertPopover.commit': 'Remover',
   'chat.workStatus.mcp.needsAuthHint': 'Entre neste servidor MCP em Configurações → MCP.',
 };

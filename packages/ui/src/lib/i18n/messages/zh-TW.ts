@@ -8,6 +8,7 @@ import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
+import { providersI18n } from './providers.i18n';
 
 export const dict: Record<I18nKey, string> = {
   "opencodeCompatibility.bundled": "OpenCode 隨 OpenChamber 一起提供。請更新 OpenChamber 以取得 OpenCode v2。",
@@ -61,6 +62,7 @@ export const dict: Record<I18nKey, string> = {
   ...fileArtifactsI18n['zh-TW'],
   ...usageStatsI18n['zh-TW'],
   ...webSearchI18n['zh-TW'],
+  ...providersI18n['zh-TW'],
   'terminalView.actions.attachSelection': '附加所選輸出',
   'terminalView.actions.copySelection': '複製所選輸出',
   'terminalView.toast.selectionCopied': '已複製輸出',
@@ -783,6 +785,10 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.sessionDialogs.worktree.attachedArchivedPlural': '關聯 worktree 已封存。',
   'sessions.sidebar.sessionDialogs.worktree.archivedAndRemoteRemoved': 'worktree 已封存且遠端分支已移除。',
   'sessions.sidebar.group.worktreeMissing': '工作樹資料夾遺失',
+  'sessions.sidebar.project.folderMissing': '專案資料夾不存在或無法使用',
+  'sessions.sidebar.group.space': '隔離空間',
+  'sessions.sidebar.group.spaceStale': '該空間沒有回應。這些是它最後一次回報的工作階段。',
+  'sessions.sidebar.grouping.spaceUnnamed': '隔離空間',
   'sessions.sidebar.sessionDialogs.worktree.label': 'worktree',
   'sessions.sidebar.sessionDialogs.worktree.pathUnavailable': 'worktree 路徑無法使用。',
   'sessions.sidebar.sessionDialogs.worktree.uncommittedWarning': '未提交的變更將被捨棄。',
@@ -2628,9 +2634,6 @@ export const dict: Record<I18nKey, string> = {
   'chat.messageBody.subtask.hidePrompt': '隱藏提示',
   'chat.messageBody.subtask.showPrompt': '顯示提示',
   'chat.messageBody.subtask.openSession': '開啟子任務會話',
-  'chat.messageBody.shellCommand.title': 'Shell 命令',
-  'chat.messageBody.shellCommand.hideOutput': '隱藏輸出',
-  'chat.messageBody.shellCommand.showOutput': '顯示輸出',
   'chat.messageBody.shellCommand.copied': '已複製',
   'chat.messageBody.shellCommand.copyOutput': '複製輸出',
   'commandPalette.title': '命令面板',
@@ -3507,13 +3510,13 @@ export const dict: Record<I18nKey, string> = {
   'chat.permissionCard.alwaysAllowPatterns': '一律：{patterns}',
   'chat.permissionCard.deny': '拒絕',
   'chat.permissionCard.replaceAll': '取代所有符合項目',
-  'chat.compaction.running': '正在壓縮對話…',
+  'chat.compaction.running': '正在壓縮對話',
   'chat.compaction.completed': '對話已壓縮',
   'chat.compaction.failed': '壓縮失敗',
   'chat.compaction.showSummary': '顯示摘要',
   'chat.compaction.hideSummary': '隱藏摘要',
-  'chat.revertPopover.staged': '{count} 則訊息待刪除',
-  'chat.revertPopover.clear': '保留訊息',
-  'chat.revertPopover.commit': '永久刪除',
+  'chat.revertPopover.staged': '已收回：{count}',
+  'chat.revertPopover.clear': '保留',
+  'chat.revertPopover.commit': '刪除',
   'chat.workStatus.mcp.needsAuthHint': '請在「設定 → MCP」中登入此 MCP 伺服器。',
 };

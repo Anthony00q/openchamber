@@ -7,6 +7,7 @@ import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
+import { providersI18n } from './providers.i18n';
 
 export const dict = {
   "opencodeCompatibility.bundled": "OpenCode is bundled with OpenChamber. Update OpenChamber to get OpenCode v2.",
@@ -60,6 +61,7 @@ export const dict = {
   ...fileArtifactsI18n.en,
   ...usageStatsI18n.en,
   ...webSearchI18n.en,
+  ...providersI18n.en,
   'terminalView.actions.attachSelection': 'Attach selected output',
   'terminalView.actions.copySelection': 'Copy selected output',
   'terminalView.toast.selectionCopied': 'Output copied',
@@ -769,6 +771,10 @@ export const dict = {
   'sessions.sidebar.sessionDialogs.worktree.attachedArchivedPlural': 'Attached worktrees archived.',
   'sessions.sidebar.sessionDialogs.worktree.archivedAndRemoteRemoved': 'Archived worktrees and removed remote branches.',
   'sessions.sidebar.group.worktreeMissing': 'Worktree folder is missing',
+  'sessions.sidebar.project.folderMissing': 'Project folder is missing or unavailable',
+  'sessions.sidebar.group.space': 'Isolated space',
+  'sessions.sidebar.group.spaceStale': 'The space is not answering. These are the sessions it last reported.',
+  'sessions.sidebar.grouping.spaceUnnamed': 'Isolated space',
   'sessions.sidebar.sessionDialogs.worktree.label': 'Worktree',
   'sessions.sidebar.sessionDialogs.worktree.pathUnavailable': 'Worktree path unavailable.',
   'sessions.sidebar.sessionDialogs.worktree.uncommittedWarning': 'Uncommitted changes will be discarded.',
@@ -2658,9 +2664,6 @@ export const dict = {
   'chat.messageBody.subtask.hidePrompt': 'Hide prompt',
   'chat.messageBody.subtask.showPrompt': 'Show prompt',
   'chat.messageBody.subtask.openSession': 'Open subtask session',
-  'chat.messageBody.shellCommand.title': 'Shell command',
-  'chat.messageBody.shellCommand.hideOutput': 'Hide output',
-  'chat.messageBody.shellCommand.showOutput': 'Show output',
   'chat.messageBody.shellCommand.copied': 'Copied',
   'chat.messageBody.shellCommand.copyOutput': 'Copy output',
   'commandPalette.title': 'Command Palette',
@@ -3486,14 +3489,14 @@ export const dict = {
   'chat.permissionCard.alwaysAllowPatterns': 'Always: {patterns}',
   'chat.permissionCard.deny': 'Deny',
   'chat.permissionCard.replaceAll': 'Replaces every occurrence',
-  'chat.compaction.running': 'Compacting the conversation…',
+  'chat.compaction.running': 'Compacting the conversation',
   'chat.compaction.completed': 'Conversation compacted',
   'chat.compaction.failed': 'Compaction failed',
   'chat.compaction.showSummary': 'Show summary',
   'chat.compaction.hideSummary': 'Hide summary',
-  'chat.revertPopover.staged': '{count} messages staged for removal',
-  'chat.revertPopover.clear': 'Keep messages',
-  'chat.revertPopover.commit': 'Remove for good',
+  'chat.revertPopover.staged': 'Reverted: {count}',
+  'chat.revertPopover.clear': 'Keep',
+  'chat.revertPopover.commit': 'Remove',
   'chat.workStatus.mcp.needsAuthHint': 'Sign in to this MCP server from Settings → MCP.',
   'mcpDropdown.toast.authorizeOpenFailed': 'Could not open the authorization page',
   'mcpDropdown.toast.authorizeFailed': 'Authorization failed',
