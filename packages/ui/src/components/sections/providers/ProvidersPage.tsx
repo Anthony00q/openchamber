@@ -20,6 +20,7 @@ import { toast } from '@/components/ui';
 import { Icon } from "@/components/icon/Icon";
 import type { IconName } from "@/components/icon/icons";
 import { cn } from '@/lib/utils';
+import { useDeviceInfo } from '@/lib/device';
 import type { ModelMetadata } from '@/types';
 import { getCurrentIntlLocale, useI18n } from '@/lib/i18n';
 import { runtimeFetch } from '@/lib/runtime-fetch';
@@ -41,6 +42,8 @@ import {
   type CredentialConnection,
 } from './providerAuth';
 import { ProviderGrid } from './ProviderGrid';
+import { ClassificationProvidersPage } from '@/components/sections/classification/ClassificationProvidersPage';
+import { SettingsBackButton } from '@/components/sections/shared/SettingsCards';
 import { ProviderAccounts } from './ProviderAccounts';
 import { CustomProviderForm } from './CustomProviderForm';
 
@@ -48,6 +51,7 @@ import { ProviderOAuthMethods } from './ProviderOAuthMethods';
 import {
   buildIntegrationKeyRequest,
   buildProviderUpsertRequest,
+  storeKeyAfterConfigWrite,
   CUSTOM_PROVIDER_ID,
   isConfigDefinedCustomProvider,
   providerToEditFormState,
@@ -78,6 +82,8 @@ const formatTokens = (value?: number | null) => {
 };
 
 const ADD_PROVIDER_ID = '__add_provider__';
+/** Not an OpenCode provider id: the page for OpenChamber's own classification providers (Jev). */
+const CLASSIFICATION_PAGE_ID = '__classification__';
 
 interface ProviderOption {
   id: string;
@@ -146,6 +152,7 @@ const parseProvidersPayload = (payload: unknown): ProviderOption[] => {
 
 export const ProvidersPage: React.FC = () => {
   const { t } = useI18n();
+  const { isMobile } = useDeviceInfo();
   // Settings browses whichever project its own selector points at; the app
   // stays where it is.
   const settingsDirectory = useSettingsDirectory();
@@ -155,12 +162,28 @@ export const ProvidersPage: React.FC = () => {
   // Settings open on the chat's provider and marked the chat selection manual.
   const connectRequested = useUIStore((state) => state.settingsProvidersConnectRequested);
   const setConnectRequested = useUIStore((state) => state.setSettingsProvidersConnectRequested);
-  const [selectedProviderId, setSelectedProvider] = React.useState(() => (connectRequested ? ADD_PROVIDER_ID : ''));
+  const classificationRequested = useUIStore((state) => state.settingsProvidersClassificationRequested);
+  const setClassificationRequested = useUIStore((state) => state.setSettingsProvidersClassificationRequested);
+  const openRequested = useUIStore((state) => state.settingsProvidersOpenRequested);
+  const setOpenRequested = useUIStore((state) => state.setSettingsProvidersOpenRequested);
+  const [selectedProviderId, setSelectedProvider] = React.useState(() => (
+    connectRequested ? ADD_PROVIDER_ID : classificationRequested ? CLASSIFICATION_PAGE_ID : openRequested ?? ''
+  ));
   React.useEffect(() => {
     if (!connectRequested) return;
     setSelectedProvider(ADD_PROVIDER_ID);
     setConnectRequested(false);
   }, [connectRequested, setConnectRequested]);
+  React.useEffect(() => {
+    if (!classificationRequested) return;
+    setSelectedProvider(CLASSIFICATION_PAGE_ID);
+    setClassificationRequested(false);
+  }, [classificationRequested, setClassificationRequested]);
+  React.useEffect(() => {
+    if (!openRequested) return;
+    setSelectedProvider(openRequested);
+    setOpenRequested(null);
+  }, [openRequested, setOpenRequested]);
   const getModelMetadata = useConfigStore((state) => state.getModelMetadata);
   const hiddenModels = useUIStore((state) => state.hiddenModels);
   const toggleHiddenModel = useUIStore((state) => state.toggleHiddenModel);
@@ -309,7 +332,9 @@ export const ProvidersPage: React.FC = () => {
   );
 
   React.useEffect(() => {
-    if (selectedProviderId !== ADD_PROVIDER_ID) {
+    // A candidate requested from Classification providers arrives before the
+    // list does; judge it only once there is a list to judge it against.
+    if (selectedProviderId !== ADD_PROVIDER_ID || availableLoading || availableProviders.length === 0) {
       return;
     }
 
@@ -320,7 +345,7 @@ export const ProvidersPage: React.FC = () => {
     ) {
       setCandidateProviderId('');
     }
-  }, [selectedProviderId, candidateProviderId, unconnectedProviders]);
+  }, [selectedProviderId, candidateProviderId, unconnectedProviders, availableLoading, availableProviders.length]);
 
   React.useEffect(() => {
     if (selectedProviderId === ADD_PROVIDER_ID) {
@@ -346,7 +371,7 @@ export const ProvidersPage: React.FC = () => {
   // Unauthenticated providers (OAuth-only plugins before login) should open the
   // auth panel instead of a false "Connected" summary. Respect an explicit Hide.
   React.useEffect(() => {
-    if (!selectedProviderId || selectedProviderId === ADD_PROVIDER_ID) {
+    if (!selectedProviderId || selectedProviderId === ADD_PROVIDER_ID || selectedProviderId === CLASSIFICATION_PAGE_ID) {
       return;
     }
     const sources = providerSources[selectedProviderId];
@@ -374,7 +399,7 @@ export const ProvidersPage: React.FC = () => {
   }, [selectedProviderId, providerSources, providers, integrations, authPanelDismissedForId]);
 
   React.useEffect(() => {
-    if (!selectedProviderId || selectedProviderId === ADD_PROVIDER_ID) {
+    if (!selectedProviderId || selectedProviderId === ADD_PROVIDER_ID || selectedProviderId === CLASSIFICATION_PAGE_ID) {
       return;
     }
 
@@ -484,13 +509,9 @@ export const ProvidersPage: React.FC = () => {
     setCustomAuthFailureHint(null);
 
     try {
-      // Auth first so a failed key write cannot leave an orphan config that
-      // blocks create validation, and so PUT can pass hasStoredAuth for literal keys.
+      // Config first: OpenCode registers a custom provider's key method only
+      // once the provider is in its config, so the key follows the write.
       const keyRequest = buildIntegrationKeyRequest(plan);
-      if (keyRequest) {
-        await opencodeClient.getSdkClient().integration.connect.key(keyRequest);
-      }
-
       const upsertBody = buildProviderUpsertRequest(plan, {
         // Create defaults to user. Edit must rewrite the winning config layer
         // (custom > project > user) so project/custom providers are not copied
@@ -509,10 +530,15 @@ export const ProvidersPage: React.FC = () => {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        if (keyRequest) {
-          setCustomAuthFailureHint(t('settings.providers.page.custom.authFailure.configAfterAuth'));
-        }
         throw new Error(payload?.error || t('settings.providers.page.toast.customProviderSaveFailed'));
+      }
+      if (keyRequest) {
+        try {
+          await storeKeyAfterConfigWrite(() => opencodeClient.getSdkClient().integration.connect.key(keyRequest));
+        } catch (error) {
+          setCustomAuthFailureHint(t('settings.providers.page.custom.authFailure.keyAfterConfig'));
+          throw error;
+        }
       }
 
       toast.success(t('settings.providers.page.toast.customProviderSaved', { provider: plan.name }));
@@ -637,18 +663,23 @@ export const ProvidersPage: React.FC = () => {
   );
 
   const backToGrid = () => setSelectedProvider('');
-  const backButton = (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="-ml-2 h-7 w-7 shrink-0"
-      onClick={backToGrid}
-      aria-label={t('settings.providers.page.back')}
-      title={t('settings.providers.page.back')}
-    >
-      <Icon name="arrow-left-s" className="size-4" />
-    </Button>
-  );
+  const backButton = <SettingsBackButton label={t('settings.providers.page.back')} onClick={backToGrid} />;
+
+
+  // A classification source that needs a key links to the provider holding it:
+  // its own page when OpenCode already lists it, the connect form otherwise.
+  const openProviderForKey = (providerId: string) => {
+    if (providers.some((provider) => provider.id === providerId)) {
+      setSelectedProvider(providerId);
+      return;
+    }
+    setCandidateProviderId(providerId);
+    setSelectedProvider(ADD_PROVIDER_ID);
+  };
+
+  if (selectedProviderId === CLASSIFICATION_PAGE_ID) {
+    return <ClassificationProvidersPage titleLeading={backButton} onOpenProvider={openProviderForKey} />;
+  }
 
   if (isAddMode) {
     return (
@@ -867,6 +898,7 @@ export const ProvidersPage: React.FC = () => {
         directory={settingsDirectory}
         onSelect={setSelectedProvider}
         onConnect={() => setSelectedProvider(ADD_PROVIDER_ID)}
+        onOpenClassification={() => setSelectedProvider(CLASSIFICATION_PAGE_ID)}
       />
     );
   }
@@ -1148,6 +1180,10 @@ export const ProvidersPage: React.FC = () => {
 
                   const contextTokens = formatTokens(metadata?.limit?.context);
                   const outputTokens = formatTokens(metadata?.limit?.output);
+                  const tokenSummary = [
+                    contextTokens ? `${contextTokens} ${t('settings.providers.page.models.tokenBadge.context')}` : null,
+                    outputTokens ? `${outputTokens} ${t('settings.providers.page.models.tokenBadge.output')}` : null,
+                  ].filter(Boolean).join(' · ');
 
                   const capabilityIcons: Array<{ key: string; icon: IconName; label: string }> = [];
                   if (metadata?.tool_call) capabilityIcons.push({ key: 'tools', icon: "tools", label: t('settings.providers.page.models.capability.toolCalling') });
@@ -1166,13 +1202,29 @@ export const ProvidersPage: React.FC = () => {
                         {modelName}
                       </span>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        {(contextTokens || outputTokens) && (
+                        {isMobile ? (
+                          // A phone row has room for the name only; the limits
+                          // and capabilities move behind a tap.
+                          (tokenSummary || capabilityIcons.length > 0) ? (
+                            <SettingsInfoHint className="h-6 w-6">
+                              <div className="space-y-1.5">
+                                {tokenSummary ? <div className="font-medium">{tokenSummary}</div> : null}
+                                {capabilityIcons.map(({ key, icon: iconName, label }) => (
+                                  <div key={key} className="flex items-center gap-1.5">
+                                    <Icon name={iconName} className="h-3.5 w-3.5" />
+                                    {label}
+                                  </div>
+                                ))}
+                              </div>
+                            </SettingsInfoHint>
+                          ) : null
+                        ) : (
+                          <>
+                        {tokenSummary ? (
                           <span className="typography-micro text-muted-foreground flex-shrink-0 bg-[var(--surface-muted)] px-1.5 py-0.5 rounded">
-                            {contextTokens ? `${contextTokens} ${t('settings.providers.page.models.tokenBadge.context')}` : ''}
-                            {contextTokens && outputTokens ? ' · ' : ''}
-                            {outputTokens ? `${outputTokens} ${t('settings.providers.page.models.tokenBadge.output')}` : ''}
+                            {tokenSummary}
                           </span>
-                        )}
+                        ) : null}
                         {capabilityIcons.length > 0 && (
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {capabilityIcons.map(({ key, icon: iconName, label }) => (
@@ -1186,6 +1238,8 @@ export const ProvidersPage: React.FC = () => {
                               </span>
                             ))}
                           </div>
+                        )}
+                          </>
                         )}
                         <button
                           type="button"
