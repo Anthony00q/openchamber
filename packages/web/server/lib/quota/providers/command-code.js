@@ -1,4 +1,4 @@
-import { readAuthFile } from '../../opencode/auth.js';
+import { readOpenCodeCredentials } from '../../opencode/auth.js';
 import {
   getAuthEntry,
   normalizeAuthEntry,
@@ -52,7 +52,9 @@ const getApiKey = (auth) => {
     ?? asNonEmptyString(process.env.COMMAND_CODE_API_KEY);
 };
 
-export const isConfigured = (auth = readAuthFile()) => Boolean(getApiKey(auth));
+// The registry reads OpenCode's credentials once and hands them to every
+// `isConfigured(auth)`, matching the other providers.
+export const isConfigured = (auth) => Boolean(getApiKey(auth ?? {}));
 
 const firstDefined = (obj, keys) => {
   for (const key of keys) {
@@ -96,8 +98,8 @@ const requestJson = async (fetchImpl, url, apiKey, signal) => {
   return response.json();
 };
 
-export const fetchQuota = async ({ readAuth = readAuthFile, fetchImpl = fetch } = {}) => {
-  const apiKey = getApiKey(readAuth());
+export const fetchQuota = async ({ readAuth = readOpenCodeCredentials, fetchImpl = fetch } = {}) => {
+  const apiKey = getApiKey(await readAuth());
 
   if (!apiKey) {
     return buildResult({
