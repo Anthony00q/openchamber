@@ -14,6 +14,7 @@ import * as codex from './codex.js';
 import * as commandCode from './command-code.js';
 import * as copilot from './copilot.js';
 import * as cursor from './cursor.js';
+import * as deepinfra from './deepinfra.js';
 import * as deepseek from './deepseek.js';
 import * as exeDev from './exe-dev.js';
 import * as google from './google/index.js';
@@ -27,6 +28,8 @@ import * as zhipuaiCodingPlan from './zhipuai-coding-plan.js';
 import * as minimaxCodingPlan from './minimax-coding-plan.js';
 import * as minimaxCnCodingPlan from './minimax-cn-coding-plan.js';
 import * as neuralwatt from './neuralwatt.js';
+import * as kilo from './kilo.js';
+import * as zenmux from './zenmux.js';
 import * as ollamaCloud from './ollama-cloud.js';
 import * as wafer from './wafer.js';
 import * as opencodeGo from './opencode-go.js';
@@ -62,6 +65,12 @@ const registry = {
     providerName: cursor.providerName,
     isConfigured: cursor.isConfigured,
     fetchQuota: cursor.fetchQuota
+  },
+  deepinfra: {
+    providerId: deepinfra.providerId,
+    providerName: deepinfra.providerName,
+    isConfigured: deepinfra.isConfigured,
+    fetchQuota: deepinfra.fetchQuota
   },
   deepseek: {
     providerId: deepseek.providerId,
@@ -165,6 +174,18 @@ const registry = {
     isConfigured: neuralwatt.isConfigured,
     fetchQuota: neuralwatt.fetchQuota
   },
+  kilo: {
+    providerId: kilo.providerId,
+    providerName: kilo.providerName,
+    isConfigured: kilo.isConfigured,
+    fetchQuota: kilo.fetchQuota
+  },
+  zenmux: {
+    providerId: zenmux.providerId,
+    providerName: zenmux.providerName,
+    isConfigured: zenmux.isConfigured,
+    fetchQuota: zenmux.fetchQuota
+  },
   xai: {
     providerId: xai.providerId,
     providerName: xai.providerName,
@@ -241,6 +262,7 @@ export const fetchGoogleQuota = google.fetchGoogleQuota;
 export const fetchCodexQuota = codex.fetchQuota;
 export const fetchCommandCodeQuota = commandCode.fetchQuota;
 export const fetchCursorQuota = cursor.fetchQuota;
+export const fetchDeepinfraQuota = deepinfra.fetchQuota;
 export const fetchDeepseekQuota = deepseek.fetchQuota;
 export const fetchHyperQuota = hyper.fetchQuota;
 export const fetchCopilotQuota = copilot.fetchQuota;
