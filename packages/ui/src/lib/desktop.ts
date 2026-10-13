@@ -17,8 +17,14 @@ export type UpdateInfo = {
   // Web-specific fields
   packageManager?: string;
   updateCommand?: string;
-  /** The server cannot install this update itself; `updateCommand` must be run by hand. */
-  installBlocked?: 'service-manager';
+  /**
+   * The server cannot install this update itself. `service-manager`: run
+   * `updateCommand` by hand. `manual-install`: no package manager installed
+   * this copy, so the new version is installed the way this one was.
+   * `desktop-host`: a desktop installed from a Linux package asks for the
+   * administrator password on its own screen, so it updates only there.
+   */
+  installBlocked?: 'service-manager' | 'manual-install' | 'desktop-host';
 };
 
 export type UpdateProgress = {

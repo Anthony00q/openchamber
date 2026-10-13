@@ -15,7 +15,7 @@ export const providerId = 'command-code';
 export const providerName = 'Command Code';
 // Spellings recognized by the model-picker logo fallback: quota resolves the
 // same ids so the tile and the logo never disagree about Command Code.
-export const aliases = ['command-code', 'commandcode', 'command_code', 'command code'];
+const aliases = ['command-code', 'commandcode', 'command_code', 'command code'];
 const COMMAND_CODE_API_BASE = 'https://api.commandcode.ai';
 const FIVE_HOUR_SECONDS = 5 * 60 * 60;
 const WEEK_SECONDS = 7 * 24 * 60 * 60;

@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { findRatchetViolations } from './check-changed.mjs';
+import { chunkFilesByArgumentLength, findRatchetViolations } from './check-changed.mjs';
 
 const counts = (entries) => new Map(entries.map(([file, rule, count]) => [`${file}\0${rule}`, count]));
+
+test('file arguments are split before reaching the command-line limit', () => {
+  assert.deepEqual(chunkFilesByArgumentLength(['one.ts', 'two.ts', 'three.ts'], 16), [
+    ['one.ts', 'two.ts'],
+    ['three.ts'],
+  ]);
+});
 
 test('old findings may stay or shrink', () => {
   const base = counts([['a.ts', 'anti-slop(no-runtime-typeof)', 3]]);

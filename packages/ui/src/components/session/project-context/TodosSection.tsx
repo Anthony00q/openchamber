@@ -22,7 +22,7 @@ import { isIMECompositionEvent } from '@/lib/ime';
 import { InlineDictationButton } from '@/components/dictation/InlineDictationButton';
 import { Icon } from '@/components/icon/Icon';
 import { useI18n } from '@/lib/i18n';
-import { PROJECT_TODO_TEXT_MAX_LENGTH, type ProjectTodoItem } from '@/lib/projectContextApi';
+import { PROJECT_TODO_TEXT_MAX_LENGTH, type ProjectTodoChange, type ProjectTodoItem } from '@/lib/projectContextApi';
 import { cn } from '@/lib/utils';
 
 const createTodoId = (): string => {
@@ -87,8 +87,11 @@ export const TodosSection: React.FC<{
   disabled: boolean;
   canCreateWorktree: boolean;
   sendingTodoId: string | null;
-  /** Persists the whole list through the container's store write. */
-  onPersistTodos: (next: ProjectTodoItem[]) => void;
+  /**
+   * Shows `next` and persists it through the container's store write: one
+   * todo when `change` names it, otherwise the whole list.
+   */
+  onPersistTodos: (next: ProjectTodoItem[], change?: ProjectTodoChange) => void;
   onSendToCurrentSession: (todoText: string) => void;
   onSendToNewSession: (todoId: string, todoText: string) => void;
   onSendToNewWorktreeSession: (todoId: string, todoText: string) => void;
@@ -112,12 +115,14 @@ export const TodosSection: React.FC<{
     if (!trimmed) {
       return;
     }
+    const id = createTodoId();
+    const text = trimmed.slice(0, PROJECT_TODO_TEXT_MAX_LENGTH);
     onPersistTodos(insertTodoBeforeCompleted(todos, {
-      id: createTodoId(),
-      text: trimmed.slice(0, PROJECT_TODO_TEXT_MAX_LENGTH),
+      id,
+      text,
       completed: false,
       createdAt: Date.now(),
-    }));
+    }), { kind: 'create', id, text });
     setNewTodoText('');
   }, [newTodoText, onPersistTodos, todos]);
 
@@ -141,14 +146,17 @@ export const TodosSection: React.FC<{
       }
       const remaining = todos.filter((item) => item.id !== id);
       const updated = { ...todo, completed };
-      onPersistTodos(completed ? [...remaining, updated] : insertTodoBeforeCompleted(remaining, updated));
+      onPersistTodos(
+        completed ? [...remaining, updated] : insertTodoBeforeCompleted(remaining, updated),
+        { kind: 'complete', id, completed },
+      );
     },
     [onPersistTodos, todos]
   );
 
   const handleDeleteTodo = React.useCallback(
     (id: string) => {
-      onPersistTodos(todos.filter((todo) => todo.id !== id));
+      onPersistTodos(todos.filter((todo) => todo.id !== id), { kind: 'delete', id });
     },
     [onPersistTodos, todos]
   );
@@ -301,7 +309,7 @@ export const TodosSection: React.FC<{
                             type="button"
                             onClick={() => handleToggleTodoExpanded(todo.id)}
                             className={cn(
-                              'block min-h-6 min-w-0 flex-1 bg-transparent p-0 text-left typography-ui-label leading-normal text-foreground',
+                              'block min-h-6 min-w-0 flex-1 bg-transparent p-0 text-start typography-ui-label leading-normal text-foreground',
                               isExpandedTodo ? 'whitespace-normal break-words' : 'overflow-hidden text-ellipsis whitespace-nowrap',
                               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                               todo.completed && 'text-muted-foreground line-through'

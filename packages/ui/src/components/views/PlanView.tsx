@@ -41,6 +41,8 @@ import { generateBranchName } from '@/lib/git/branchNameGenerator';
 import { fetchProjectPlan, parsePlanMarkdown, resolveProjectContextId, type SavedProjectPlanTarget } from '@/lib/projectContextApi';
 import { CHAT_DRAFT_PROJECT_ID } from '@/lib/chatDirectories';
 import { createPlanSaveQueue } from '@/lib/planSaveQueue';
+import { createFileContentPoller } from './fileContentPoller';
+import { observeProjectContext } from '@/lib/projectContextSync';
 import { getRuntimeKey, subscribeRuntimeEndpointChanged } from '@/lib/runtime-switch';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { createWorktreeSessionForNewBranch } from '@/lib/worktreeSessionCreator';
@@ -49,8 +51,13 @@ import { Icon } from "@/components/icon/Icon";
 import { useMessageTTS } from '@/hooks/useMessageTTS';
 import { renderMagicPrompt } from '@/lib/magicPrompts';
 import { useI18n } from '@/lib/i18n';
+import { ContextPanelHeaderToolbar } from '@/components/layout/contextPanelHeaderSlot';
+import { useInContextPanelHeader } from '@/components/layout/contextPanelHeaderSlotContext';
+import { cn } from '@/lib/utils';
 
 type PlanViewProps = {
+  /** False while the panel holding the view is closed: nothing to keep fresh. */
+  visible?: boolean;
   targetPath?: string | null;
   /** Saved project plan to open, with the project that owns it. The owner is
       part of the prop so the view never guesses it from the current directory:
@@ -137,8 +144,9 @@ type SelectedLineRange = {
   end: number;
 };
 
-export const PlanView: React.FC<PlanViewProps> = ({ targetPath = null, savedProjectPlan = null, onNavigatedToChat }) => {
+export const PlanView: React.FC<PlanViewProps> = ({ visible = true, targetPath = null, savedProjectPlan = null, onNavigatedToChat }) => {
   const { t } = useI18n();
+  const inPanelHeader = useInContextPanelHeader();
   const currentSessionId = useSessionUIStore((state) => state.currentSessionId);
   const createSession = useSessionUIStore((state) => state.createSession);
   const initializeNewOpenChamberSession = useSessionUIStore((state) => state.initializeNewOpenChamberSession);
@@ -613,10 +621,58 @@ export const PlanView: React.FC<PlanViewProps> = ({ targetPath = null, savedProj
     };
   }, [activeRuntimeKey, homeDirectory, planModeEnabled, runtimeApis.files, savedPlanId, savedPlanKey, savedPlanProjectRef, saveQueue, scheduleSave, sessionDirectory, targetPath]);
 
+  // An agent can change the open plan, through the knowledge tool or by
+  // editing its file. With no unsaved edits the editor takes the new text, so
+  // a later edit starts from it instead of writing the old document back over
+  // it. Unsaved edits win: the next save replaces the agent's version, the way
+  // typing in a note does. A save through the API announces itself; a file
+  // edit does not, so the open plan also checks for one every two seconds, as
+  // the file panel does for open files.
+  React.useEffect(() => {
+    if (!visible || !savedPlanProjectRef || !savedPlanId || !savedPlanKey || loadedProjectPlanId !== savedPlanId) return;
+    const doc = docRef.current;
+    if (doc.key !== savedPlanKey) return;
+    const poller = createFileContentPoller({
+      readContent: async () => {
+        await saveQueue.pendingFor(savedPlanKey);
+        const plan = await fetchProjectPlan(savedPlanProjectRef, savedPlanId);
+        // A deleted plan keeps its text on screen; the next save reports it gone.
+        if (!plan) throw new Error('Plan not found');
+        return plan.raw;
+      },
+      getLoadedContent: () => doc.content,
+      getLoadedRevision: () => doc.editRevision,
+      isDirty: () => docRef.current !== doc || doc.editRevision > doc.savedRevision,
+      applyContent: (raw) => {
+        doc.content = raw;
+        setContent(raw);
+      },
+    });
+    let polling = false;
+    const poll = async () => {
+      if (polling || document.visibilityState === 'hidden') return;
+      polling = true;
+      try {
+        await poller.poll();
+      } finally {
+        polling = false;
+      }
+    };
+    const release = observeProjectContext(savedPlanProjectRef, poll);
+    const interval = window.setInterval(() => { void poll(); }, 2000);
+    return () => {
+      window.clearInterval(interval);
+      release();
+      poller.dispose();
+    };
+  }, [loadedProjectPlanId, savedPlanId, savedPlanKey, savedPlanProjectRef, saveQueue, visible]);
+
   // Synchronous buffer tracking: if an edit and an unmount land in the same
   // batch, the passive content effect would never run and a flush would save
-  // a stale buffer.
+  // a stale buffer. The editor echoes text it was given as a change; that
+  // echo is not an edit and must not schedule a save.
   const handleContentChange = React.useCallback((next: string) => {
+    if (next === docRef.current.content) return;
     docRef.current.content = next;
     docRef.current.editRevision += 1;
     setContent(next);
@@ -677,18 +733,19 @@ export const PlanView: React.FC<PlanViewProps> = ({ targetPath = null, savedProj
           plan_title: sendPromptTitle,
         },
       );
+      // A saved plan is a markdown file too, so the agent reads it and ticks
+      // its steps there like any other plan file.
+      const planFilePath = resolvedPath ?? loadedProjectPlanPath;
       const instructionsText = await renderMagicPrompt(
         pendingPlanSend.action === 'improve' ? 'plan.improve.instructions' : 'plan.implement.instructions',
         {
           plan_title: sendPromptTitle,
-          plan_path: resolvedPath ?? '',
+          plan_path: planFilePath ?? '',
         },
       );
-      // Saved project plans have no file path for the agent to read. Without
-      // this the instructions say "read that file" with an empty path and the
-      // plan contents never reach the session, so the plan substance rides
-      // along in the synthetic message instead.
-      const planSubstance = resolvedPath
+      // A server that answered without the plan's path leaves the agent no
+      // file to read, so the plan substance rides along in the message.
+      const planSubstance = planFilePath
         ? instructionsText
         : [
             instructionsText,
@@ -763,8 +820,8 @@ export const PlanView: React.FC<PlanViewProps> = ({ targetPath = null, savedProj
         // source. Here we only compose header + full content.
         const goalObjective = execution.runAsGoal === true
           ? [
-              `Implement the plan "${sendPromptTitle}" end-to-end${resolvedPath ? ` (plan file: ${resolvedPath})` : ' (the full plan follows)'}.`,
-              resolvedPath
+              `Implement the plan "${sendPromptTitle}" end-to-end${planFilePath ? ` (plan file: ${planFilePath})` : ' (the full plan follows)'}.`,
+              planFilePath
                 ? 'Re-read that file for full details — it is the source of truth.'
                 : 'The full plan follows in this message and is the source of truth.',
               '',
@@ -788,7 +845,7 @@ export const PlanView: React.FC<PlanViewProps> = ({ targetPath = null, savedProj
         setIsPlanSendSubmitting(false);
       }
     },
-    [canCreateWorktree, content, createSession, currentProjectRef, initializeNewOpenChamberSession, isManagedChatPlan, pendingPlanSend, resolvedPath, routeToChat, savedPlanProjectRef, sendMessage, sendPromptTitle, setCurrentSession]
+    [canCreateWorktree, content, createSession, currentProjectRef, initializeNewOpenChamberSession, isManagedChatPlan, loadedProjectPlanPath, pendingPlanSend, resolvedPath, routeToChat, savedPlanProjectRef, sendMessage, sendPromptTitle, setCurrentSession]
   );
 
   const blockWidgets = React.useMemo(() => {
@@ -814,7 +871,8 @@ export const PlanView: React.FC<PlanViewProps> = ({ targetPath = null, savedProj
 
   return (
     <div className="relative flex h-full min-h-0 min-w-0 w-full flex-col overflow-hidden bg-background">
-      <div className="flex min-w-0 items-center gap-2 border-b border-border/40 px-3 py-1.5 flex-shrink-0">
+      <ContextPanelHeaderToolbar>
+      <div className={cn('flex min-w-0 items-center gap-2', inPanelHeader ? 'flex-1 py-1 pe-1' : 'border-b border-border/40 px-3 py-1.5 flex-shrink-0')}>
         <div className="min-w-0 flex-1">
           <div className="typography-ui-label font-medium truncate">{parsedTitle}</div>
           {loadError ? (
@@ -952,6 +1010,7 @@ export const PlanView: React.FC<PlanViewProps> = ({ targetPath = null, savedProj
           </div>
         ) : null}
       </div>
+      </ContextPanelHeaderToolbar>
 
       <TodoSendDialog
         open={pendingPlanSend !== null}

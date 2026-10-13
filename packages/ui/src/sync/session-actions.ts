@@ -3,7 +3,7 @@
  * Replaces the action methods from the old useSessionStore.
  */
 
-import type { FilePart, FormRequest, JsonValue, Message, Metadata, ModelRef, Part, Session, SyntheticMessage, TextPart, UserMessage } from "@/lib/opencode/model"
+import type { FilePart, FormRequest, JsonValue, Message, Metadata, ModelSelection, Part, PermissionRequest, Session, SyntheticMessage, TextPart, UserMessage } from "@/lib/opencode/model"
 import { compact, partIds } from "@/lib/opencode/model"
 import { readSubagentRun } from "@/lib/opencode/subagent-run"
 import { readDispatchedSessionResult } from "@/lib/opencode/dispatched-session"
@@ -17,6 +17,7 @@ import { toJsonRecord } from "@/lib/opencode/json"
 import { ascendingId } from "@/lib/opencode/ids"
 import { mergeSessionDirectoryMetadata, resolveGlobalSessionDirectory, useGlobalSessionsStore } from "@/stores/useGlobalSessionsStore"
 import { useConfigStore } from "@/stores/useConfigStore"
+import { waitForOpenCodeStartup } from "./opencode-startup-gate"
 import { registerSessionDirectory } from "./sync-refs"
 import { useGlobalSessionStatusStore } from "./global-session-status"
 import { recordSendFailure } from "./send-failure-log"
@@ -383,6 +384,9 @@ const CONNECTION_PROBE_MS = 500
 const RELAY_CONNECTION_GRACE_MS = 3000
 const RELAY_CONNECTION_PROBE_MS = 3000
 export async function waitForConnectionOrThrow(): Promise<void> {
+  // Before the page's first connection, wait for OpenCode to start instead of
+  // failing after the short reconnect grace below.
+  await waitForOpenCodeStartup()
   const relayed = isRelayModeActive()
   const deadline = Date.now() + (relayed ? RELAY_CONNECTION_GRACE_MS : CONNECTION_GRACE_MS)
   const probeMs = relayed ? RELAY_CONNECTION_PROBE_MS : CONNECTION_PROBE_MS
@@ -511,6 +515,25 @@ async function fetchSessionMessages(sessionId: string, directory?: string | null
 }
 
 /**
+ * Finds one message by id, following the cursor until it appears or the
+ * history runs out. The local store holds only the newest page, so a revert
+ * target older than that must be searched for across pages, not assumed gone.
+ */
+async function findSessionMessageById(sessionId: string, messageId: string, directory?: string | null): Promise<Message | null> {
+  const seenCursors = new Set<string>()
+  let cursor: string | undefined
+  for (;;) {
+    const page = await opencodeClient.getSessionMessages(sessionId, cursor ? { cursor } : undefined, directory)
+    const found = page.items.map(({ info }) => info).find((message) => message.id === messageId)
+    if (found) return found
+    const next = page.cursor.next
+    if (!next || seenCursors.has(next)) return null
+    seenCursors.add(next)
+    cursor = next
+  }
+}
+
+/**
  * From when descendants are reverted along with a cut at `target`. A subagent
  * run's report lands after its child already worked, so reverting the run
  * reverts the child from its start; any other target cuts at its own time.
@@ -538,27 +561,6 @@ async function cascadeRevertToDescendants(rootId: string, cutoff: number): Promi
       console.error(`[session-actions] Failed to cascade revert to descendant ${session.id}:`, error)
     }
   }
-}
-
-/**
- * Finalizes a staged revert: the hidden messages are deleted for good, in the
- * session and in every descendant that was staged alongside it.
- */
-export async function commitStagedRevert(sessionId: string): Promise<void> {
-  const { directory } = dirStoreForSession(sessionId)
-  for (const descendant of getDescendantSessions(sessionId)) {
-    if (!descendant.session.revert) continue
-    try {
-      await opencodeClient.commitRevert(descendant.session.id, descendant.directory)
-      mirrorSessionIntoLiveStores(await opencodeClient.getSession(descendant.session.id, descendant.directory), descendant.directory)
-    } catch (error) {
-      console.error(`[session-actions] Failed to commit revert in descendant ${descendant.session.id}:`, error)
-    }
-  }
-  await opencodeClient.commitRevert(sessionId, directory)
-  mirrorSessionIntoLiveStores(await opencodeClient.getSession(sessionId, directory), directory)
-  await refetchSessionMessages(sessionId)
-  if (directory) sessionEvents.requestGitRefresh({ directory })
 }
 
 /** Cancels a staged revert: the hidden messages come back, in descendants too. */
@@ -890,6 +892,30 @@ function removeFormRequestFromChildStores(sessionId: string, requestId: string):
   return removed
 }
 
+/** Put back a form removed optimistically; a no-op when the store already holds it. */
+function restoreFormRequest(store: DirectoryStoreApi, sessionId: string, form: FormRequest): void {
+  store.setState((state) => {
+    const forms = state.form[sessionId] ?? []
+    const result = Binary.search(forms, form.id, (item) => item.id)
+    if (result.found) return state
+    const next = [...forms]
+    next.splice(result.index, 0, form)
+    return { form: { ...state.form, [sessionId]: next } }
+  })
+}
+
+/** Put back a permission removed optimistically; a no-op when the store already holds it. */
+function restorePermissionRequest(store: DirectoryStoreApi, sessionId: string, permission: PermissionRequest): void {
+  store.setState((state) => {
+    const permissions = state.permission[sessionId] ?? []
+    const result = Binary.search(permissions, permission.id, (item) => item.id)
+    if (result.found) return state
+    const next = [...permissions]
+    next.splice(result.index, 0, permission)
+    return { permission: { ...state.permission, [sessionId]: next } }
+  })
+}
+
 function isPermissionRequestNotFoundError(error: unknown): boolean {
   if (error && typeof error === "object") {
     const status = (error as { status?: unknown }).status
@@ -965,7 +991,7 @@ function getRequestReplyDirectory(
  * what the first turn will run on pass it here, so the session is created on
  * that selection and the first prompt needs no switch at all.
  */
-export type SessionCreateSelection = { model?: ModelRef; agent?: string }
+export type SessionCreateSelection = { model?: ModelSelection; agent?: string }
 
 export async function createSession(
   title?: string,
@@ -1913,6 +1939,13 @@ export async function optimisticSend(input: {
   files?: Array<{ type: "file"; mime: string; url: string; filename: string }>
   /** Context admitted ahead of the prompt; shown in the optimistic message until the server echoes it. */
   context?: SyntheticContextInput[]
+  /**
+   * Context still being fetched, admitted ahead of `context` once it resolves
+   * (the session's project knowledge). The user message is inserted without
+   * waiting for it; only the request waits. Must not reject: it resolves to
+   * null when there is nothing to add.
+   */
+  leadingContext?: Promise<SyntheticContextInput | null>
   appendSubmissions?: () => void
   onOptimisticInsert?: () => void
   onMessageID?: (messageID: string) => void
@@ -1979,6 +2012,9 @@ export async function optimisticSend(input: {
 
   // Context ids come first so they sort before the prompt the way the server
   // admits them. The client skips blank items, so they get no record here.
+  // The leading item's id is reserved now, before it is known, so it still
+  // sorts ahead of everything else when it arrives after the insert.
+  const leadingContextID = input.leadingContext ? ascendingId("msg") : null
   const context = (input.context ?? [])
     .filter((item) => item.text.trim())
     .map((item) => ({ ...item, id: ascendingId("msg") }))
@@ -2021,7 +2057,7 @@ export async function optimisticSend(input: {
   // Insert into store + register in shadow Map (for mergeOptimisticPage cleanup).
   // The context records carry the prompt's timestamp, so the timeline folds
   // them onto the prompt from the first frame.
-  for (const item of context) {
+  const addSyntheticContext = (item: SyntheticContextInput & { id: string }) => {
     const synthetic: SyntheticMessage = compact({
       id: item.id,
       role: "synthetic",
@@ -2033,6 +2069,7 @@ export async function optimisticSend(input: {
     })
     optimisticAdd({ sessionID: input.sessionId, directory: targetDirectory, message: synthetic, parts: [] })
   }
+  for (const item of context) addSyntheticContext(item)
   optimisticAdd({
     sessionID: input.sessionId,
     directory: targetDirectory,
@@ -2051,8 +2088,18 @@ export async function optimisticSend(input: {
   })
 
   try {
+    let sentContext = context
+    if (input.leadingContext && leadingContextID) {
+      const leading = await input.leadingContext
+      if (leading?.text.trim()) {
+        const leadingItem = { ...leading, id: leadingContextID }
+        addSyntheticContext(leadingItem)
+        optimisticIDs.unshift(leadingContextID)
+        sentContext = [leadingItem, ...context]
+      }
+    }
     assertRuntimeUnchanged()
-    await input.send(messageID, context)
+    await input.send(messageID, sentContext)
   } catch (error) {
     const status = getErrorStatus(error)
     const ambiguousFailure = isAmbiguousSendFailure(error)
@@ -2221,8 +2268,16 @@ export async function respondToPermission(
     || resolveDirectoryForBlockingRequest("permission", sessionId, requestId)
     || getSessionDirectory(sessionId)
     || dir()
-  if (await opencodeClient.replyToPermission(sessionId, requestId, response, { directory }) !== true) {
-    throw new Error("Permission reply failed")
+  try {
+    if (await opencodeClient.replyToPermission(sessionId, requestId, response, { directory }) !== true) {
+      throw new Error("Permission reply failed")
+    }
+  } catch (error) {
+    // The server no longer has it, so the card has nothing left to answer.
+    if (isPermissionRequestNotFoundError(error)) {
+      removePermissionRequestFromChildStores(sessionId, requestId)
+    }
+    throw error
   }
 }
 
@@ -2261,7 +2316,8 @@ export async function dismissPermission(
  * Returns true when at least one permission was dismissed. Rejection failures are
  * swallowed (a stranded permission must never block the send);
  * PermissionNotFoundError also clears the stale entry from the child store via
- * {@link dismissPermission}.
+ * {@link dismissPermission}. Any other failure puts the permission back: the
+ * agent is still waiting on it, and no event will bring it back.
  *
  * Rejecting unblocks the agent's tool without guaranteeing an idle session.
  * The chat caller preserves explicit Steer as a direct send and queues other
@@ -2272,7 +2328,7 @@ export async function dismissOpenPermissionsForSession(sessionId: string): Promi
   const stores = _childStores
   if (!stores) return false
 
-  const toDismiss: Array<{ sessionId: string; requestId: string }> = []
+  const toDismiss: Array<{ store: DirectoryStoreApi; sessionId: string; permission: PermissionRequest }> = []
   for (const [, store] of stores.children) {
     const state = store.getState()
     const scopedIds = computeSubtreeIds(state.session, sessionId)
@@ -2282,7 +2338,7 @@ export async function dismissOpenPermissionsForSession(sessionId: string): Promi
       const requests = permissionsBySession[scopedId]
       if (!requests) continue
       for (const request of requests) {
-        toDismiss.push({ sessionId: scopedId, requestId: request.id })
+        toDismiss.push({ store, sessionId: scopedId, permission: request })
       }
     }
   }
@@ -2291,19 +2347,20 @@ export async function dismissOpenPermissionsForSession(sessionId: string): Promi
 
   // Optimistically clear the permissions from the local store so the prompt
   // disappears immediately, before the reject round-trip.
-  for (const { sessionId: scopedSessionId, requestId } of toDismiss) {
-    removePermissionRequestFromChildStores(scopedSessionId, requestId)
+  for (const { sessionId: scopedSessionId, permission } of toDismiss) {
+    removePermissionRequestFromChildStores(scopedSessionId, permission.id)
   }
 
   await Promise.all(
-    toDismiss.map(async ({ sessionId: scopedSessionId, requestId }) => {
+    toDismiss.map(async ({ store, sessionId: scopedSessionId, permission }) => {
       try {
-        await dismissPermission(scopedSessionId, requestId)
+        await dismissPermission(scopedSessionId, permission.id)
       } catch (error) {
         if (isPermissionRequestNotFoundError(error)) return
-        // Swallow: a failed dismissal must not block the send. The next
-        // permission.asked / permission.replied event reconciles the store.
+        // Swallow: a failed dismissal must not block the send. The permission
+        // is still pending server-side, so it goes back where it was.
         console.error("[session-actions] Failed to dismiss open permission on send:", error)
+        restorePermissionRequest(store, scopedSessionId, permission)
       }
     }),
   )
@@ -2377,7 +2434,9 @@ export async function cancelForm(sessionId: string, formId: string): Promise<voi
  *
  * Returns true when at least one form was cancelled. Failures are swallowed (a
  * stranded form must never block the send); a not-found error also clears the
- * stale entry from the child store via {@link cancelForm}.
+ * stale entry from the child store via {@link cancelForm}. Any other failure
+ * puts the form back: the agent is still waiting on it, and no event will bring
+ * it back (a subagent's form has no other recovery path, #2448).
  *
  * Rejecting unblocks the agent's tool without guaranteeing an idle session.
  * The chat caller preserves explicit Steer as a direct send (the inbox takes
@@ -2389,7 +2448,7 @@ export async function dismissOpenFormsForSession(sessionId: string): Promise<boo
   const stores = _childStores
   if (!stores) return false
 
-  const toDismiss: Array<{ sessionId: string; formId: string }> = []
+  const toDismiss: Array<{ store: DirectoryStoreApi; sessionId: string; form: FormRequest }> = []
   for (const [, store] of stores.children) {
     const state = store.getState()
     const scopedIds = computeSubtreeIds(state.session, sessionId)
@@ -2399,7 +2458,7 @@ export async function dismissOpenFormsForSession(sessionId: string): Promise<boo
       const requests = formsBySession[scopedId]
       if (!requests) continue
       for (const request of requests) {
-        toDismiss.push({ sessionId: scopedId, formId: request.id })
+        toDismiss.push({ store, sessionId: scopedId, form: request })
       }
     }
   }
@@ -2408,19 +2467,20 @@ export async function dismissOpenFormsForSession(sessionId: string): Promise<boo
 
   // Optimistically clear the forms from the local store so the prompt
   // disappears immediately, before the cancel round-trip.
-  for (const { sessionId: scopedSessionId, formId } of toDismiss) {
-    removeFormRequestFromChildStores(scopedSessionId, formId)
+  for (const { sessionId: scopedSessionId, form } of toDismiss) {
+    removeFormRequestFromChildStores(scopedSessionId, form.id)
   }
 
   await Promise.all(
-    toDismiss.map(async ({ sessionId: scopedSessionId, formId }) => {
+    toDismiss.map(async ({ store, sessionId: scopedSessionId, form }) => {
       try {
-        await cancelForm(scopedSessionId, formId)
+        await cancelForm(scopedSessionId, form.id)
       } catch (error) {
         if (isFormRequestNotFoundError(error)) return
-        // Swallow: a failed cancellation must not block the send. The next
-        // form.created / form.cancelled event reconciles the store.
+        // Swallow: a failed cancellation must not block the send. The form
+        // is still pending server-side, so it goes back where it was.
         console.error("[session-actions] Failed to cancel open form on send:", error)
+        restoreFormRequest(store, scopedSessionId, form)
       }
     }),
   )
@@ -2446,7 +2506,7 @@ export async function revertToMessage(sessionId: string, messageId: string): Pro
 
   const localTarget = state.message[sessionId]?.find((message) => message.id === messageId)
   const targetMessage = localTarget
-    ?? (await fetchSessionMessages(sessionId, directory)).find((message) => message.id === messageId)
+    ?? (await findSessionMessageById(sessionId, messageId, directory))
   if (!targetMessage) throw new Error(`Cannot revert session: message ${messageId} was not found`)
 
   // Abort if busy before mutating session state

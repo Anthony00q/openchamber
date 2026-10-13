@@ -23,7 +23,7 @@ import { RuntimeAPIProvider } from '@/contexts/RuntimeAPIProvider';
 import { useAuthSessionStore } from '@/lib/runtime-auth-expiry';
 import { registerRuntimeAPIs } from '@/contexts/runtimeAPIRegistry';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Toaster } from '@/components/ui/sonner';
+import { MobileToaster } from './MobileToaster';
 import { usePushVisibilityBeacon } from '@/hooks/usePushVisibilityBeacon';
 import { useRouter } from '@/hooks/useRouter';
 import { useTerminalSessionKeepalive } from '@/hooks/useTerminalSessionKeepalive';
@@ -31,6 +31,7 @@ import { useUpdatePolling } from '@/hooks/useUpdatePolling';
 import { useWindowTitle } from '@/hooks/useWindowTitle';
 import { useEnterprisePolicySync } from '@/hooks/useEnterprisePolicySync';
 import { useRoutingSync } from '@/hooks/useRoutingSync';
+import { resolvePlanRequestOwner } from '@/hooks/useProjectContextOwner';
 import { opencodeClient } from '@/lib/opencode/client';
 import type { RuntimeAPIs } from '@/lib/api/types';
 import type { ProjectRef } from '@/lib/projectContextApi';
@@ -132,7 +133,7 @@ const NATIVE_RESUME_SYNC_EVENT_THROTTLE_MS = 1_000;
 type MobileSurface = 'archive' | 'board' | 'instances' | 'scheduled' | 'settings' | 'update' | 'usage';
 
 const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onActiveConnectionDeleted }) => {
-  const { t } = useI18n();
+  const { t, direction } = useI18n();
   // The mobile root does not mount MainLayout, so it owns its own terminal
   // keepalive: without it, background PTYs (running project actions included)
   // are idle-reaped by the server while the workspace drawer is closed.
@@ -226,6 +227,15 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
     useUIStore.getState().openContextFile(directory, event.path);
     openFilesSurface();
   }), [openFilesSurface]);
+
+  // The agent asked for a saved plan to be shown: the plan opens the way a tap
+  // on it in the Project knowledge drawer opens it.
+  React.useEffect(() => subscribeOpenchamberEvents((event) => {
+    if (event.type !== 'plan-open-request') return;
+    const projectRef = resolvePlanRequestOwner(event.directory ?? useDirectoryStore.getState().currentDirectory, event.projectId);
+    if (!projectRef) return;
+    setOpenPlan({ id: event.planId, title: event.title, projectRef });
+  }), []);
 
   const openChangesSurface = React.useCallback((diff: { path: string; staged: boolean } | null = null) => {
     setPendingChangesDiff(diff);
@@ -332,15 +342,19 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
   );
   useDeepLinkHandlers(deepLinkHandlers);
 
-  // Edge swipes on the chat: left edge opens the sessions drawer (the
-  // persistent sidebar on a tablet), right edge the workspace drawer.
+  // Edge swipes on the chat: the start edge opens the sessions drawer (the
+  // persistent sidebar on a tablet), the end edge the workspace drawer. Each
+  // drawer slides in from the side of its header button: left and right in
+  // LTR, mirrored in RTL.
   const chatMainRef = React.useRef<HTMLElement>(null);
+  const openSessionsFromEdge = () => {
+    if (isTabletLayout) setSidebarOpen(true);
+    else setSessionsSheetOpen(true);
+  };
+  const openWorkspaceFromEdge = () => setWorkspaceOpen(true);
   useEdgeSwipe(chatMainRef, {
-    onLeftEdgeSwipe: () => {
-      if (isTabletLayout) setSidebarOpen(true);
-      else setSessionsSheetOpen(true);
-    },
-    onRightEdgeSwipe: () => setWorkspaceOpen(true),
+    onLeftEdgeSwipe: direction === 'rtl' ? openWorkspaceFromEdge : openSessionsFromEdge,
+    onRightEdgeSwipe: direction === 'rtl' ? openSessionsFromEdge : openWorkspaceFromEdge,
   });
 
   // Settings owns a drill-down of its own (nav → page list → item), so the
@@ -487,8 +501,8 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
               // rows are opaque bg-background (the swipe actions live under
               // them), so a tinted sidebar would show through as row-shaped
               // bands. Same surface as the phone drawer.
-              'relative flex h-full shrink-0 flex-col overflow-hidden border-r border-border/70 bg-background will-change-[width] motion-reduce:transition-none',
-              !sidebarOpen && 'border-r-0',
+              'relative flex h-full shrink-0 flex-col overflow-hidden border-e border-border/70 bg-background will-change-[width] motion-reduce:transition-none',
+              !sidebarOpen && 'border-e-0',
             )}
             style={{
               width: sidebarOpen ? leftResize.width : 0,
@@ -573,8 +587,8 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
         <aside
           ref={rightResize.asideRef}
           className={cn(
-            'relative flex h-full shrink-0 flex-col overflow-hidden border-l border-border/70 bg-background will-change-[width] motion-reduce:transition-none',
-            !workspacePanelWidth && 'border-l-0',
+            'relative flex h-full shrink-0 flex-col overflow-hidden border-s border-border/70 bg-background will-change-[width] motion-reduce:transition-none',
+            !workspacePanelWidth && 'border-s-0',
           )}
           style={{
             width: workspacePanelWidth,
@@ -737,7 +751,7 @@ const MobileShell: React.FC<{ onActiveConnectionDeleted: () => void }> = ({ onAc
             title={t('sessions.archivePage.title')}
           >
             <ErrorBoundary>
-              <ArchiveSessionsView open layout="mobile" onLeave={leaveArchive} />
+              <ArchiveSessionsView layout="mobile" onLeave={leaveArchive} />
             </ErrorBoundary>
           </MobileFullscreenSurface>
         ) : null}
@@ -1037,7 +1051,7 @@ function MobileAppContent({ apis }: MobileAppProps) {
       cancelled = true;
     };
     // Run once on mount — auto-connect is a cold-launch concern only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Cold launch with a PERSISTED runtime endpoint (the auto-connect effect
@@ -1096,7 +1110,7 @@ function MobileAppContent({ apis }: MobileAppProps) {
     };
     // Run once on mount — a cold-launch classification only; live drops are
     // handled by the resume/online re-probe paths.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   React.useEffect(() => {
@@ -1428,7 +1442,7 @@ function MobileAppContent({ apis }: MobileAppProps) {
               <AppLinkConfirmDialog />
               <SharedTrustConfirmDialog />
               {isolatedSpacesEnabled ? <><SpaceAccessDialog /><SpaceActionsSheet /><SpaceApplyDialog /><SpaceDeleteDialog /><SpaceSetupOutputDialog /></> : null}
-              <Toaster position="top-center" offset="calc(var(--oc-safe-area-top, 0px) + 16px)" />
+              <MobileToaster />
               {isInitialized ? <ConfigUpdateOverlay /> : null}
             </div>
           </TooltipProvider>
@@ -1445,6 +1459,12 @@ export function MobileApp(props: MobileAppProps) {
     getRuntimeApiBaseUrl,
   );
   // Native connection selection must mount before there is a server to probe.
-  if (isCapacitorMobileApp() && !endpoint) return <MobileAppContent {...props} />;
-  return <OpenCodeCompatibilityGate><MobileAppContent {...props} /></OpenCodeCompatibilityGate>;
+  // The tree keeps one shape across connect/disconnect: a remount on every
+  // connect re-ran the cold-launch re-probe, and its fast-timeout verdict on a
+  // slow server dropped the runtime again, looping connect → drop → connect.
+  return (
+    <OpenCodeCompatibilityGate enabled={!isCapacitorMobileApp() || Boolean(endpoint)}>
+      <MobileAppContent {...props} />
+    </OpenCodeCompatibilityGate>
+  );
 }

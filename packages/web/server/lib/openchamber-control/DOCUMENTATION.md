@@ -25,6 +25,22 @@ other.
   by the scheduled-task service. An empty update clears the target. Create
   without a model inherits the target selection; an explicit agent overrides
   it. A task without a target still requires a model.
+- `project-knowledge.js` runs the `knowledge.*` actions of the
+  `openchamber_knowledge` agent tool (`list`, `save`, `delete`, `show`;
+  `kind` names note, todo or plan) against
+  `../project-context/runtime.js`. The owner is the session directory (or the
+  given `projectId` / `directory`) resolved by the same resolver session
+  knowledge and memory use, so what an agent writes is what the next session
+  is given. Notes it creates are `source: agent` with the calling session as
+  origin; payload provenance is ignored. Plans are handed out as file paths
+  (`list`, and the answer to `save`), never as text: the agent reads a plan
+  and makes small edits, such as ticking a step, with its own file tools, and
+  `save` creates or replaces one whole. The actions answer `403` while
+  `agentKnowledgeToolEnabled` is `false`. `show` checks the plan exists and
+  sends `openchamber:plan-open-request` to every connected window, like
+  `file.open`; the desktop and web layouts open the plan tab, the mobile app
+  opens the plan the way a tap in the Project knowledge drawer does. No
+  window reached is `503`.
 - `routes.js` is the authenticated CLI HTTP adapter. It forwards one action,
   preserves service status and partial-result details, and propagates request
   cancellation.
@@ -63,6 +79,26 @@ other.
 - Send and fork dispatches without an explicit model/agent/variant reuse the
   target session's last user-message selection before falling back to the
   configured defaults; only session creation resolves defaults directly.
+- `session.create` with `pullRequest` passes the number, and `worktree` and
+  `branch` as folder and local-branch names, to the session service, which
+  creates the worktree through the injected `createChangeRequestWorktree`
+  (the Git routes' contributor pipeline) before any session exists. A
+  malformed number, or `startRef`/`setUpstream` beside it, is a 400; a
+  server without that pipeline answers 501 and never makes a plain branch
+  worktree instead; a provider or transfer refusal keeps its status and
+  message, and no session is created.
+- `session.moveToWorktree` moves a session into a new worktree of its
+  repository and is the session service's `moveToWorktree`
+  (`../openchamber-sessions/worktree-move.js`). The session defaults to the
+  caller, the source directory to where that session lives (the global
+  session list, else the call's directory), `worktree` names the folder and
+  is required, `branch` and `startRef` are optional. The worktree is made by
+  the same `createWorktree` pipeline as `session.create`, waits for the same
+  bootstrap, then the checkout's uncommitted changes travel in one git stash
+  applied by hash, and the session is moved last through OpenCode's
+  `session.move`. A failure after the worktree exists removes it again and
+  puts the changes back; when restoring fails too, the error names the stash
+  so nothing is lost. A 409 means the changes did not apply on the start ref.
 - Default agents resolve from the owning project before global settings and
   OpenCode defaults. Directory-based requests identify the project before
   creating a worktree; existing linked worktrees resolve through Git's primary
@@ -93,7 +129,9 @@ other.
   tracker works. The URL decides what is stored: a GitHub pull or issue
   address becomes the GitHub entry (kind from the path, live state as for any
   link), a Linear issue address the Linear entry, anything else an `external`
-  entry shown by identifier. It only adds or refreshes links, never removes
+  entry shown by identifier. A GitLab merge request or issue address (the
+  `/-/merge_requests/N` shape on any host) is keyed by the thread, so linking
+  it again from a tab like `/diffs` or with a query refreshes the one entry. It only adds or refreshes links, never removes
   one: the user owns removal. A missing field or a non-http(s) URL is a 400 and
   nothing is written.
 - `file.open` shows a file in the user's viewer. `file-open.js` resolves a

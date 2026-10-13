@@ -20,9 +20,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { resolveBunExecutable } from './lib/bun-executable.mjs';
+
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OXLINT_CONFIG = path.join(REPO_ROOT, 'oxlint.config.ts');
+const OXLINT_CONFIG = path.join(REPO_ROOT, 'oxlint.anti-slop.config.ts');
 const LINTABLE_FILE = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
+const MAX_OXLINT_COMMAND_CHARS = process.platform === 'win32' ? 16_000 : Number.POSITIVE_INFINITY;
+const bunExecutable = resolveBunExecutable();
 
 const git = (args) => execFileSync('git', args, {
   cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
@@ -79,17 +83,49 @@ export const findRatchetViolations = (baseCounts, currentCounts) => {
   return violations.sort((left, right) => left.rule.localeCompare(right.rule));
 };
 
-const runOxlint = (files, cwd) => {
+export const chunkFilesByArgumentLength = (files, maxArgumentChars) => {
+  const chunks = [];
+  let chunk = [];
+  let chunkChars = 0;
+
+  for (const file of files) {
+    const fileChars = file.length + 1;
+    if (chunk.length > 0 && chunkChars + fileChars > maxArgumentChars) {
+      chunks.push(chunk);
+      chunk = [];
+      chunkChars = 0;
+    }
+    chunk.push(file);
+    chunkChars += fileChars;
+  }
+
+  if (chunk.length > 0) chunks.push(chunk);
+  return chunks;
+};
+
+const runOxlint = (files) => {
   if (files.length === 0) return [];
-  const result = spawnSync('bunx', ['oxlint', '-c', OXLINT_CONFIG, '-f', 'json', ...files], {
-    cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
-  });
-  if (!result.stdout) throw new Error(`oxlint produced no report: ${result.stderr}`);
-  return JSON.parse(result.stdout).diagnostics;
+
+  const fixedArgs = ['x', '--no-install', 'oxlint', '-c', OXLINT_CONFIG, '-f', 'json'];
+  const fixedChars = bunExecutable.length + fixedArgs.reduce((total, arg) => total + arg.length + 1, 0);
+  const fileChunks = chunkFilesByArgumentLength(files, MAX_OXLINT_COMMAND_CHARS - fixedChars);
+  const diagnostics = [];
+
+  for (const chunk of fileChunks) {
+    const result = spawnSync(bunExecutable, [...fixedArgs, ...chunk], {
+      cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+    });
+    if (!result.stdout) {
+      throw new Error(`oxlint produced no report: ${result.error?.message ?? result.stderr ?? 'unknown process error'}`);
+    }
+    diagnostics.push(...JSON.parse(result.stdout).diagnostics);
+  }
+
+  return diagnostics;
 };
 
 const checkAntiSlopRatchet = (base, files) => {
-  const current = countFindings(runOxlint(files, REPO_ROOT), (file) => path.relative(REPO_ROOT, path.resolve(REPO_ROOT, file)));
+  const current = countFindings(runOxlint(files), (file) => path.relative(REPO_ROOT, path.resolve(REPO_ROOT, file)));
 
   const baseDir = mkdtempSync(path.join(tmpdir(), 'oc-check-changed-'));
   try {
@@ -106,16 +142,16 @@ const checkAntiSlopRatchet = (base, files) => {
       writeFileSync(target, content);
       baseFiles.push(target);
     }
-    const baseCounts = countFindings(runOxlint(baseFiles, baseDir), (file) => path.relative(baseDir, path.resolve(baseDir, file)));
+    const baseCounts = countFindings(runOxlint(baseFiles), (file) => path.relative(baseDir, path.resolve(baseDir, file)));
     return findRatchetViolations(baseCounts, current);
   } finally {
     rmSync(baseDir, { recursive: true, force: true });
   }
 };
 
-const runStep = (label, command, args) => {
+const runStep = (label, args) => {
   console.log(`\n▶ ${label}`);
-  const result = spawnSync(command, args, { cwd: REPO_ROOT, stdio: 'inherit' });
+  const result = spawnSync(bunExecutable, args, { cwd: REPO_ROOT, stdio: 'inherit' });
   return result.status === 0;
 };
 
@@ -125,9 +161,9 @@ const main = () => {
   console.log(`Base ${base.slice(0, 9)}; ${files.length} changed source file(s).`);
 
   const failed = [];
-  if (!runStep('type-check', 'bun', ['run', 'type-check'])) failed.push('type-check');
-  if (!runStep('lint', 'bun', ['run', 'lint'])) failed.push('lint');
-  if (!runStep('dead code', 'bun', ['run', 'dead-code'])) failed.push('dead code');
+  if (!runStep('type-check', ['run', 'type-check'])) failed.push('type-check');
+  if (!runStep('lint', ['run', 'lint'])) failed.push('lint');
+  if (!runStep('dead code', ['run', 'dead-code'])) failed.push('dead code');
 
   console.log('\n▶ anti-slop ratchet');
   const violations = checkAntiSlopRatchet(base, files);
