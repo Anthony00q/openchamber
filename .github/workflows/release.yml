@@ -606,22 +606,27 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
           VERSION: ${{ needs.create-release.outputs.version }}
         run: |
           node - <<'NODE'
           (async () => {
-          const { REPOSITORY: repo, VERSION: version, GITHUB_TOKEN: token } = process.env;
+          const { REPOSITORY: repo, RELEASE_ID: releaseId, VERSION: version, GITHUB_TOKEN: token } = process.env;
           const expected = [
             `OpenChamber-${version}-win-x64.exe`,
             `OpenChamber-${version}-win-arm64.exe`,
             'latest.yml',
             'latest-arm64.yml',
           ];
-          const response = await fetch(`https://api.github.com/repos/${repo}/releases/tags/v${version}`, {
+          if (!releaseId) throw new Error('Release ID was not returned when the draft release was created');
+          const response = await fetch(`https://api.github.com/repos/${repo}/releases/${releaseId}`, {
             headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
           });
-          if (!response.ok) throw new Error(`Failed to inspect release assets: ${response.status} ${await response.text()}`);
+          if (!response.ok) throw new Error(`Failed to inspect release ${releaseId}: ${response.status} ${await response.text()}`);
           const release = await response.json();
+          if (release.tag_name !== `v${version}`) {
+            throw new Error(`Release ${releaseId} has tag ${release.tag_name}, expected v${version}`);
+          }
           for (const name of expected) {
             const matches = release.assets.filter((asset) => asset.name === name);
             if (matches.length !== 1) throw new Error(`Expected exactly one ${name} release asset, found ${matches.length}`);
