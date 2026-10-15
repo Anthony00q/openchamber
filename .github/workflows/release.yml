@@ -619,6 +619,8 @@ jobs:
             'latest-arm64.yml',
           ];
           if (!releaseId) throw new Error('Release ID was not returned when the draft release was created');
+          // The release is still a draft here, and the by-tag endpoint
+          // answers 404 for drafts; the id reaches it.
           const response = await fetch(`https://api.github.com/repos/${repo}/releases/${releaseId}`, {
             headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
           });
@@ -651,7 +653,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Send release to Discord
-        if: ${{ env.DISCORD_WEBHOOK_URL != '' }}
+        if: ${{ github.event.inputs.dry_run != 'true' && env.DISCORD_WEBHOOK_URL != '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.create-release.outputs.version }}

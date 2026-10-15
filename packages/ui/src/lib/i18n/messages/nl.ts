@@ -2,11 +2,13 @@ import { settingsDict } from './nl.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { referencePickerI18n } from './reference-picker.i18n';
 import { sessionMenuHintsI18n } from './session-menu-hints.i18n';
+import { projectKnowledgeI18n } from './project-knowledge.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
 import { routingI18n } from './routing.i18n';
 import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
+import { htmlRenderI18n } from './html-render.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
@@ -16,6 +18,7 @@ import { environmentI18n } from './environment.i18n';
 import { providersI18n } from './providers.i18n';
 import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
+import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 
 export const dict = {
   "opencodeCompatibility.bundled": "OpenCode is inbegrepen bij OpenChamber. Werk OpenChamber bij om OpenCode v2 te krijgen.",
@@ -128,11 +131,13 @@ export const dict = {
   ...linearIssuePickerI18n.nl,
   ...referencePickerI18n.nl,
   ...sessionMenuHintsI18n.nl,
+  ...projectKnowledgeI18n.nl,
   ...linearPanelI18n.nl,
   ...routingI18n.nl,
   ...pluginPanelI18n.nl,
   ...surfacePanelI18n.nl,
   ...fileArtifactsI18n.nl,
+  ...htmlRenderI18n.nl,
   ...usageStatsI18n.nl,
   ...webSearchI18n.nl,
   ...isolatedSpacesI18n.nl,
@@ -142,6 +147,7 @@ export const dict = {
   ...providersI18n.nl,
   ...mcpGridI18n.nl,
   ...pluginsGridI18n.nl,
+  ...integrationsCatalogI18n['nl'],
   'terminalView.actions.attachSelection': 'Geselecteerde uitvoer toevoegen',
   'terminalView.actions.copySelection': 'Geselecteerde uitvoer kopiëren',
   'terminalView.toast.selectionCopied': 'Uitvoer gekopieerd',
@@ -224,6 +230,7 @@ export const dict = {
   'mobile.connect.cancelPassword': 'Een andere server gebruiken',
   'mobile.connect.connecting': 'Verbinden...',
   'mobile.connect.notice.unreachable': '{label} niet bereikbaar. Controleer of de server draait.',
+  'mobile.connect.notice.relayLimit': "De Relay heeft de verbinding met {label} geweigerd: te veel apparaten of herverbindingen. Sluit OpenChamber op een ander apparaat of wacht een minuut en tik dan op {label} om het opnieuw te proberen.",
   'mobile.connect.notice.authExpired': 'De toegang tot {label} is verlopen of ingetrokken. Meld u opnieuw aan.',
   'mobile.connect.recovery.description': 'Kan geen verbinding maken met de opgeslagen server. Controleer of die draait of kies een andere instantie.',
   'mobile.connect.scanQr': 'QR-code scannen',
@@ -241,6 +248,7 @@ export const dict = {
   'mobile.connect.splash.connectingTo': 'Verbinden met apparaat:',
   'mobile.connect.error.invalidUrl': 'Die server-URL is ongeldig.',
   'mobile.connect.error.unreachable': 'Kan die OpenChamber-server niet bereiken.',
+  'mobile.connect.error.relayLimit': "De Relay heeft de verbinding geweigerd: te veel apparaten of herverbindingen. Sluit OpenChamber op een ander apparaat of wacht een minuut en probeer het dan opnieuw.",
   'mobile.connect.error.authRequired': 'Deze server vereist een wachtwoord of clienttoken.',
   'mobile.connect.error.passwordFailed': 'Kan die server niet ontgrendelen. Controleer het wachtwoord.',
   'mobile.instances.addTitle': 'Instantie toevoegen',
@@ -274,12 +282,13 @@ export const dict = {
   'mobile.header.metadata.usage': 'Gebruik',
   'mobile.menu.titleAria': 'Werkruimtehulpmiddelen',
   'mobile.menu.files': 'Bestanden',
-  'mobile.menu.changes': 'Wijzigingen',
+  'mobile.menu.git': 'Git',
   'mobile.menu.terminal': 'Terminal',
   'mobile.menu.mcp': 'MCP',
   'mobile.menu.instances': 'Instanties',
   'mobile.menu.update': 'Bijwerken',
   'mobile.menu.settings': 'Instellingen',
+  'mobile.sessions.footer.more': 'Meer',
   'mobile.sessions.newChatCta': 'Nieuwe chat in {project}',
   'mobile.sessions.dateGroup.today': 'Vandaag',
   'mobile.sessions.dateGroup.yesterday': 'Gisteren',
@@ -562,6 +571,9 @@ export const dict = {
   'sessions.sidebar.header.displayMode.default': 'Standaard',
   'sessions.sidebar.header.displayMode.minimal': 'Minimaal',
   'sessions.sidebar.header.displayMode.showWork': 'Sectie In bewerking tonen',
+  'sessions.sidebar.header.displayMode.showPinned': 'Sectie Vastgezet tonen',
+  'sessions.sidebar.header.displayMode.detailedZoneRows': 'Gedetailleerde rijen',
+  'sessions.sidebar.activity.pinnedTitle': 'Vastgezet',
   'sessions.sidebar.header.displayMode.showArchived': 'Gearchiveerde sessies tonen',
   'sessions.sidebar.header.displayMode.collapseAll': 'Alles inklappen',
   'sessions.sidebar.header.displayMode.expandAll': 'Alles uitklappen',
@@ -862,7 +874,7 @@ export const dict = {
   'sessions.sidebar.group.worktreeRemoving': 'Worktree wordt verwijderd…',
   'sessions.sidebar.project.folderMissing': 'Projectmap ontbreekt of is niet beschikbaar',
   'sessions.sidebar.group.space': 'Geïsoleerde ruimte',
-  'sessions.sidebar.group.spaceStale': 'De ruimte reageert niet. Sessies zijn mogelijk verouderd.',
+  'sessions.sidebar.group.spaceStale': 'Niet alle sessies van deze ruimte worden getoond.',
   'sessions.sidebar.grouping.spaceUnnamed': 'Geïsoleerde ruimte',
   'sessions.sidebar.sessionDialogs.worktree.label': 'Worktree',
   'sessions.sidebar.sessionDialogs.worktree.pathUnavailable': 'Worktreepad niet beschikbaar.',
@@ -1310,7 +1322,6 @@ export const dict = {
   'contextPanel.mode.diff': 'Wijzigingen',
   'contextPanel.mode.stagedDiff': 'Gestagede diff',
   'contextPanel.mode.workingDiff': 'Werkdiff',
-  'contextPanel.mode.plan': 'Plan',
   'contextPanel.mode.pr': 'Pull request',
   'contextPanel.mode.mr': 'Merge request',
   'gitView.mergeRequest.title': 'Merge request',
@@ -1441,7 +1452,6 @@ export const dict = {
   'walkthrough.blocked.serverUnsupported.description': 'De OpenChamber-server waarmee deze app verbonden is, gaf geen antwoord op de API voor rondleidingen. Dat betekent dat hij ouder is dan de app. Werk de server bij naar 1.18 of nieuwer en vernieuw daarna.',
   'walkthrough.blocked.contextTooSmall.descriptionUnknownModel': 'Het kleine model past ongeveer {available}K tekens en deze diff heeft ongeveer {required}K nodig. Er wordt niets afgekapt — kies in plaats daarvan een model met een grotere context.',
   'walkthrough.blocked.structuredOutput.descriptionUnknownModel': 'Het kleine model ondersteunt de gestructureerde antwoorden die een rondleiding nodig heeft.',
-  'contextRail.surface.plan.description': 'Bekijk het huidige plan',
   'contextRail.surface.pr.description': 'Maak, beoordeel en merge de pull request voor de huidige branch',
   'contextRail.surface.mr.description': 'Maak, beoordeel en merge de merge request voor de huidige branch',
   'contextRail.surface.notes.description': 'Notities, taken, plannen en agentgeheugen voor het project',
@@ -1893,16 +1903,10 @@ export const dict = {
   'rightSidebar.contextNotesTodo.empty.selectProject': 'Kies een project om notities en taken toe te voegen.',
   'rightSidebar.contextNotesTodo.notes.placeholder': 'Leg context, herinneringen of links vast',
   'rightSidebar.contextNotesTodo.notes.addAria': 'Notitie toevoegen',
-  'rightSidebar.contextNotesTodo.notes.empty': 'Nog geen notities. Leg context, herinneringen of links vast.',
   'rightSidebar.contextNotesTodo.notes.actions.expand': 'Notitie uitvouwen',
-  'rightSidebar.contextNotesTodo.notes.actions.collapse': 'Notitie samenvouwen',
   'rightSidebar.contextNotesTodo.notes.actions.delete': 'Notitie verwijderen',
-  'rightSidebar.contextNotesTodo.notes.actions.pin': 'Vastzetten in agentcontext',
-  'rightSidebar.contextNotesTodo.notes.actions.unpin': 'Vastzetting uit agentcontext halen',
   'rightSidebar.contextNotesTodo.notes.source.selection': 'Uit chat',
   'rightSidebar.contextNotesTodo.notes.source.agent': 'Uit agent',
-  'rightSidebar.contextNotesTodo.search.placeholder': 'Zoeken',
-  'rightSidebar.contextNotesTodo.search.clear': 'Zoekopdracht wissen',
   'rightSidebar.contextNotesTodo.search.noResults': 'Niets komt overeen met "{query}".',
   'rightSidebar.contextNotesTodo.toast.deleteNoteFailed': 'Kan de notitie niet verwijderen',
   'rightSidebar.contextNotesTodo.toast.createNoteFailed': 'Kan de notitie niet aanmaken',
@@ -1912,7 +1916,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.plans.actions.back': 'Terug naar plannen',
   'rightSidebar.contextNotesTodo.tabs.memory': 'Geheugen',
   'rightSidebar.contextNotesTodo.sections.label': 'Secties met projectcontext',
-  'rightSidebar.contextNotesTodo.sections.resize': 'Grootte van de sectiezijbalk aanpassen',
   'rightSidebar.contextNotesTodo.memory.scope.project': 'Project',
   'rightSidebar.contextNotesTodo.memory.scope.label': 'Geheugenbereik',
   'rightSidebar.contextNotesTodo.memory.scope.global': 'Over u',
@@ -1938,7 +1941,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.todo.actions.markComplete': '"{text}" als afgerond markeren',
   'rightSidebar.contextNotesTodo.todo.actions.collapse': 'Taak "{text}" samenvouwen',
   'rightSidebar.contextNotesTodo.todo.actions.expand': 'Taak "{text}" uitvouwen',
-  'rightSidebar.contextNotesTodo.todo.actions.delete': '"{text}" verwijderen',
   'rightSidebar.contextNotesTodo.todo.actions.send': '"{text}" sturen',
   'rightSidebar.contextNotesTodo.todo.actions.reorder': '"{text}" herordenen',
   'rightSidebar.contextNotesTodo.todo.sendMenu.currentSession': 'Naar huidige sessie sturen',
@@ -1950,7 +1952,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.plans.sharedBadge': 'In repo',
   'rightSidebar.contextNotesTodo.plans.share': 'Verplaatsen naar de plannenmap van de repository, zodat iedereen die de repository pullt het ziet',
   'rightSidebar.contextNotesTodo.plans.makePersonal': 'Verplaatsen naar mijn plannen, buiten de repository',
-  'rightSidebar.contextNotesTodo.plans.deletePlanWithTitle': 'Plan "{title}" verwijderen',
   'rightSidebar.contextNotesTodo.sendDialog.title.newSession': 'Naar nieuwe sessie sturen',
   'rightSidebar.contextNotesTodo.sendDialog.title.newWorktree': 'Naar nieuwe worktree sturen',
   'rightSidebar.contextNotesTodo.sendDialog.variant.default': 'Standaard',
@@ -2279,6 +2280,7 @@ export const dict = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - wordt op de achtergrond opgezet',
   'session.newWorktree.toast.fetchSourceFailed': 'Kon niet van de remote ophalen — gemaakt vanuit de lokale status',
   'session.newWorktree.toast.fetchSourceAccess': 'Ophalen mislukt: de toegang tot deze repository vraagt aandacht in Repository configureren. Gemaakt vanuit de lokale status.',
+  'session.newWorktree.toast.branchBackup': '{branch} komt nu overeen met de remote. De vorige commits staan in {backup}.',
   'session.githubIntegration.tabs.pullRequests': 'Pull requests',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'Branch is al uitgecheckt in een worktree',
   'session.githubIntegration.validation.failed': 'Kan niet valideren',
@@ -3019,6 +3021,7 @@ export const dict = {
   'desktopHostSwitcher.status.incompatible': 'Niet compatibel',
   'desktopHostSwitcher.status.wrongService': 'Verkeerde service',
   'desktopHostSwitcher.status.unreachable': 'Niet bereikbaar',
+  'desktopHostSwitcher.status.relayLimit': "Relay-limiet bereikt",
   'desktopHostSwitcher.status.unknown': 'Onbekend',
   'desktopHostSwitcher.status.ping': ' · {ms}ms ping',
   'desktopHostSwitcher.statusAria': 'Instantiestatus',
@@ -3082,6 +3085,10 @@ export const dict = {
   'desktopHostSwitcher.toast.sshConnected': 'SSH-instantie "{host}" verbonden',
   'desktopHostSwitcher.toast.sshFailedToConnect': 'Kan geen verbinding maken met SSH-instantie "{host}"',
   'desktopHostSwitcher.toast.instanceUnreachable': 'Instantie "{host}" is niet bereikbaar',
+  'desktopHostSwitcher.toast.relayLimit': "De Relay heeft de verbinding met \"{host}\" geweigerd: te veel apparaten of herverbindingen. Sluit OpenChamber op een ander apparaat of wacht een minuut en probeer het dan opnieuw.",
+  'relayConnection.limitReached.title': "De Relay heeft de verbinding geweigerd",
+  'relayConnection.limitReached.description': "Te veel apparaten of herverbindingen voor deze instantie. Sluit OpenChamber op een ander apparaat of wacht een minuut en probeer het dan opnieuw.",
+  'relayConnection.limitReached.retry': "Opnieuw proberen",
   'miniChat.header.newSession': 'Nieuwe sessie',
   'miniChat.header.session': 'Sessie',
   'miniChat.header.defaultAgent': 'Standaardagent',

@@ -2,11 +2,13 @@ import { settingsDict } from './tr.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { referencePickerI18n } from './reference-picker.i18n';
 import { sessionMenuHintsI18n } from './session-menu-hints.i18n';
+import { projectKnowledgeI18n } from './project-knowledge.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
 import { routingI18n } from './routing.i18n';
 import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
+import { htmlRenderI18n } from './html-render.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
@@ -16,6 +18,7 @@ import { environmentI18n } from './environment.i18n';
 import { providersI18n } from './providers.i18n';
 import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
+import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 
 export const dict = {
   "opencodeCompatibility.bundled": "OpenCode, OpenChamber ile birlikte gelir. OpenCode v2 için OpenChamber’ı güncelleyin.",
@@ -67,11 +70,13 @@ export const dict = {
   ...linearIssuePickerI18n.tr,
   ...referencePickerI18n.tr,
   ...sessionMenuHintsI18n.tr,
+  ...projectKnowledgeI18n.tr,
   ...linearPanelI18n.tr,
   ...routingI18n.tr,
   ...pluginPanelI18n.tr,
   ...surfacePanelI18n.tr,
   ...fileArtifactsI18n.tr,
+  ...htmlRenderI18n.tr,
   ...usageStatsI18n.tr,
   ...webSearchI18n.tr,
   ...isolatedSpacesI18n.tr,
@@ -81,6 +86,7 @@ export const dict = {
   ...providersI18n.tr,
   ...mcpGridI18n.tr,
   ...pluginsGridI18n.tr,
+  ...integrationsCatalogI18n['tr'],
   'terminalView.actions.attachSelection': 'Seçili çıktıyı ekle',
   'terminalView.actions.copySelection': 'Seçili çıktıyı kopyala',
   'terminalView.toast.selectionCopied': 'Çıktı kopyalandı',
@@ -147,6 +153,7 @@ export const dict = {
   'mobile.connect.cancelPassword': 'Başka bir sunucu kullan',
   'mobile.connect.connecting': 'Bağlanıyor...',
   'mobile.connect.notice.unreachable': '{label} sunucusuna ulaşılamadı. Sunucunun çalıştığından emin olun.',
+  'mobile.connect.notice.relayLimit': "Relay, {label} bağlantısını reddetti: çok fazla cihaz veya yeniden bağlanma var. Başka bir cihazda OpenChamber'ı kapatın ya da bir dakika bekleyin, ardından yeniden denemek için {label} öğesine dokunun.",
   'mobile.connect.notice.authExpired': '{label} erişiminin süresi doldu veya erişim iptal edildi. Yeniden oturum açın.',
   'mobile.connect.recovery.description': 'Kaydedilen sunucuya bağlanılamadı. Çalıştığından emin olun veya başka bir instance seçin.',
   'mobile.connect.scanQr': 'QR kodu tara',
@@ -164,6 +171,7 @@ export const dict = {
   'mobile.connect.splash.connectingTo': 'Cihaza bağlanılıyor:',
   'mobile.connect.error.invalidUrl': 'Bu sunucu URL\'si geçerli değil.',
   'mobile.connect.error.unreachable': 'Bu OpenChamber sunucusuna ulaşılamadı.',
+  'mobile.connect.error.relayLimit': "Relay bağlantıyı reddetti: çok fazla cihaz veya yeniden bağlanma var. Başka bir cihazda OpenChamber'ı kapatın ya da bir dakika bekleyip yeniden deneyin.",
   'mobile.connect.error.authRequired': 'Bu sunucu bir şifre veya client token gerektiriyor.',
   'mobile.connect.error.passwordFailed': 'Sunucunun kilidi açılamadı. Şifreyi kontrol edin.',
   'mobile.instances.addTitle': 'Instance ekle',
@@ -197,12 +205,13 @@ export const dict = {
   'mobile.header.metadata.usage': 'Kullanım',
   'mobile.menu.titleAria': 'Çalışma alanı araçları',
   'mobile.menu.files': 'Dosyalar',
-  'mobile.menu.changes': 'Değişiklikler',
+  'mobile.menu.git': 'Git',
   'mobile.menu.terminal': 'Terminal',
   'mobile.menu.mcp': 'MCP',
   'mobile.menu.instances': 'Instance\'lar',
   'mobile.menu.update': 'Güncelle',
   'mobile.menu.settings': 'Ayarlar',
+  'mobile.sessions.footer.more': 'Daha fazla',
   'mobile.sessions.newChatCta': '{project} içinde yeni sohbet',
   'mobile.sessions.dateGroup.today': 'Bugün',
   'mobile.sessions.dateGroup.yesterday': 'Dün',
@@ -485,6 +494,9 @@ export const dict = {
   'sessions.sidebar.header.displayMode.default': 'Varsayılan',
   'sessions.sidebar.header.displayMode.minimal': 'Minimal',
   'sessions.sidebar.header.displayMode.showWork': 'Devam eden bölümünü göster',
+  'sessions.sidebar.header.displayMode.showPinned': 'Sabitlenenler bölümünü göster',
+  'sessions.sidebar.header.displayMode.detailedZoneRows': 'Ayrıntılı satırlar',
+  'sessions.sidebar.activity.pinnedTitle': 'Sabitlenenler',
   'sessions.sidebar.header.displayMode.showArchived': 'Arşivlenmiş session\'ları göster',
   'sessions.sidebar.header.displayMode.collapseAll': 'Tümünü daralt',
   'sessions.sidebar.header.displayMode.expandAll': 'Tümünü genişlet',
@@ -780,7 +792,7 @@ export const dict = {
   'sessions.sidebar.group.worktreeRemoving': 'Worktree kaldırılıyor…',
   'sessions.sidebar.project.folderMissing': 'Proje klasörü bulunamıyor veya kullanılamıyor',
   'sessions.sidebar.group.space': 'Yalıtılmış alan',
-  'sessions.sidebar.group.spaceStale': 'Alan yanıt vermiyor. Oturumlar güncel olmayabilir.',
+  'sessions.sidebar.group.spaceStale': 'Bu alanın tüm oturumları gösterilmiyor.',
   'sessions.sidebar.grouping.spaceUnnamed': 'Yalıtılmış alan',
   'sessions.sidebar.sessionDialogs.worktree.label': 'Worktree',
   'sessions.sidebar.sessionDialogs.worktree.pathUnavailable': 'Worktree yolu kullanılamıyor.',
@@ -1200,7 +1212,6 @@ export const dict = {
   'contextPanel.mode.diff': 'Değişiklikler',
   'contextPanel.mode.stagedDiff': 'Stage\'lenmiş diff',
   'contextPanel.mode.workingDiff': 'Çalışma alanı diff\'i',
-  'contextPanel.mode.plan': 'Plan',
   'contextPanel.mode.pr': 'Pull request',
   'contextPanel.mode.mr': 'Merge request',
   'gitView.mergeRequest.title': 'Merge request',
@@ -1322,7 +1333,6 @@ export const dict = {
   'walkthrough.blocked.serverUnsupported.description': 'Uygulamanın bağlı olduğu OpenChamber sunucusu inceleme turu API\'sine yanıt vermedi; bu da sunucunun uygulamadan daha eski olduğu anlamına gelir. Sunucuyu 1.18 veya daha yeni bir sürüme güncelle, ardından yenile.',
   'walkthrough.blocked.contextTooSmall.descriptionUnknownModel': 'Küçük model yaklaşık {available}K karakter alabiliyor; bu diff ise yaklaşık {required}K gerektiriyor. Hiçbir şey kırpılmaz — bunun yerine daha büyük bağlam alanı olan bir model seç.',
   'walkthrough.blocked.structuredOutput.descriptionUnknownModel': 'Küçük model, bir inceleme turunun ihtiyaç duyduğu yapılandırılmış yanıtları desteklemiyor.',
-  'contextRail.surface.plan.description': 'Geçerli planı görüntüle',
   'contextRail.surface.pr.description': 'Geçerli branch\'in pull request\'ini oluştur, incele ve merge et',
   'contextRail.surface.mr.description': 'Geçerli branch\'in merge request\'ini oluştur, incele ve merge et',
   'contextRail.surface.notes.description': 'Proje için notlar, todo\'lar, planlar ve agent belleği',
@@ -1760,16 +1770,10 @@ export const dict = {
   'rightSidebar.contextNotesTodo.empty.selectProject': 'Not ve yapılacak eklemek için bir proje seçin.',
   'rightSidebar.contextNotesTodo.notes.placeholder': 'Bağlam, hatırlatıcı veya bağlantı yakala',
   'rightSidebar.contextNotesTodo.notes.addAria': 'Not ekle',
-  'rightSidebar.contextNotesTodo.notes.empty': 'Henüz not yok. Bağlam, hatırlatıcı veya bağlantı yakalayın.',
   'rightSidebar.contextNotesTodo.notes.actions.expand': 'Notu genişlet',
-  'rightSidebar.contextNotesTodo.notes.actions.collapse': 'Notu daralt',
   'rightSidebar.contextNotesTodo.notes.actions.delete': 'Notu sil',
-  'rightSidebar.contextNotesTodo.notes.actions.pin': 'Agent bağlamına sabitle',
-  'rightSidebar.contextNotesTodo.notes.actions.unpin': 'Agent bağlamından sabitlemeyi kaldır',
   'rightSidebar.contextNotesTodo.notes.source.selection': 'Sohbetten',
   'rightSidebar.contextNotesTodo.notes.source.agent': 'Agent\'tan',
-  'rightSidebar.contextNotesTodo.search.placeholder': 'Ara',
-  'rightSidebar.contextNotesTodo.search.clear': 'Aramayı temizle',
   'rightSidebar.contextNotesTodo.search.noResults': '"{query}" ile eşleşen bir şey yok.',
   'rightSidebar.contextNotesTodo.toast.deleteNoteFailed': 'Not silinemedi',
   'rightSidebar.contextNotesTodo.toast.createNoteFailed': 'Not oluşturulamadı',
@@ -1779,7 +1783,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.plans.actions.back': 'Planlara geri dön',
   'rightSidebar.contextNotesTodo.tabs.memory': 'Hafıza',
   'rightSidebar.contextNotesTodo.sections.label': 'Proje bağlamı bölümleri',
-  'rightSidebar.contextNotesTodo.sections.resize': 'Bölüm kenar çubuğunu yeniden boyutlandır',
   'rightSidebar.contextNotesTodo.memory.scope.project': 'Proje',
   'rightSidebar.contextNotesTodo.memory.scope.label': 'Hafıza kapsamı',
   'rightSidebar.contextNotesTodo.memory.scope.global': 'Senin hakkında',
@@ -1805,7 +1808,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.todo.actions.markComplete': 'Tamamlandı olarak işaretle: "{text}"',
   'rightSidebar.contextNotesTodo.todo.actions.collapse': 'Daralt: "{text}"',
   'rightSidebar.contextNotesTodo.todo.actions.expand': 'Genişlet: "{text}"',
-  'rightSidebar.contextNotesTodo.todo.actions.delete': 'Sil: "{text}"',
   'rightSidebar.contextNotesTodo.todo.actions.send': 'Gönder: "{text}"',
   'rightSidebar.contextNotesTodo.todo.actions.reorder': 'Yeniden sırala: "{text}"',
   'rightSidebar.contextNotesTodo.todo.sendMenu.currentSession': 'Mevcut session\'a gönder',
@@ -1817,7 +1819,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.plans.sharedBadge': 'Depoda',
   'rightSidebar.contextNotesTodo.plans.share': 'Depo planlar klasörüne taşı; depoyu çeken herkes görür',
   'rightSidebar.contextNotesTodo.plans.makePersonal': 'Depodan çıkarıp planlarıma taşı',
-  'rightSidebar.contextNotesTodo.plans.deletePlanWithTitle': 'Planı sil: "{title}"',
   'rightSidebar.contextNotesTodo.sendDialog.title.newSession': 'Yeni session\'a gönder',
   'rightSidebar.contextNotesTodo.sendDialog.title.newWorktree': 'Yeni worktree\'ye gönder',
   'rightSidebar.contextNotesTodo.sendDialog.variant.default': 'Varsayılan',
@@ -2137,6 +2138,7 @@ export const dict = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - arka planda hazırlanıyor',
   'session.newWorktree.toast.fetchSourceFailed': 'Uzak depodan fetch edilemedi — yerel durumdan oluşturuldu',
   'session.newWorktree.toast.fetchSourceAccess': 'Fetch yapılamadı: bu deponun erişimi Repository\'yi yapılandır bölümünde ilgi bekliyor. Yerel durumdan oluşturuldu.',
+  'session.newWorktree.toast.branchBackup': '{branch} artık uzak dalla aynı. Önceki commit\'leri {backup} dalında saklandı.',
   'session.githubIntegration.tabs.pullRequests': 'Pull Request\'ler',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'Branch zaten bir worktree\'de checkout edilmiş',
   'session.githubIntegration.validation.failed': 'Doğrulama başarısız',
@@ -2834,6 +2836,7 @@ export const dict = {
   'desktopHostSwitcher.status.incompatible': 'Uyumsuz',
   'desktopHostSwitcher.status.wrongService': 'Yanlış servis',
   'desktopHostSwitcher.status.unreachable': 'Erişilemiyor',
+  'desktopHostSwitcher.status.relayLimit': "Relay sınırına ulaşıldı",
   'desktopHostSwitcher.status.unknown': 'Bilinmiyor',
   'desktopHostSwitcher.status.ping': ' · {ms}ms ping',
   'desktopHostSwitcher.statusAria': 'Instance durumu',
@@ -2897,6 +2900,10 @@ export const dict = {
   'desktopHostSwitcher.toast.sshConnected': 'SSH instance\'ı "{host}" bağlandı',
   'desktopHostSwitcher.toast.sshFailedToConnect': 'SSH instance\'ı "{host}" bağlanamadı',
   'desktopHostSwitcher.toast.instanceUnreachable': '"{host}" instance\'ına erişilemiyor',
+  'desktopHostSwitcher.toast.relayLimit': "Relay, \"{host}\" bağlantısını reddetti: çok fazla cihaz veya yeniden bağlanma var. Başka bir cihazda OpenChamber'ı kapatın ya da bir dakika bekleyip yeniden deneyin.",
+  'relayConnection.limitReached.title': "Relay bağlantıyı reddetti",
+  'relayConnection.limitReached.description': "Bu instance için çok fazla cihaz veya yeniden bağlanma var. Başka bir cihazda OpenChamber'ı kapatın ya da bir dakika bekleyip yeniden deneyin.",
+  'relayConnection.limitReached.retry': "Yeniden dene",
   'miniChat.header.newSession': 'Yeni session',
   'miniChat.header.session': 'Session',
   'miniChat.header.defaultAgent': 'Varsayılan agent',

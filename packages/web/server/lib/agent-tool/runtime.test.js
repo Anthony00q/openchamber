@@ -454,6 +454,17 @@ describe('managed agent tool runtime', () => {
     expect(Object.keys(await loadTools(plainDir, 'nonotify'))).toEqual(['openchamber']);
   });
 
+  it('exposes render as its own tool carrying only the page and its title', async () => {
+    const { runtime, dataDir } = await createRuntime();
+    await prepareManagedEnv(runtime, { includeControl: true, includeWeb: false, includeMemory: false, includeRender: true });
+    const tool = await loadTools(dataDir, 'render');
+
+    expect(Object.keys(tool)).toEqual(['openchamber', 'openchamber_render']);
+    expect(Object.keys(tool.openchamber_render.input.properties.parameters.properties).sort()).toEqual(['html', 'title']);
+    expect(Object.keys(tool.openchamber.input.properties.parameters.properties)).not.toContain('html');
+    expect(tool.openchamber_render.description).toContain('--chart-1');
+  });
+
   it('registers every tool as a direct tool unless Code Mode is asked for', async () => {
     const { runtime, dataDir } = await createRuntime();
     await prepareManagedEnv(runtime, { includeControl: true, includeWeb: true, includeMemory: true, includeNotify: true });
@@ -515,6 +526,27 @@ describe('managed agent tool runtime', () => {
     expect(result).toEqual(expect.objectContaining({ ok: false, action, error: expect.objectContaining({ kind: 'usage' }) }));
     expect(result.error.message).toContain(hint);
     expect(executeAction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['session.create', 'openchamber', { prompt: 'x', goal: 'true' }, 'goal'],
+    ['browser.type', 'openchamber_web', { selector: '#q', value: 'x', submit: 'yes' }, 'submit'],
+    ['knowledge.save', 'openchamber_knowledge', { kind: 'todo', id: 't1', completed: 'false' }, 'completed'],
+    ['notify.send', 'openchamber_notify', { title: 't', showWhenFocused: 1 }, 'showWhenFocused'],
+  ])('refuses a %s whose boolean %s field is not a boolean', async (action, tool, input, field) => {
+    const { runtime, executeAction } = await createRuntime();
+    const result = await runtime.execute({ input: { action, ...input }, sessionID: 'ses_1', tool });
+
+    expect(result).toEqual(expect.objectContaining({ ok: false, action, error: { message: `${field} must be a boolean`, kind: 'usage' } }));
+    expect(executeAction).not.toHaveBeenCalled();
+  });
+
+  it('passes a real boolean goal through', async () => {
+    const { runtime, executeAction } = await createRuntime();
+    const result = await runtime.execute({ input: { action: 'session.create', prompt: 'x', goal: true }, sessionID: 'ses_1', tool: 'openchamber' });
+
+    expect(result.ok).toBe(true);
+    expect(executeAction).toHaveBeenCalledTimes(1);
   });
 
   it('passes returnResult through with the calling session', async () => {

@@ -468,8 +468,11 @@ div[data-chat-input-footer="true"] {
   );
 }
 
+/* The solid part also covers the status row floating above the composer
+   (`--chat-status-row-clearance`, set by ChatContainer while the session
+   works), so a line that lands there sits under the band, not beside the row. */
 [data-live-tail="true"] .chat-scroll-fade--end {
-  --scroll-shadow-end-inset: calc(var(--chat-composer-inset, 0px) + var(--chat-floating-panel-clearance, 0px));
+  --scroll-shadow-end-inset: calc(var(--chat-composer-inset, 0px) + var(--chat-floating-panel-clearance, 0px) + var(--chat-status-row-clearance, 0px));
   --scroll-shadow-end-size: var(--scroll-shadow-size);
 }
 
@@ -1338,6 +1341,17 @@ html:not(.dark) .chat-scroll {
    line as Tailwind preflight makes them. */
 .markdown-content[data-markdown-html] img {
   display: inline;
+}
+
+/* A clip fits the column at its own ratio, no taller than a drawn picture. */
+.markdown-content video {
+  display: block;
+  max-width: 100%;
+  max-height: 30rem;
+  height: auto;
+  margin: var(--markdown-paragraph-spacing) 0;
+  border-radius: 6px;
+  background: black;
 }
 
 /* Block rhythm: every block carries the same margin on both sides, so the

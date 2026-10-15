@@ -3,11 +3,13 @@ import { settingsDict } from './ja.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { referencePickerI18n } from './reference-picker.i18n';
 import { sessionMenuHintsI18n } from './session-menu-hints.i18n';
+import { projectKnowledgeI18n } from './project-knowledge.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
 import { routingI18n } from './routing.i18n';
 import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
+import { htmlRenderI18n } from './html-render.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
@@ -17,6 +19,7 @@ import { environmentI18n } from './environment.i18n';
 import { providersI18n } from './providers.i18n';
 import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
+import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 
 export const dict: Record<I18nKey, string> = {
   "opencodeCompatibility.bundled": "OpenCode は OpenChamber に同梱されています。OpenCode v2 を利用するには OpenChamber を更新してください。",
@@ -129,11 +132,13 @@ export const dict: Record<I18nKey, string> = {
   ...linearIssuePickerI18n.ja,
   ...referencePickerI18n.ja,
   ...sessionMenuHintsI18n.ja,
+  ...projectKnowledgeI18n.ja,
   ...linearPanelI18n.ja,
   ...routingI18n.ja,
   ...pluginPanelI18n.ja,
   ...surfacePanelI18n.ja,
   ...fileArtifactsI18n.ja,
+  ...htmlRenderI18n.ja,
   ...usageStatsI18n.ja,
   ...webSearchI18n.ja,
   ...isolatedSpacesI18n.ja,
@@ -143,6 +148,7 @@ export const dict: Record<I18nKey, string> = {
   ...providersI18n.ja,
   ...mcpGridI18n.ja,
   ...pluginsGridI18n.ja,
+  ...integrationsCatalogI18n['ja'],
   'terminalView.actions.attachSelection': '選択した出力を添付',
   'terminalView.actions.copySelection': '選択した出力をコピー',
   'terminalView.toast.selectionCopied': '出力をコピーしました',
@@ -228,6 +234,7 @@ export const dict: Record<I18nKey, string> = {
   'mobile.connect.connectButton': '接続',
   'mobile.connect.connecting': '接続中...',
   'mobile.connect.notice.unreachable': '{label}に接続できませんでした。サーバーが起動しているか確認してください。',
+  'mobile.connect.notice.relayLimit': "Relay が {label} への接続を拒否しました。デバイスまたは再接続が多すぎます。別のデバイスで OpenChamber を閉じるか 1 分待ってから、{label} をタップしてもう一度お試しください。",
   'mobile.connect.notice.authExpired': '{label}へのアクセスは期限切れか取り消されました。再度サインインしてください。',
   'mobile.connect.recovery.description': '保存済みサーバーに接続できませんでした。サーバーが起動しているか確認するか、別のインスタンスを選んでください。',
   'mobile.connect.password.label': 'パスワード',
@@ -241,6 +248,7 @@ export const dict: Record<I18nKey, string> = {
   'mobile.connect.splash.connectingTo': 'デバイスに接続中:',
   'mobile.connect.error.invalidUrl': 'そのサーバー URL は無効です。',
   'mobile.connect.error.unreachable': 'その OpenChamber サーバーに接続できませんでした。',
+  'mobile.connect.error.relayLimit': "Relay が接続を拒否しました。デバイスまたは再接続が多すぎます。別のデバイスで OpenChamber を閉じるか 1 分待ってから、もう一度お試しください。",
   'mobile.connect.error.authRequired': 'このサーバーにはパスワードまたはクライアントトークンが必要です。',
   'mobile.connect.error.passwordFailed': 'サーバーのロックを解除できませんでした。パスワードを確認してください。',
   'mobile.connect.scan.unsupported': 'QR スキャンはインストール済みのモバイルアプリでのみ利用できます。',
@@ -276,11 +284,12 @@ export const dict: Record<I18nKey, string> = {
   'mobile.header.metadata.usage': '使用量',
   'mobile.menu.titleAria': 'ワークスペースツール',
   'mobile.menu.files': 'ファイル',
-  'mobile.menu.changes': '変更',
+  'mobile.menu.git': 'Git',
   'mobile.menu.terminal': 'ターミナル',
   'mobile.menu.mcp': 'MCP',
   'mobile.menu.update': '更新',
   'mobile.menu.settings': '設定',
+  'mobile.sessions.footer.more': 'その他',
   'mobile.sessions.newChatCta': '{project}で新しいチャット',
   'mobile.sessions.dateGroup.today': '今日',
   'mobile.sessions.dateGroup.yesterday': '昨日',
@@ -563,6 +572,9 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.header.displayMode.default': 'デフォルト',
   'sessions.sidebar.header.displayMode.minimal': 'ミニマル',
   'sessions.sidebar.header.displayMode.showWork': '作業中セクションを表示',
+  'sessions.sidebar.header.displayMode.showPinned': 'ピン留めセクションを表示',
+  'sessions.sidebar.header.displayMode.detailedZoneRows': '詳細な行',
+  'sessions.sidebar.activity.pinnedTitle': 'ピン留め',
   'sessions.sidebar.header.displayMode.showArchived': 'アーカイブ済みセッションを表示',
   'sessions.sidebar.header.displayMode.collapseAll': 'すべて折りたたむ',
   'sessions.sidebar.header.displayMode.expandAll': 'すべて展開',
@@ -871,7 +883,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.group.worktreeRemoving': 'ワークツリーを削除しています…',
   'sessions.sidebar.project.folderMissing': 'プロジェクトフォルダーが見つからないか、利用できません',
   'sessions.sidebar.group.space': '隔離スペース',
-  'sessions.sidebar.group.spaceStale': 'スペースが応答していません。セッションが古い可能性があります。',
+  'sessions.sidebar.group.spaceStale': 'このスペースのセッションは一部のみ表示されています。',
   'sessions.sidebar.grouping.spaceUnnamed': '隔離スペース',
   'sessions.sidebar.sessionDialogs.worktree.label': 'ワークツリー',
   'sessions.sidebar.sessionDialogs.worktree.pathUnavailable': 'ワークツリーパスは利用できません。',
@@ -1315,7 +1327,6 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.mode.diff': '変更',
   'contextPanel.mode.stagedDiff': 'ステージ済み差分',
   'contextPanel.mode.workingDiff': '作業中差分',
-  'contextPanel.mode.plan': '計画',
   'contextPanel.mode.pr': 'プルリクエスト',
   'contextPanel.mode.mr': 'マージリクエスト',
   'gitView.mergeRequest.title': 'マージリクエスト',
@@ -1446,7 +1457,6 @@ export const dict: Record<I18nKey, string> = {
   'walkthrough.blocked.serverUnsupported.description': 'このアプリが接続している OpenChamber サーバーはウォークスルー API に応答しませんでした。つまりアプリより古いバージョンです。サーバーを 1.18 以降に更新してから再読み込みしてください。',
   'walkthrough.blocked.contextTooSmall.descriptionUnknownModel': 'スモールモデルが扱えるのは約 {available} 千文字ですが、この差分には約 {required} 千文字が必要です。切り詰めは行いません。コンテキストの大きいモデルを選んでください。',
   'walkthrough.blocked.structuredOutput.descriptionUnknownModel': 'スモールモデルはウォークスルーに必要な構造化応答をサポートしていません。',
-  'contextRail.surface.plan.description': '現在のプランを表示',
   'contextRail.surface.pr.description': '現在のブランチのプルリクエストを作成・確認・マージ',
   'contextRail.surface.mr.description': '現在のブランチのマージリクエストを作成・確認・マージ',
   'contextRail.surface.notes.description': 'プロジェクトのメモ、ToDo、プラン、エージェントのメモリ',
@@ -1897,16 +1907,10 @@ export const dict: Record<I18nKey, string> = {
   'rightSidebar.contextNotesTodo.empty.selectProject': 'プロジェクトを選択してメモとTODOを追加します。',
   'rightSidebar.contextNotesTodo.notes.placeholder': 'コンテキスト、リマインダー、リンクを記録',
   'rightSidebar.contextNotesTodo.notes.addAria': 'ノートを追加',
-  'rightSidebar.contextNotesTodo.notes.empty': 'ノートはまだありません。文脈やメモ、リンクを残せます。',
   'rightSidebar.contextNotesTodo.notes.actions.expand': 'ノートを展開',
-  'rightSidebar.contextNotesTodo.notes.actions.collapse': 'ノートを折りたたむ',
   'rightSidebar.contextNotesTodo.notes.actions.delete': 'ノートを削除',
-  'rightSidebar.contextNotesTodo.notes.actions.pin': 'エージェントのコンテキストにピン留め',
-  'rightSidebar.contextNotesTodo.notes.actions.unpin': 'エージェントのコンテキストからピン留めを解除',
   'rightSidebar.contextNotesTodo.notes.source.selection': 'チャットから',
   'rightSidebar.contextNotesTodo.notes.source.agent': 'エージェントから',
-  'rightSidebar.contextNotesTodo.search.placeholder': '検索',
-  'rightSidebar.contextNotesTodo.search.clear': '検索をクリア',
   'rightSidebar.contextNotesTodo.search.noResults': '「{query}」に一致するものはありません。',
   'rightSidebar.contextNotesTodo.toast.deleteNoteFailed': 'ノートを削除できませんでした',
   'rightSidebar.contextNotesTodo.toast.createNoteFailed': 'ノートを作成できませんでした',
@@ -1916,7 +1920,6 @@ export const dict: Record<I18nKey, string> = {
   'rightSidebar.contextNotesTodo.plans.actions.back': 'プラン一覧に戻る',
   'rightSidebar.contextNotesTodo.tabs.memory': 'メモリ',
   'rightSidebar.contextNotesTodo.sections.label': 'プロジェクトコンテキストのセクション',
-  'rightSidebar.contextNotesTodo.sections.resize': 'セクションサイドバーの幅を変更',
   'rightSidebar.contextNotesTodo.memory.scope.project': 'プロジェクト',
   'rightSidebar.contextNotesTodo.memory.scope.label': 'メモリの範囲',
   'rightSidebar.contextNotesTodo.memory.scope.global': 'あなたについて',
@@ -1942,7 +1945,6 @@ export const dict: Record<I18nKey, string> = {
   'rightSidebar.contextNotesTodo.todo.actions.markComplete': '「{text}」を完了にする',
   'rightSidebar.contextNotesTodo.todo.actions.collapse': 'TODO「{text}」を折りたたむ',
   'rightSidebar.contextNotesTodo.todo.actions.expand': 'TODO「{text}」を展開',
-  'rightSidebar.contextNotesTodo.todo.actions.delete': '「{text}」を削除',
   'rightSidebar.contextNotesTodo.todo.actions.send': '「{text}」を送信',
   'rightSidebar.contextNotesTodo.todo.actions.reorder': '「{text}」を並び替え',
   'rightSidebar.contextNotesTodo.todo.sendMenu.currentSession': '現在のセッションに送信',
@@ -1954,7 +1956,6 @@ export const dict: Record<I18nKey, string> = {
   'rightSidebar.contextNotesTodo.plans.sharedBadge': 'リポジトリ内',
   'rightSidebar.contextNotesTodo.plans.share': 'リポジトリのプランフォルダーへ移動し、pull した全員が見られるようにします',
   'rightSidebar.contextNotesTodo.plans.makePersonal': 'リポジトリから自分のプランへ移動',
-  'rightSidebar.contextNotesTodo.plans.deletePlanWithTitle': '計画「{title}」を削除',
   'rightSidebar.contextNotesTodo.sendDialog.title.newSession': '新しいセッションに送信',
   'rightSidebar.contextNotesTodo.sendDialog.title.newWorktree': '新しいワークツリーに送信',
   'rightSidebar.contextNotesTodo.sendDialog.variant.default': 'デフォルト',
@@ -2275,6 +2276,7 @@ export const dict: Record<I18nKey, string> = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - バックグラウンドでブートストラップ中',
   'session.newWorktree.toast.fetchSourceFailed': 'リモートから取得できませんでした — ローカルの状態で作成しました',
   'session.newWorktree.toast.fetchSourceAccess': '取得できませんでした: このリポジトリのアクセスを「リポジトリを設定」で確認してください。ローカルの状態で作成しました。',
+  'session.newWorktree.toast.branchBackup': '{branch} をリモートに合わせました。以前のコミットは {backup} に残してあります。',
   'session.githubIntegration.tabs.pullRequests': 'プルリクエスト',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'ブランチはすでにワークツリーでチェックアウトされています',
   'session.githubIntegration.validation.failed': '検証に失敗しました',
@@ -3018,6 +3020,7 @@ export const dict: Record<I18nKey, string> = {
   'desktopHostSwitcher.status.incompatible': '互換性なし',
   'desktopHostSwitcher.status.wrongService': 'サービスが違います',
   'desktopHostSwitcher.status.unreachable': '到達不能',
+  'desktopHostSwitcher.status.relayLimit': "Relay の上限に達しました",
   'desktopHostSwitcher.status.unknown': '不明',
   'desktopHostSwitcher.status.ping': ' · {ms}ms ping',
   'desktopHostSwitcher.statusAria': 'インスタンスステータス',
@@ -3081,6 +3084,10 @@ export const dict: Record<I18nKey, string> = {
   'desktopHostSwitcher.toast.sshConnected': 'SSHインスタンス「{host}」に接続しました',
   'desktopHostSwitcher.toast.sshFailedToConnect': 'SSHインスタンス「{host}」への接続に失敗しました',
   'desktopHostSwitcher.toast.instanceUnreachable': 'インスタンス「{host}」に到達できません',
+  'desktopHostSwitcher.toast.relayLimit': "Relay が「{host}」への接続を拒否しました。デバイスまたは再接続が多すぎます。別のデバイスで OpenChamber を閉じるか 1 分待ってから、もう一度お試しください。",
+  'relayConnection.limitReached.title': "Relay が接続を拒否しました",
+  'relayConnection.limitReached.description': "このインスタンスへのデバイスまたは再接続が多すぎます。別のデバイスで OpenChamber を閉じるか 1 分待ってから、もう一度お試しください。",
+  'relayConnection.limitReached.retry': "再試行",
   'miniChat.header.newSession': '新しいセッション',
   'miniChat.header.session': 'セッション',
   'miniChat.header.defaultAgent': 'デフォルトエージェント',

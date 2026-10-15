@@ -1,5 +1,122 @@
 [
   {
+    "version": "2.3.3",
+    "date": "2026-10-14",
+    "title": "Agents draw charts and mockups",
+    "intro": null,
+    "app": {
+      "new": [
+        "**Charts and mockups in chat:** an agent can show a chart, table, diagram or interface mockup right above its answer. The page follows your theme, opens full screen and downloads as HTML on desktop. If that's not your thing, you can turn it off in Settings → OpenChamber Tools.",
+        "**Mobile push says what happened:** a notification shows the session name and the agent's reply, its question, the command it asks to run, or the error. The text is encrypted end to end, so the relay, Apple and Google see only a generic title.",
+        "**Review threads on the issues board:** replies sit under the comment that started the thread, resolved threads fold to one line, and you can answer, resolve and reopen threads on GitHub and GitLab. A refresh button in the preview reads the item again.",
+        "Chat: videos play in chat and in issue and pull request descriptions and comments, including clips uploaded to GitHub, GitLab and Linear and clips an agent recorded on your machine.",
+        "Plans: the Plans tab shows how many steps of each plan are done, and a plan sent to a session gets a button that opens that session.",
+        "Files: Markdown frontmatter shows as a table of properties above the document in the file preview and the plan view."
+      ],
+      "improvements": [
+        "Sessions: Rename with AI gives a session a short title that names the work it is about.",
+        "Agents: an agent can move a session into a worktree on a branch that already exists."
+      ],
+      "fixes": [
+        "Settings/Providers: with no project added, the page lists your providers. It used to say \"No providers yet\" while chat showed the models, so people signed in again and again.",
+        "Chat: the prompt navigator highlights the turn that fills the screen (thanks to @Hayston1001).",
+        "Chat: /btw takes the attached files along with the text.",
+        "Chat: letters like g and p keep their tails in the working status label.",
+        "Issues board: a PR link in chat opens that PR on the board, and issues closed while the board was hidden show as closed when it opens again.",
+        "GitLab: merge requests show correct line counts and keep their labels, so editing labels no longer replaces the ones already there.",
+        "Worktrees: a worktree from a pull request can be created after the PR was force-pushed. A leftover branch that diverged is kept as a backup, and a message names it.",
+        "Work status: running subagents sort above finished ones, and finished ones no longer show the clock icon.",
+        "Sidebar: a session started in a plain folder next to a project no longer shows inside that project (thanks to @DeryFerd).",
+        "Sidebar: a worktree that got its branch later shows as one line named after the branch.",
+        "Sidebar: buttons that appear on hover hide again when the pointer leaves after a click.",
+        "Sidebar: searching In work counts matches in subsessions, and the phone's In work and Pinned headers count the rows they show.",
+        "Files: a file search with no matches says \"No files found.\" (thanks to @xhang1108).",
+        "Changes: pressing Escape to close an input method's candidate list keeps the review comment and the panel open (thanks to @gaojunran).",
+        "Git: checkouts work in repositories where Git LFS is installed both globally and locally (thanks to @lukelabonte).",
+        "Remote access: when the relay refuses a connection over its limits, the phone and the desktop say so, and the desktop offers a retry.",
+        "Notifications: desktop permission notifications show the requested command first, and words like user_id keep their underscores.",
+        "Sign-in: passkey sign-in has the same attempt limit as the password login."
+      ],
+      "misc": [
+        "Bundled OpenCode updated to 2.0.29."
+      ]
+    },
+    "vscode": {
+      "new": [
+        "Chat: a video link in a reply plays in place."
+      ],
+      "improvements": [],
+      "fixes": [
+        "Settings: the Small model list and the model picker in the Changes walkthrough show your models again, so commit messages use the model you picked.",
+        "Chat: letters like g and p keep their tails in the working status label."
+      ],
+      "misc": []
+    }
+  },
+  {
+    "version": "2.3.2",
+    "date": "2026-10-14",
+    "title": "Project knowledge for agents and Linux packages",
+    "intro": null,
+    "app": {
+      "new": [
+        "**Project knowledge for agents:** agents read and change the project's notes, todos and plans with their own tool, switched on in Settings next to memory. A plan an agent shows opens in the Project knowledge panel (thanks to @cemarta7).",
+        "**Links from chat:** issue, pull request and merge request links from GitHub, GitLab and Linear open on the issues board next to the session. On desktop, \"Open links in the built-in browser\" in Settings → General opens other links in the browser panel; Cmd/Ctrl-click still opens the system browser.",
+        "**Linux: .deb and .rpm packages** for x64 and arm64 next to the AppImage. They put OpenChamber in the app menu with its icon, and updates install from the app after the system asks for your password.",
+        "Sidebar: with the sidebar collapsed, rest the pointer on the window's left edge and it slides out over the chat.",
+        "Chat: images in an assistant reply show where the text puts them; a paragraph of screenshots becomes one row.",
+        "Project actions: run and stop them from a dialog (Cmd/Ctrl+Alt+R) or the command palette, also while a side panel hides the Work Status row.",
+        "Sidebar: an optional Pinned section above In work, from the display menu.",
+        "Desktop: a new Mini Chat window opens pinned on top of other windows; its pin button unpins it."
+      ],
+      "improvements": [
+        "**Project knowledge panel:** tabs and search sit in the panel header, notes, todos and plans share one add field, and an entry opens in place of the list with the list's scroll kept. Notes keep their Markdown formatting while you edit, and deleting a note, plan or memory can be undone for 5 seconds.",
+        "Sidebar: In work rows in the Tree view are one line again; \"Detailed rows\" in the display menu brings back two lines.",
+        "Themes: body text in dark themes is brighter and easier to read on external monitors.",
+        "Changes: the diff layout picked in the Changes header is remembered, chat diff previews open in that layout, and hunks in side-by-side diffs are set apart.",
+        "Issues board: it reopens on the item, search and scroll where you left it.",
+        "Changes: with files expanded in the Branch view, an agent's commands no longer re-read every diff; only a file that was written is read again.",
+        "Mobile: the sessions sheet, issues board and Git drawer take fewer rows, and the Git drawer can start an AI review.",
+        "Menu bar: the macOS menu bar lists sessions by recent activity, without pinned ones on top."
+      ],
+      "fixes": [
+        "Sidebar: collapsed Chats, Pinned, In work and List sections, folders and mobile worktrees stay collapsed after a restart.",
+        "Chat: short messages get a bubble that fits them, without empty space on the left (thanks to @timothywang21).",
+        "Chat: the working status line no longer covers the last line of the chat or grows its own scrollbar.",
+        "Chat: a step that failed and then recovered in the same turn no longer shows \"failed to send message\".",
+        "Chat: opening a side panel no longer shifts the chat while it animates.",
+        "In work: a session started with only an attachment or a shell command goes into In work.",
+        "Desktop: \"Open in new window\" in the instance switcher opens the instance you picked, and Mini Chat opens on the instance its window is on (thanks to @kydorn).",
+        "Desktop: a release appears only once every platform's build is uploaded, so Apple Silicon Macs never update to the Intel build.",
+        "Git: fetch, pull, push and PR worktrees through a Git account work in repositories that Git trusts through your safe.directory setting, such as a WSL checkout opened from Windows.",
+        "GitLab: merge requests on self-managed GitLab older than 18.0 show their changes, checks and reviewers.",
+        "Settings: the OpenCode config file is replaced in one step, so OpenCode never reads a half-written config and a crash can't leave it cut off. Agent and command files are saved the same way, a symlinked config keeps pointing into your dotfiles, and a read-only config stays untouched (thanks to @Ghilteras).",
+        "Agents: a yes/no tool setting sent as text, such as `returnResult` or `goal`, fails with a message naming it, so the agent retries; it used to quietly do the opposite (thanks to @DeryFerd).",
+        "Extensions: services that a crashed OpenChamber left running are stopped at the next start (thanks to @deatheros).",
+        "Settings/Agents: the permissions editor shows outside folders as allowed by default, as OpenCode treats them."
+      ],
+      "misc": [
+        "Bundled OpenCode updated to 2.0.28."
+      ]
+    },
+    "vscode": {
+      "new": [
+        "Chat: images in an assistant reply show where the text puts them; a paragraph of screenshots becomes one row."
+      ],
+      "improvements": [
+        "Chat: diff previews open in the diff layout set in Appearance, and hunks in side-by-side diffs are set apart."
+      ],
+      "fixes": [
+        "Chat: short messages get a bubble that fits them, without empty space on the left (thanks to @timothywang21).",
+        "Chat: the working status line no longer covers the last line of the chat or grows its own scrollbar.",
+        "Chat: a step that failed and then recovered in the same turn no longer shows \"failed to send message\".",
+        "Settings: the OpenCode config file and agent and command files are replaced in one step, so OpenCode never reads a half-written file. A symlinked config keeps pointing into your dotfiles, and a read-only config stays untouched (thanks to @Ghilteras).",
+        "Settings/Agents: the permissions editor shows outside folders as allowed by default, as OpenCode treats them."
+      ],
+      "misc": []
+    }
+  },
+  {
     "version": "2.3.1",
     "date": "2026-10-13",
     "title": "Steadier mobile and iOS Shortcuts",

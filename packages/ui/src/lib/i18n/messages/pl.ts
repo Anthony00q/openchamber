@@ -3,11 +3,13 @@ import { settingsDict } from './pl.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { referencePickerI18n } from './reference-picker.i18n';
 import { sessionMenuHintsI18n } from './session-menu-hints.i18n';
+import { projectKnowledgeI18n } from './project-knowledge.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
 import { routingI18n } from './routing.i18n';
 import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
+import { htmlRenderI18n } from './html-render.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
@@ -17,6 +19,7 @@ import { environmentI18n } from './environment.i18n';
 import { providersI18n } from './providers.i18n';
 import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
+import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 
 export const dict: Record<I18nKey, string> = {
   "opencodeCompatibility.bundled": "OpenCode jest dołączony do OpenChamber. Zaktualizuj OpenChamber, aby uzyskać OpenCode v2.",
@@ -129,11 +132,13 @@ export const dict: Record<I18nKey, string> = {
   ...linearIssuePickerI18n.pl,
   ...referencePickerI18n.pl,
   ...sessionMenuHintsI18n.pl,
+  ...projectKnowledgeI18n.pl,
   ...linearPanelI18n.pl,
   ...routingI18n.pl,
   ...pluginPanelI18n.pl,
   ...surfacePanelI18n.pl,
   ...fileArtifactsI18n.pl,
+  ...htmlRenderI18n.pl,
   ...usageStatsI18n.pl,
   ...webSearchI18n.pl,
   ...isolatedSpacesI18n.pl,
@@ -143,6 +148,7 @@ export const dict: Record<I18nKey, string> = {
   ...providersI18n.pl,
   ...mcpGridI18n.pl,
   ...pluginsGridI18n.pl,
+  ...integrationsCatalogI18n['pl'],
   'terminalView.actions.attachSelection': 'Dołącz zaznaczone dane wyjściowe',
   'terminalView.actions.copySelection': 'Kopiuj zaznaczone dane wyjściowe',
   'terminalView.toast.selectionCopied': 'Skopiowano dane wyjściowe',
@@ -226,6 +232,7 @@ export const dict: Record<I18nKey, string> = {
   'mobile.connect.cancelPassword': 'Użyj innego serwera',
   'mobile.connect.connecting': 'Łączenie...',
   'mobile.connect.notice.unreachable': 'Nie udało się połączyć z {label}. Sprawdź, czy serwer działa.',
+  'mobile.connect.notice.relayLimit': "Relay odrzucił połączenie z {label}: za dużo urządzeń lub ponownych połączeń. Zamknij OpenChamber na innym urządzeniu lub odczekaj minutę, a potem stuknij {label}, aby spróbować ponownie.",
   'mobile.connect.notice.authExpired': 'Dostęp do {label} wygasł lub został cofnięty. Zaloguj się ponownie.',
   'mobile.connect.recovery.description': 'Nie udało się połączyć z zapisanym serwerem. Sprawdź, czy działa, albo wybierz inną instancję.',
   'mobile.connect.scanQr': 'Skanuj kod QR',
@@ -243,6 +250,7 @@ export const dict: Record<I18nKey, string> = {
   'mobile.connect.splash.connectingTo': 'Łączenie z urządzeniem:',
   'mobile.connect.error.invalidUrl': 'Ten adres URL serwera jest nieprawidłowy.',
   'mobile.connect.error.unreachable': 'Nie udało się połączyć z tym serwerem OpenChamber.',
+  'mobile.connect.error.relayLimit': "Relay odrzucił połączenie: za dużo urządzeń lub ponownych połączeń. Zamknij OpenChamber na innym urządzeniu lub odczekaj minutę, a potem spróbuj ponownie.",
   'mobile.connect.error.authRequired': 'Ten serwer wymaga hasła lub tokenu klienta.',
   'mobile.connect.error.passwordFailed': 'Nie udało się odblokować tego serwera. Sprawdź hasło.',
   'mobile.instances.addTitle': 'Dodaj instancję',
@@ -276,12 +284,13 @@ export const dict: Record<I18nKey, string> = {
   'mobile.header.metadata.usage': 'Użycie',
   'mobile.menu.titleAria': 'Narzędzia obszaru roboczego',
   'mobile.menu.files': 'Pliki',
-  'mobile.menu.changes': 'Zmiany',
+  'mobile.menu.git': 'Git',
   'mobile.menu.terminal': 'Terminal',
   'mobile.menu.mcp': 'MCP',
   'mobile.menu.instances': 'Instancje',
   'mobile.menu.update': 'Aktualizuj',
   'mobile.menu.settings': 'Ustawienia',
+  'mobile.sessions.footer.more': 'Więcej',
   'mobile.sessions.newChatCta': 'Nowy czat w {project}',
   'mobile.sessions.dateGroup.today': 'Dzisiaj',
   'mobile.sessions.dateGroup.yesterday': 'Wczoraj',
@@ -404,6 +413,9 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.header.displayMode.default': 'Domyślny',
   'sessions.sidebar.header.displayMode.minimal': 'Minimalny',
   'sessions.sidebar.header.displayMode.showWork': 'Pokaż sekcję W toku',
+  'sessions.sidebar.header.displayMode.showPinned': 'Pokaż sekcję Przypięte',
+  'sessions.sidebar.header.displayMode.detailedZoneRows': 'Szczegółowe wiersze',
+  'sessions.sidebar.activity.pinnedTitle': 'Przypięte',
   'sessions.sidebar.header.displayMode.showArchived': 'Pokaż zarchiwizowane sesje',
   'sessions.sidebar.header.displayMode.collapseAll': 'Zwiń wszystkie',
   'sessions.sidebar.header.displayMode.expandAll': 'Rozwiń wszystkie',
@@ -871,7 +883,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.group.worktreeRemoving': 'Usuwanie drzewa pracy…',
   'sessions.sidebar.project.folderMissing': 'Folder projektu nie istnieje lub jest niedostępny',
   'sessions.sidebar.group.space': 'Izolowana przestrzeń',
-  'sessions.sidebar.group.spaceStale': 'Przestrzeń nie odpowiada. Sesje mogą być nieaktualne.',
+  'sessions.sidebar.group.spaceStale': 'Nie wszystkie sesje tej przestrzeni są widoczne.',
   'sessions.sidebar.grouping.spaceUnnamed': 'Izolowana przestrzeń',
   'sessions.sidebar.sessionDialogs.worktree.label': 'Drzewo pracy',
   'sessions.sidebar.sessionDialogs.worktree.pathUnavailable': 'Ścieżka drzewa pracy niedostępna.',
@@ -1684,7 +1696,6 @@ export const dict: Record<I18nKey, string> = {
   'contextPanel.mode.stagedDiff': 'Staged Diff',
   'contextPanel.mode.workingDiff': 'Working Diff',
   'contextPanel.mode.files': 'Pliki',
-  'contextPanel.mode.plan': 'Plan',
   'contextPanel.mode.pr': 'Pull Request',
   'contextPanel.mode.mr': 'Merge Request',
   'gitView.mergeRequest.title': 'Merge request',
@@ -1814,7 +1825,6 @@ export const dict: Record<I18nKey, string> = {
   'walkthrough.blocked.serverUnsupported.description': 'Serwer OpenChamber, z którym połączona jest ta aplikacja, nie odpowiedział na API walkthroughu — jest więc starszy niż aplikacja. Zaktualizuj serwer do wersji 1.18 lub nowszej i odśwież.',
   'walkthrough.blocked.contextTooSmall.descriptionUnknownModel': 'Mały model mieści około {available} tys. znaków, a te różnice potrzebują około {required} tys. Nic nie jest obcinane — wybierz model z większym kontekstem.',
   'walkthrough.blocked.structuredOutput.descriptionUnknownModel': 'Mały model nie obsługuje ustrukturyzowanych odpowiedzi wymaganych przez przewodnik.',
-  'contextRail.surface.plan.description': 'Zobacz bieżący plan',
   'contextRail.surface.pr.description': 'Twórz, przeglądaj i scalaj pull request bieżącej gałęzi',
   'contextRail.surface.mr.description': 'Twórz, przeglądaj i scalaj merge request bieżącej gałęzi',
   'contextRail.surface.notes.description': 'Notatki, zadania, plany i pamięć agenta dla projektu',
@@ -2048,10 +2058,15 @@ export const dict: Record<I18nKey, string> = {
   'desktopHostSwitcher.status.ping': ' · {ms}ms ping',
   'desktopHostSwitcher.status.unknown': 'Nieznany',
   'desktopHostSwitcher.status.unreachable': 'Nieosiągalna',
+  'desktopHostSwitcher.status.relayLimit': "Osiągnięto limit Relay",
   'desktopHostSwitcher.status.wrongService': 'Nieprawidłowa usługa',
   'desktopHostSwitcher.statusAria': 'Status instancji',
   'desktopHostSwitcher.title': 'Instancja',
   'desktopHostSwitcher.toast.instanceUnreachable': 'Instancja „{host}” jest nieosiągalna',
+  'desktopHostSwitcher.toast.relayLimit': "Relay odrzucił połączenie z „{host}”: za dużo urządzeń lub ponownych połączeń. Zamknij OpenChamber na innym urządzeniu lub odczekaj minutę, a potem spróbuj ponownie.",
+  'relayConnection.limitReached.title': "Relay odrzucił połączenie",
+  'relayConnection.limitReached.description': "Za dużo urządzeń lub ponownych połączeń dla tej instancji. Zamknij OpenChamber na innym urządzeniu lub odczekaj minutę, a potem spróbuj ponownie.",
+  'relayConnection.limitReached.retry': "Spróbuj ponownie",
   'desktopHostSwitcher.toast.sshConnected': 'Połączono z instancją SSH „{host}”',
   'desktopHostSwitcher.toast.sshFailedToConnect': 'Nie udało się połączyć z instancją SSH „{host}”',
   'diffView.actions.disableLineWrap': 'Wyłącz zawijanie linii',
@@ -3005,7 +3020,6 @@ export const dict: Record<I18nKey, string> = {
   'rightSidebar.contextNotesTodo.plans.sharedBadge': 'W repozytorium',
   'rightSidebar.contextNotesTodo.plans.share': 'Przenieś do folderu planów w repozytorium, aby każdy, kto je pobierze, go widział',
   'rightSidebar.contextNotesTodo.plans.makePersonal': 'Przenieś do moich planów, poza repozytorium',
-  'rightSidebar.contextNotesTodo.plans.deletePlanWithTitle': 'Usuń plan „{title}”',
   'rightSidebar.contextNotesTodo.plans.empty': 'Brak zapisanych planów.',
   'rightSidebar.contextNotesTodo.plans.importFromFile': 'Importuj plan z pliku',
   'rightSidebar.contextNotesTodo.sendDialog.actions.cancel': 'Anuluj',
@@ -3031,7 +3045,6 @@ export const dict: Record<I18nKey, string> = {
   'rightSidebar.contextNotesTodo.toast.sentToNewWorktreeSession': 'Zadanie wysłane do nowej sesji drzewa pracy',
   'rightSidebar.contextNotesTodo.toast.worktreeRequiresGitRepo': 'Akcje drzewa pracy są dostępne tylko dla repozytoriów Git',
   'rightSidebar.contextNotesTodo.todo.actions.collapse': 'Zwiń zadanie „{text}”',
-  'rightSidebar.contextNotesTodo.todo.actions.delete': 'Usuń „{text}”',
   'rightSidebar.contextNotesTodo.todo.actions.expand': 'Rozwiń zadanie „{text}”',
   'rightSidebar.contextNotesTodo.todo.actions.markComplete': 'Oznacz „{text}” jako ukończone',
   'rightSidebar.contextNotesTodo.todo.actions.send': 'Wyślij „{text}”',
@@ -3044,16 +3057,10 @@ export const dict: Record<I18nKey, string> = {
   'rightSidebar.contextNotesTodo.todo.sendMenu.newSession': 'Wyślij do nowej sesji',
   'rightSidebar.contextNotesTodo.todo.sendMenu.newWorktreeSession': 'Wyślij do nowej sesji drzewa pracy',
   'rightSidebar.contextNotesTodo.notes.addAria': 'Dodaj notatkę',
-  'rightSidebar.contextNotesTodo.notes.empty': 'Brak notatek. Zapisz kontekst, przypomnienia lub linki.',
   'rightSidebar.contextNotesTodo.notes.actions.expand': 'Rozwiń notatkę',
-  'rightSidebar.contextNotesTodo.notes.actions.collapse': 'Zwiń notatkę',
   'rightSidebar.contextNotesTodo.notes.actions.delete': 'Usuń notatkę',
-  'rightSidebar.contextNotesTodo.notes.actions.pin': 'Przypnij do kontekstu agenta',
-  'rightSidebar.contextNotesTodo.notes.actions.unpin': 'Odepnij od kontekstu agenta',
   'rightSidebar.contextNotesTodo.notes.source.selection': 'Z czatu',
   'rightSidebar.contextNotesTodo.notes.source.agent': 'Od agenta',
-  'rightSidebar.contextNotesTodo.search.placeholder': 'Szukaj',
-  'rightSidebar.contextNotesTodo.search.clear': 'Wyczyść wyszukiwanie',
   'rightSidebar.contextNotesTodo.search.noResults': 'Nic nie pasuje do "{query}".',
   'rightSidebar.contextNotesTodo.toast.deleteNoteFailed': 'Nie udało się usunąć notatki',
   'rightSidebar.contextNotesTodo.toast.createNoteFailed': 'Nie udało się utworzyć notatki',
@@ -3063,7 +3070,6 @@ export const dict: Record<I18nKey, string> = {
   'rightSidebar.contextNotesTodo.plans.actions.back': 'Wróć do planów',
   'rightSidebar.contextNotesTodo.tabs.memory': 'Pamięć',
   'rightSidebar.contextNotesTodo.sections.label': 'Sekcje kontekstu projektu',
-  'rightSidebar.contextNotesTodo.sections.resize': 'Zmień szerokość paska sekcji',
   'rightSidebar.contextNotesTodo.memory.scope.project': 'Projekt',
   'rightSidebar.contextNotesTodo.memory.scope.label': 'Zakres pamięci',
   'rightSidebar.contextNotesTodo.memory.scope.global': 'O Tobie',
@@ -3152,6 +3158,7 @@ export const dict: Record<I18nKey, string> = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} — inicjalizacja w tle',
   'session.newWorktree.toast.fetchSourceFailed': 'Nie udało się pobrać ze zdalnego — utworzono na podstawie stanu lokalnego',
   'session.newWorktree.toast.fetchSourceAccess': 'Nie udało się pobrać: dostęp do tego repozytorium wymaga uwagi w „Skonfiguruj repozytorium”. Utworzono na podstawie stanu lokalnego.',
+  'session.newWorktree.toast.branchBackup': 'Gałąź {branch} odpowiada teraz zdalnej. Jej poprzednie commity zachowano w {backup}.',
   'session.newWorktree.worktreeDirectory': 'Katalog drzewa pracy',
   'session.newWorktree.worktreeDirectoryPlaceholder': 'my-worktree-directory',
   'sessionAuth.actions.addPasskey': 'Add passkey',

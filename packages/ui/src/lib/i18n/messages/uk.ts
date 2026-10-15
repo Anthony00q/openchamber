@@ -3,11 +3,13 @@ import { settingsDict } from './uk.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { referencePickerI18n } from './reference-picker.i18n';
 import { sessionMenuHintsI18n } from './session-menu-hints.i18n';
+import { projectKnowledgeI18n } from './project-knowledge.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
 import { routingI18n } from './routing.i18n';
 import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
+import { htmlRenderI18n } from './html-render.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
@@ -17,6 +19,7 @@ import { environmentI18n } from './environment.i18n';
 import { providersI18n } from './providers.i18n';
 import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
+import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 
 export const dict: Record<I18nKey, string> = {
   "opencodeCompatibility.bundled": "OpenCode входить до складу OpenChamber. Оновіть OpenChamber, щоб отримати OpenCode v2.",
@@ -139,11 +142,13 @@ export const dict: Record<I18nKey, string> = {
   ...linearIssuePickerI18n.uk,
   ...referencePickerI18n.uk,
   ...sessionMenuHintsI18n.uk,
+  ...projectKnowledgeI18n.uk,
   ...linearPanelI18n.uk,
   ...routingI18n.uk,
   ...pluginPanelI18n.uk,
   ...surfacePanelI18n.uk,
   ...fileArtifactsI18n.uk,
+  ...htmlRenderI18n.uk,
   ...usageStatsI18n.uk,
   ...webSearchI18n.uk,
   ...isolatedSpacesI18n.uk,
@@ -153,6 +158,7 @@ export const dict: Record<I18nKey, string> = {
   ...providersI18n.uk,
   ...mcpGridI18n.uk,
   ...pluginsGridI18n.uk,
+  ...integrationsCatalogI18n['uk'],
   'terminalView.actions.attachSelection': 'Прикріпити вибраний вивід',
   'terminalView.actions.copySelection': 'Скопіювати вибраний вивід',
   'terminalView.toast.selectionCopied': 'Вивід скопійовано',
@@ -235,6 +241,7 @@ export const dict: Record<I18nKey, string> = {
   "mobile.connect.cancelPassword": "Інший сервер",
   "mobile.connect.connecting": "Підключення...",
   "mobile.connect.notice.unreachable": "Не вдалося з'єднатися з {label}. Перевірте, що сервер запущено.",
+  "mobile.connect.notice.relayLimit": "Relay відхилив з'єднання з {label}: забагато пристроїв або перепідключень. Закрийте OpenChamber на іншому пристрої або зачекайте хвилину, потім торкніться {label}, щоб спробувати знову.",
   "mobile.connect.notice.authExpired": "Доступ до {label} протух або був відкликаний. Увійдіть знову.",
   "mobile.connect.recovery.description": "Не вдалося з'єднатися зі збереженим сервером. Перевірте, що він запущений, або оберіть інший інстанс.",
   "mobile.connect.scanQr": "Сканувати QR-код",
@@ -252,6 +259,7 @@ export const dict: Record<I18nKey, string> = {
   "mobile.connect.splash.connectingTo": "Підключення до пристрою:",
   "mobile.connect.error.invalidUrl": "Ця адреса сервера некоректна.",
   "mobile.connect.error.unreachable": "Не вдалося достукатись до цього OpenChamber сервера.",
+  "mobile.connect.error.relayLimit": "Relay відхилив з'єднання: забагато пристроїв або перепідключень. Закрийте OpenChamber на іншому пристрої або зачекайте хвилину, потім спробуйте знову.",
   "mobile.connect.error.authRequired": "Цьому серверу потрібен пароль або client token.",
   "mobile.connect.error.passwordFailed": "Не вдалося розблокувати сервер. Перевір пароль.",
   "mobile.instances.addTitle": "Додати інстанс",
@@ -285,12 +293,13 @@ export const dict: Record<I18nKey, string> = {
   "mobile.header.metadata.usage": "Використання",
   "mobile.menu.titleAria": "Інструменти робочого простору",
   "mobile.menu.files": "Файли",
-  "mobile.menu.changes": "Зміни",
+  "mobile.menu.git": "Git",
   "mobile.menu.terminal": "Термінал",
   "mobile.menu.mcp": "MCP",
   "mobile.menu.instances": "Інстанси",
   "mobile.menu.update": "Оновити",
   "mobile.menu.settings": "Налаштування",
+  "mobile.sessions.footer.more": "Більше",
   "mobile.sessions.newChatCta": "Новий чат у {project}",
   "mobile.sessions.dateGroup.today": "Сьогодні",
   "mobile.sessions.dateGroup.yesterday": "Вчора",
@@ -572,6 +581,9 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.header.displayMode.default": "За замовчуванням",
   "sessions.sidebar.header.displayMode.minimal": "Мінімальний",
   "sessions.sidebar.header.displayMode.showWork": "Показувати «В роботі»",
+  "sessions.sidebar.header.displayMode.showPinned": "Показувати «Закріплені»",
+  "sessions.sidebar.header.displayMode.detailedZoneRows": "Детальні рядки",
+  "sessions.sidebar.activity.pinnedTitle": "Закріплені",
   "sessions.sidebar.header.displayMode.showArchived": "Показувати архівовані сесії",
   "sessions.sidebar.header.displayMode.collapseAll": "Згорнути все",
   "sessions.sidebar.header.displayMode.expandAll": "Розгорнути все",
@@ -872,7 +884,7 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.group.worktreeRemoving": "Видаляємо worktree…",
   "sessions.sidebar.project.folderMissing": "Папка проєкту відсутня або недоступна",
   "sessions.sidebar.group.space": "Ізольований простір",
-  "sessions.sidebar.group.spaceStale": "Простір не відповідає. Сеанси можуть бути застарілими.",
+  "sessions.sidebar.group.spaceStale": "Показано не всі сеанси цього простору.",
   "sessions.sidebar.grouping.spaceUnnamed": "Ізольований простір",
   "sessions.sidebar.sessionDialogs.worktree.label": "Worktree",
   "sessions.sidebar.sessionDialogs.worktree.pathUnavailable": "Шлях worktree недоступний.",
@@ -1307,7 +1319,6 @@ export const dict: Record<I18nKey, string> = {
   "contextPanel.mode.diff": "Зміни",
   "contextPanel.mode.stagedDiff": "Staged Diff",
   "contextPanel.mode.workingDiff": "Working Diff",
-  "contextPanel.mode.plan": "План",
   "contextPanel.mode.pr": "Pull Request",
   'contextPanel.mode.mr': 'Merge Request',
   'gitView.mergeRequest.title': 'MR',
@@ -1438,7 +1449,6 @@ export const dict: Record<I18nKey, string> = {
   "walkthrough.blocked.serverUnsupported.description": "Сервер OpenChamber, до якого підключено застосунок, не відповів на walkthrough API — отже, він старіший за застосунок. Оновіть сервер до 1.18 або новішої версії та оновіть панель.",
   "walkthrough.blocked.contextTooSmall.descriptionUnknownModel": "Small model вміщає близько {available} тис. символів, а цьому diff потрібно близько {required} тис. Нічого не обрізається — оберіть модель із більшим контекстом.",
   "walkthrough.blocked.structuredOutput.descriptionUnknownModel": "Small model не підтримує структуровані відповіді, потрібні для розбору.",
-  "contextRail.surface.plan.description": "Перегляд поточного плану",
   "contextRail.surface.pr.description": "Створюйте, переглядайте та зливайте pull request поточної гілки",
   "contextRail.surface.mr.description": "Створюйте, переглядайте та зливайте merge request поточної гілки",
   "contextRail.surface.notes.description": "Нотатки, завдання, плани та памʼять агента для проєкту",
@@ -1867,16 +1877,10 @@ export const dict: Record<I18nKey, string> = {
   "rightSidebar.contextNotesTodo.empty.selectProject": "Виберіть проєкт, щоб додати нотатки та завдання.",
   "rightSidebar.contextNotesTodo.notes.placeholder": "Зберігайте контекст, нагадування або посилання",
   "rightSidebar.contextNotesTodo.notes.addAria": "Додати нотатку",
-  "rightSidebar.contextNotesTodo.notes.empty": "Нотаток ще немає. Занотуйте контекст, нагадування або посилання.",
   "rightSidebar.contextNotesTodo.notes.actions.expand": "Розгорнути нотатку",
-  "rightSidebar.contextNotesTodo.notes.actions.collapse": "Згорнути нотатку",
   "rightSidebar.contextNotesTodo.notes.actions.delete": "Видалити нотатку",
-  "rightSidebar.contextNotesTodo.notes.actions.pin": "Закріпити в контексті агента",
-  "rightSidebar.contextNotesTodo.notes.actions.unpin": "Відкріпити з контексту агента",
   "rightSidebar.contextNotesTodo.notes.source.selection": "З чату",
   "rightSidebar.contextNotesTodo.notes.source.agent": "Від агента",
-  "rightSidebar.contextNotesTodo.search.placeholder": "Пошук",
-  "rightSidebar.contextNotesTodo.search.clear": "Очистити пошук",
   "rightSidebar.contextNotesTodo.search.noResults": "Нічого не знайдено за запитом «{query}».",
   "rightSidebar.contextNotesTodo.toast.deleteNoteFailed": "Не вдалося видалити нотатку",
   "rightSidebar.contextNotesTodo.toast.createNoteFailed": "Не вдалося створити нотатку",
@@ -1886,7 +1890,6 @@ export const dict: Record<I18nKey, string> = {
   "rightSidebar.contextNotesTodo.plans.actions.back": "Назад до планів",
   "rightSidebar.contextNotesTodo.tabs.memory": "Памʼять",
   "rightSidebar.contextNotesTodo.sections.label": "Розділи контексту проєкту",
-  "rightSidebar.contextNotesTodo.sections.resize": "Змінити ширину бічної панелі розділів",
   "rightSidebar.contextNotesTodo.memory.scope.project": "Проєкт",
   "rightSidebar.contextNotesTodo.memory.scope.label": "Область памʼяті",
   "rightSidebar.contextNotesTodo.memory.scope.global": "Про вас",
@@ -1912,7 +1915,6 @@ export const dict: Record<I18nKey, string> = {
   "rightSidebar.contextNotesTodo.todo.actions.markComplete": "Позначити \"{text}\" як завершене",
   "rightSidebar.contextNotesTodo.todo.actions.collapse": "Згорнути завдання \"{text}\"",
   "rightSidebar.contextNotesTodo.todo.actions.expand": "Розгорнути завдання \"{text}\"",
-  "rightSidebar.contextNotesTodo.todo.actions.delete": "Видалити \"{text}\"",
   "rightSidebar.contextNotesTodo.todo.actions.send": "Надіслати \"{text}\"",
   "rightSidebar.contextNotesTodo.todo.actions.reorder": "Змінити порядок \"{text}\"",
   "rightSidebar.contextNotesTodo.todo.sendMenu.currentSession": "Надіслати до поточної сесії",
@@ -1924,7 +1926,6 @@ export const dict: Record<I18nKey, string> = {
   "rightSidebar.contextNotesTodo.plans.sharedBadge": "У репозиторії",
   "rightSidebar.contextNotesTodo.plans.share": "Перенести в теку планів репозиторію, щоб його бачив кожен, хто клонує репозиторій",
   "rightSidebar.contextNotesTodo.plans.makePersonal": "Перенести в мої плани, з репозиторію",
-  "rightSidebar.contextNotesTodo.plans.deletePlanWithTitle": "Видалити план \"{title}\"",
   "rightSidebar.contextNotesTodo.sendDialog.title.newSession": "Надіслати до нової сесії",
   "rightSidebar.contextNotesTodo.sendDialog.title.newWorktree": "Надіслати до нової сесії в worktree",
   "rightSidebar.contextNotesTodo.sendDialog.variant.default": "За замовчуванням",
@@ -2245,6 +2246,7 @@ export const dict: Record<I18nKey, string> = {
   "session.newWorktree.toast.worktreeCreatedDescription": "{target} - завантаження у фоні",
   "session.newWorktree.toast.fetchSourceFailed": "Не вдалося отримати з віддаленого — створено з локального стану",
   "session.newWorktree.toast.fetchSourceAccess": "Не вдалося отримати: доступ до цього репо потребує уваги в «Налаштувати репозиторій». Створено з локального стану.",
+  "session.newWorktree.toast.branchBackup": "Гілка {branch} тепер збігається з віддаленою. Її попередні коміти збережено в {backup}.",
   "session.githubIntegration.tabs.pullRequests": "PR",
   "session.githubIntegration.validation.branchAlreadyCheckedOut": "Гілку вже відкрито в worktree",
   "session.githubIntegration.validation.failed": "Помилка перевірки",
@@ -2973,6 +2975,7 @@ export const dict: Record<I18nKey, string> = {
   "desktopHostSwitcher.status.incompatible": "Несумісний",
   "desktopHostSwitcher.status.wrongService": "Неправильний сервіс",
   "desktopHostSwitcher.status.unreachable": "Недосяжний",
+  "desktopHostSwitcher.status.relayLimit": "Ліміт Relay вичерпано",
   "desktopHostSwitcher.status.unknown": "Невідомий",
   "desktopHostSwitcher.status.ping": " · {ms}ms пінг",
   "desktopHostSwitcher.statusAria": "Статус інстанса",
@@ -3036,6 +3039,10 @@ export const dict: Record<I18nKey, string> = {
   "desktopHostSwitcher.toast.sshConnected": "Інстанс SSH \"{host}\" підключено",
   "desktopHostSwitcher.toast.sshFailedToConnect": "Не вдалося підключитися до інстанса SSH \"{host}\".",
   "desktopHostSwitcher.toast.instanceUnreachable": "Інстанс \"{host}\" недоступний",
+  "desktopHostSwitcher.toast.relayLimit": "Relay відхилив з'єднання з \"{host}\": забагато пристроїв або перепідключень. Закрийте OpenChamber на іншому пристрої або зачекайте хвилину, потім спробуйте знову.",
+  "relayConnection.limitReached.title": "Relay відхилив з'єднання",
+  "relayConnection.limitReached.description": "Забагато пристроїв або перепідключень до цього інстансу. Закрийте OpenChamber на іншому пристрої або зачекайте хвилину, потім спробуйте знову.",
+  "relayConnection.limitReached.retry": "Спробувати знову",
   "miniChat.header.newSession": "Нова сесія",
   "miniChat.header.session": "Сесія",
   "miniChat.header.defaultAgent": "Агент за замовчуванням",

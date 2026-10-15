@@ -2,11 +2,13 @@ import { settingsDict } from './ar.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { referencePickerI18n } from './reference-picker.i18n';
 import { sessionMenuHintsI18n } from './session-menu-hints.i18n';
+import { projectKnowledgeI18n } from './project-knowledge.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
 import { routingI18n } from './routing.i18n';
 import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
+import { htmlRenderI18n } from './html-render.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
@@ -16,6 +18,7 @@ import { environmentI18n } from './environment.i18n';
 import { providersI18n } from './providers.i18n';
 import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
+import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 
 export const dict = {
   'opencodeCompatibility.bundled': 'يأتي OpenCode مضمّنًا مع OpenChamber. حدّث OpenChamber للحصول على OpenCode v2.',
@@ -202,6 +205,7 @@ export const dict = {
   'mobile.connect.cancelPassword': 'استخدام خادم آخر',
   'mobile.connect.connecting': 'جارٍ الاتصال…',
   'mobile.connect.notice.unreachable': 'تعذّر الوصول إلى {label}. تحقق من أن الخادم يعمل.',
+  'mobile.connect.notice.relayLimit': "رفض مرحّل OpenChamber الاتصال بـ {label}: عدد كبير جدًا من الأجهزة أو محاولات إعادة الاتصال. أغلق OpenChamber على جهاز آخر أو انتظر دقيقة، ثم اضغط على {label} للمحاولة مرة أخرى.",
   'mobile.connect.notice.authExpired': 'انتهت صلاحية الوصول إلى {label} أو أُلغيت. سجّل الدخول مجددًا.',
   'mobile.connect.recovery.description': 'تعذّر الاتصال بالخادم المحفوظ. تحقق من أنه يعمل، أو اختر نسخة أخرى.',
   'mobile.connect.scanQr': 'مسح رمز QR',
@@ -219,6 +223,7 @@ export const dict = {
   'mobile.connect.splash.connectingTo': 'جارٍ الاتصال بالجهاز:',
   'mobile.connect.error.invalidUrl': 'عنوان URL للخادم هذا غير صالح.',
   'mobile.connect.error.unreachable': 'تعذّر الوصول إلى خادم OpenChamber هذا.',
+  'mobile.connect.error.relayLimit': "رفض مرحّل OpenChamber الاتصال: عدد كبير جدًا من الأجهزة أو محاولات إعادة الاتصال. أغلق OpenChamber على جهاز آخر أو انتظر دقيقة، ثم حاول مرة أخرى.",
   'mobile.connect.error.authRequired': 'يتطلب هذا الخادم كلمة مرور أو رمز عميل مميزًا.',
   'mobile.connect.error.passwordFailed': 'تعذّر فتح قفل هذا الخادم. تحقق من كلمة المرور.',
   'mobile.instances.addTitle': 'إضافة نسخة',
@@ -252,12 +257,13 @@ export const dict = {
   'mobile.header.metadata.usage': 'الاستخدام',
   'mobile.menu.titleAria': 'أدوات مساحة العمل',
   'mobile.menu.files': 'الملفات',
-  'mobile.menu.changes': 'التغييرات',
+  'mobile.menu.git': 'Git',
   'mobile.menu.terminal': 'الطرفية',
   'mobile.menu.mcp': 'MCP',
   'mobile.menu.instances': 'النسخ',
   'mobile.menu.update': 'تحديث',
   'mobile.menu.settings': 'الإعدادات',
+  'mobile.sessions.footer.more': 'المزيد',
   'mobile.sessions.newChatCta': 'محادثة جديدة في {project}',
   'mobile.sessions.dateGroup.today': 'اليوم',
   'mobile.sessions.dateGroup.yesterday': 'أمس',
@@ -540,6 +546,9 @@ export const dict = {
   'sessions.sidebar.header.displayMode.default': 'افتراضي',
   'sessions.sidebar.header.displayMode.minimal': 'مبسّط',
   'sessions.sidebar.header.displayMode.showWork': 'إظهار قسم قيد العمل',
+  'sessions.sidebar.header.displayMode.showPinned': 'إظهار قسم المثبّتة',
+  'sessions.sidebar.header.displayMode.detailedZoneRows': 'صفوف مفصّلة',
+  'sessions.sidebar.activity.pinnedTitle': 'المثبّتة',
   'sessions.sidebar.header.displayMode.showArchived': 'إظهار الجلسات المؤرشفة',
   'sessions.sidebar.header.displayMode.collapseAll': 'طي الكل',
   'sessions.sidebar.header.displayMode.expandAll': 'توسيع الكل',
@@ -847,7 +856,7 @@ export const dict = {
   'sessions.sidebar.group.worktreeRemoving': 'جارٍ إزالة شجرة العمل…',
   'sessions.sidebar.project.folderMissing': 'مجلد المشروع مفقود أو غير متاح',
   'sessions.sidebar.group.space': 'مساحة معزولة',
-  'sessions.sidebar.group.spaceStale': 'المساحة لا تستجيب. قد تكون الجلسات قديمة.',
+  'sessions.sidebar.group.spaceStale': 'لا تُعرض كل جلسات هذه المساحة.',
   'sessions.sidebar.grouping.spaceUnnamed': 'مساحة معزولة',
   'sessions.sidebar.sessionDialogs.worktree.label': 'شجرة العمل',
   'sessions.sidebar.sessionDialogs.worktree.pathUnavailable': 'مسار شجرة العمل غير متاح.',
@@ -1294,7 +1303,6 @@ export const dict = {
   'contextPanel.mode.diff': 'التغييرات',
   'contextPanel.mode.stagedDiff': 'فروقات المُدرجة',
   'contextPanel.mode.workingDiff': 'فروقات العمل',
-  'contextPanel.mode.plan': 'الخطة',
   'contextPanel.mode.pr': 'طلب السحب',
   'contextPanel.mode.mr': 'طلب الدمج',
   'gitView.mergeRequest.title': 'طلب دمج',
@@ -1425,7 +1433,6 @@ export const dict = {
   'walkthrough.blocked.serverUnsupported.description': 'لم يستجب خادم OpenChamber المتصل به هذا التطبيق لـ API جولات الشرح، ما يعني أنه أقدم من التطبيق. حدّث الخادم إلى الإصدار 1.18 أو أحدث، ثم حدّث الصفحة.',
   'walkthrough.blocked.contextTooSmall.descriptionUnknownModel': 'يتسع النموذج الصغير لنحو {available}K حرف وتحتاج هذه الفروقات إلى نحو {required}K. لن يُقتطع أي شيء — اختر بدلًا من ذلك نموذجًا بسياق أكبر.',
   'walkthrough.blocked.structuredOutput.descriptionUnknownModel': 'لا يدعم النموذج الصغير الردود المنظّمة التي تحتاجها جولة الشرح.',
-  'contextRail.surface.plan.description': 'عرض الخطة الحالية',
   'contextRail.surface.pr.description': 'إنشاء طلب السحب للفرع الحالي ومراجعته ودمجه',
   'contextRail.surface.mr.description': 'إنشاء طلب الدمج للفرع الحالي ومراجعته ودمجه',
   'contextRail.surface.notes.description': 'الملاحظات والمهام والخطط وذاكرة الوكيل للمشروع',
@@ -1857,16 +1864,10 @@ export const dict = {
   'rightSidebar.contextNotesTodo.empty.selectProject': 'اختر مشروعًا لإضافة الملاحظات والمهام.',
   'rightSidebar.contextNotesTodo.notes.placeholder': 'دوّن السياق أو التذكيرات أو الروابط',
   'rightSidebar.contextNotesTodo.notes.addAria': 'إضافة ملاحظة',
-  'rightSidebar.contextNotesTodo.notes.empty': 'لا توجد ملاحظات بعد. دوّن السياق أو التذكيرات أو الروابط.',
   'rightSidebar.contextNotesTodo.notes.actions.expand': 'توسيع الملاحظة',
-  'rightSidebar.contextNotesTodo.notes.actions.collapse': 'طي الملاحظة',
   'rightSidebar.contextNotesTodo.notes.actions.delete': 'حذف الملاحظة',
-  'rightSidebar.contextNotesTodo.notes.actions.pin': 'تثبيت في سياق الوكيل',
-  'rightSidebar.contextNotesTodo.notes.actions.unpin': 'إلغاء التثبيت من سياق الوكيل',
   'rightSidebar.contextNotesTodo.notes.source.selection': 'من المحادثة',
   'rightSidebar.contextNotesTodo.notes.source.agent': 'من الوكيل',
-  'rightSidebar.contextNotesTodo.search.placeholder': 'بحث',
-  'rightSidebar.contextNotesTodo.search.clear': 'مسح البحث',
   'rightSidebar.contextNotesTodo.search.noResults': "لا شيء يطابق \"{query}\".",
   'rightSidebar.contextNotesTodo.toast.deleteNoteFailed': 'تعذّر حذف الملاحظة',
   'rightSidebar.contextNotesTodo.toast.createNoteFailed': 'تعذّر إنشاء الملاحظة',
@@ -1876,7 +1877,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.plans.actions.back': 'العودة إلى الخطط',
   'rightSidebar.contextNotesTodo.tabs.memory': 'الذاكرة',
   'rightSidebar.contextNotesTodo.sections.label': 'أقسام سياق المشروع',
-  'rightSidebar.contextNotesTodo.sections.resize': 'تغيير حجم الشريط الجانبي للأقسام',
   'rightSidebar.contextNotesTodo.memory.scope.project': 'المشروع',
   'rightSidebar.contextNotesTodo.memory.scope.label': 'نطاق الذاكرة',
   'rightSidebar.contextNotesTodo.memory.scope.global': 'عنك',
@@ -1902,7 +1902,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.todo.actions.markComplete': "وضع علامة مكتملة على \"{text}\"",
   'rightSidebar.contextNotesTodo.todo.actions.collapse': "طي المهمة \"{text}\"",
   'rightSidebar.contextNotesTodo.todo.actions.expand': "توسيع المهمة \"{text}\"",
-  'rightSidebar.contextNotesTodo.todo.actions.delete': "حذف \"{text}\"",
   'rightSidebar.contextNotesTodo.todo.actions.send': "إرسال \"{text}\"",
   'rightSidebar.contextNotesTodo.todo.actions.reorder': "إعادة ترتيب \"{text}\"",
   'rightSidebar.contextNotesTodo.todo.sendMenu.currentSession': 'إرسال إلى الجلسة الحالية',
@@ -1914,7 +1913,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.plans.sharedBadge': 'في المستودع',
   'rightSidebar.contextNotesTodo.plans.share': 'نقل إلى مجلد خطط المستودع، ليراها كل من يسحب المستودع',
   'rightSidebar.contextNotesTodo.plans.makePersonal': 'نقل إلى خططي، خارج المستودع',
-  'rightSidebar.contextNotesTodo.plans.deletePlanWithTitle': "حذف الخطة \"{title}\"",
   'rightSidebar.contextNotesTodo.sendDialog.title.newSession': 'إرسال إلى جلسة جديدة',
   'rightSidebar.contextNotesTodo.sendDialog.title.newWorktree': 'إرسال إلى شجرة عمل (worktree) جديدة',
   'rightSidebar.contextNotesTodo.sendDialog.variant.default': 'افتراضي',
@@ -2235,6 +2233,7 @@ export const dict = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - جارٍ التهيئة في الخلفية',
   'session.newWorktree.toast.fetchSourceFailed': 'تعذّر الجلب من المستودع البعيد — أُنشئت من الحالة المحلية',
   'session.newWorktree.toast.fetchSourceAccess': 'تعذّر الجلب: يحتاج وصول هذا المستودع إلى مراجعة في «إعداد المستودع». أُنشئت من الحالة المحلية.',
+  'session.newWorktree.toast.branchBackup': 'أصبح الفرع {branch} مطابقًا للفرع البعيد. حُفظت إيداعاته السابقة في {backup}.',
   'session.githubIntegration.tabs.pullRequests': 'طلبات السحب',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'الفرع مسحوب بالفعل في شجرة عمل (worktree)',
   'session.githubIntegration.validation.failed': 'تعذّر التحقق',
@@ -2975,6 +2974,7 @@ export const dict = {
   'desktopHostSwitcher.status.incompatible': 'غير متوافق',
   'desktopHostSwitcher.status.wrongService': 'خدمة خاطئة',
   'desktopHostSwitcher.status.unreachable': 'يتعذّر الوصول',
+  'desktopHostSwitcher.status.relayLimit': "تم بلوغ حد المرحّل",
   'desktopHostSwitcher.status.unknown': 'غير معروف',
   'desktopHostSwitcher.status.ping': ' · زمن الاستجابة {ms} ms',
   'desktopHostSwitcher.statusAria': 'حالة النسخة',
@@ -3038,6 +3038,10 @@ export const dict = {
   'desktopHostSwitcher.toast.sshConnected': "تم الاتصال بنسخة SSH \"{host}\"",
   'desktopHostSwitcher.toast.sshFailedToConnect': "تعذّر الاتصال بنسخة SSH \"{host}\"",
   'desktopHostSwitcher.toast.instanceUnreachable': "يتعذّر الوصول إلى النسخة \"{host}\"",
+  'desktopHostSwitcher.toast.relayLimit': "رفض مرحّل OpenChamber الاتصال بـ \"{host}\": عدد كبير جدًا من الأجهزة أو محاولات إعادة الاتصال. أغلق OpenChamber على جهاز آخر أو انتظر دقيقة، ثم حاول مرة أخرى.",
+  'relayConnection.limitReached.title': "رفض مرحّل OpenChamber الاتصال",
+  'relayConnection.limitReached.description': "عدد كبير جدًا من الأجهزة أو محاولات إعادة الاتصال لهذه النسخة. أغلق OpenChamber على جهاز آخر أو انتظر دقيقة، ثم حاول مرة أخرى.",
+  'relayConnection.limitReached.retry': "حاول مرة أخرى",
   'miniChat.header.newSession': 'جلسة جديدة',
   'miniChat.header.session': 'الجلسة',
   'miniChat.header.defaultAgent': 'الوكيل الافتراضي',
@@ -3756,11 +3760,13 @@ export const dict = {
   ...linearIssuePickerI18n.ar,
   ...referencePickerI18n.ar,
   ...sessionMenuHintsI18n.ar,
+  ...projectKnowledgeI18n.ar,
   ...linearPanelI18n.ar,
   ...routingI18n.ar,
   ...pluginPanelI18n.ar,
   ...surfacePanelI18n.ar,
   ...fileArtifactsI18n.ar,
+  ...htmlRenderI18n.ar,
   ...usageStatsI18n.ar,
   ...webSearchI18n.ar,
   ...isolatedSpacesI18n.ar,
@@ -3770,6 +3776,7 @@ export const dict = {
   ...providersI18n.ar,
   ...mcpGridI18n.ar,
   ...pluginsGridI18n.ar,
+  ...integrationsCatalogI18n['ar'],
   'settings.usage.page.state.claudeSignedOutTitle': 'لم يتم تسجيل الدخول إلى Claude Code',
   'settings.usage.page.state.claudeSignInCommand': 'شغّل هذا الأمر في الطرفية:',
   'settings.openchamber.visual.field.confirmFileTreeMove': 'التأكيد قبل نقل الملفات',

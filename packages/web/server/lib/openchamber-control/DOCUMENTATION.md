@@ -38,9 +38,14 @@ other.
   `save` creates or replaces one whole. The actions answer `403` while
   `agentKnowledgeToolEnabled` is `false`. `show` checks the plan exists and
   sends `openchamber:plan-open-request` to every connected window, like
-  `file.open`; the desktop and web layouts open the plan tab, the mobile app
-  opens the plan the way a tap in the Project knowledge drawer does. No
+  `file.open`; every layout opens the plan the way a click in the Project
+  knowledge Plans list does: in place in the panel on desktop and web, in the
+  drawer's plan viewer on mobile. No
   window reached is `503`.
+- `render-page.js` runs `render.page` for the `openchamber_render` agent tool.
+  The chat draws the page from the call's own input, so the action stores
+  nothing: it checks `html` (at most 200,000 characters) and `title` (at most
+  120) and answers `403` while `agentRenderToolEnabled` is `false`.
 - `routes.js` is the authenticated CLI HTTP adapter. It forwards one action,
   preserves service status and partial-result details, and propagates request
   cancellation.
@@ -66,6 +71,12 @@ other.
   result carries `resultDelivery`: `pending` with a note for the agent, or
   `not-scheduled` with the reason (the prompt never landed, or registering
   failed); the session keeps running either way, so neither is thrown.
+- `returnResult` and `wait` must be booleans when present. Both are compared
+  with `=== true`, so a string `"true"` (the tool path forwards raw JSON, and a
+  model or harness can stringify a boolean) would read as false: a dispatch
+  whose result is never delivered, or a wait that returns at once. A
+  non-boolean is rejected with a 400 before anything is created, the same way
+  `schedule.toggle` requires its `disabled` boolean.
 - Validation that protects side effects runs before session creation or
   dispatch. An explicitly requested model, agent, or variant is checked against
   the directory's own OpenCode agent and provider lists before any session,
@@ -92,7 +103,8 @@ other.
   (`../openchamber-sessions/worktree-move.js`). The session defaults to the
   caller, the source directory to where that session lives (the global
   session list, else the call's directory), `worktree` names the folder and
-  is required, `branch` and `startRef` are optional. The worktree is made by
+  is required, `branch` and `startRef` are optional, and `existingBranch`
+  checks out a branch that already exists in place of both. The worktree is made by
   the same `createWorktree` pipeline as `session.create`, waits for the same
   bootstrap, then the checkout's uncommitted changes travel in one git stash
   applied by hash, and the session is moved last through OpenCode's

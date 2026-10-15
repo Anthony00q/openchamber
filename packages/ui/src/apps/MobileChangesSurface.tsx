@@ -14,7 +14,7 @@ import { BranchSelector } from '@/components/views/git/BranchSelector';
 import { BranchComparisonSelector } from '@/components/views/git/BranchComparisonSelector';
 import { CommitComparisonSelector } from '@/components/views/git/CommitComparisonSelector';
 import { branchRefLabel } from '@/components/views/git/baseBranch';
-import { isBranchScopeAvailable, isBranchScopeDefinitelyUnavailable, useRangeKeyedCache } from '@/components/views/branchDiffScope';
+import { branchPathRevisions, isBranchScopeAvailable, isBranchScopeDefinitelyUnavailable, useRangeKeyedCache } from '@/components/views/branchDiffScope';
 import { CommitSection } from '@/components/views/git/CommitSection';
 import { ConflictDialog } from '@/components/views/git/ConflictDialog';
 import { DirtyBranchSwitchDialog } from '@/components/views/git/DirtyBranchSwitchDialog';
@@ -47,7 +47,11 @@ import { usePullRequestComparison } from '@/hooks/usePullRequestComparison';
 import { PullRequestComparisonSelector } from '@/components/views/git/PullRequestComparisonSelector';
 import { useGitComparison, type GitComparisonFile, type GitComparisonSource } from '@/hooks/useGitComparison';
 import { useGitBaseBranchStore } from '@/stores/useGitBaseBranchStore';
+import { usePullRequestSelectionStore } from '@/stores/usePullRequestSelectionStore';
 import { useUIStore } from '@/stores/useUIStore';
+import { useSessionUIStore } from '@/sync/session-ui-store';
+import { ReviewFlowDialog } from '@/components/session/ReviewFlowDialog';
+import { useReviewFlowStart } from '@/components/session/useReviewFlowStart';
 import { cn } from '@/lib/utils';
 import { FileTypeIcon } from '@/components/icons/FileTypeIcon';
 import { fileDiffFromPatch, isBinaryPatch } from '@/lib/diff/patchFileDiff';
@@ -320,8 +324,28 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
       ? t('gitView.identity.configChanged')
       : t('gitView.context.needsAttention');
   }, [binding.read, binding.status, t]);
-  const prComparison = usePullRequestComparison(currentDirectory || null, currentBranch, binding.contexts[0] ?? null, visible && mode === 'pr' && isGitRepo === true);
+  // A pull request the issues and PRs board asked to show. Asserted again
+  // when the folder settles, because a move to another folder resets the mode.
+  const requestedPr = usePullRequestSelectionStore((state) => (rootDirectory ? state.diffRequests.get(rootDirectory) : undefined));
+  React.useEffect(() => {
+    if (!requestedPr) return;
+    setNavigation({ ownerKey, mode: 'pr', route: LIST_ROUTE });
+  }, [ownerKey, requestedPr]);
+  const prComparison = usePullRequestComparison(currentDirectory || null, currentBranch, binding.contexts[0] ?? null, visible && mode === 'pr' && isGitRepo === true, requestedPr);
   const selectedPr = prComparison.selectedSource;
+  // Taken once the branch is known: the selection it landed in is the real one.
+  React.useEffect(() => {
+    if (!rootDirectory || !requestedPr || !status || selectedPr !== requestedPr) return;
+    usePullRequestSelectionStore.getState().settleDiffRequest(rootDirectory, requestedPr);
+  }, [requestedPr, rootDirectory, selectedPr, status]);
+  const currentSessionId = useSessionUIStore((state) => state.currentSessionId);
+  const [reviewDialogOpen, setReviewDialogOpen] = React.useState(false);
+  const closeReviewDialog = React.useCallback(() => {
+    setReviewDialogOpen(false);
+    // The review starts by asking the agent for a handoff in the chat.
+    onNavigatedToChat?.();
+  }, [onNavigatedToChat]);
+  const reviewFlow = useReviewFlowStart(currentSessionId, rootDirectory, closeReviewDialog);
   const comparisonSource = React.useMemo<GitComparisonSource | null>(() => {
     if (mode === 'pr') return selectedPr;
     if (mode === 'branch' && currentBranch && branchComparison.base) return { kind: 'branch', baseRef: branchComparison.base, headRef: currentBranch };
@@ -344,12 +368,17 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
       return { status: 'error', message: error instanceof Error ? error.message : t('diffView.state.failedToLoadDiff') };
     }
   }, [loadComparisonDiff, t]);
+  const branchDiffRevisions = React.useMemo(
+    () => mode === 'branch' ? branchPathRevisions(comparison.files, comparisonRevision) : undefined,
+    [comparison.files, comparisonRevision, mode],
+  );
   const comparisonDiffs = useRangeKeyedCache<ComparisonDiff>(
     comparison.files ? (mode === 'pr' ? JSON.stringify([comparison.key, comparison.revision]) : comparison.key) : null,
     visible && activeComparisonPath ? activeComparisonPath : '',
     visible ? fetchComparisonDiff : null,
     LOADING_COMPARISON_DIFF,
-    JSON.stringify([comparisonRevision, mode === 'pr' ? comparison.revision : 0, comparisonRetry]),
+    JSON.stringify([mode === 'pr' ? comparison.revision : 0, comparisonRetry]),
+    branchDiffRevisions,
   );
   const activeComparisonDiff = activeComparisonPath ? comparisonDiffs.get(activeComparisonPath) ?? LOADING_COMPARISON_DIFF : null;
   // Comparison diffs are patches with 3 lines of context. Expanding collapsed
@@ -1109,7 +1138,29 @@ export const MobileChangesPane: React.FC<MobileChangesPaneProps> = ({ rootDirect
           {selectedPr && <Button variant="ghost" size="sm" disabled={comparison.loading} aria-label={t('session.githubIssuePicker.actions.refresh')}
             onClick={() => void comparison.refresh()}><Icon name="refresh" className="size-4" /></Button>}
         </>}
+        {/* The desktop diff toolbar's review, for the working tree: it reviews
+            what the current session changed. */}
+        {mode === 'working' && currentSessionId && (status?.files?.length ?? 0) > 0 ? (
+          <Button
+            variant="default"
+            className="ms-auto shrink-0"
+            disabled={reviewFlow.submitting}
+            onClick={() => setReviewDialogOpen(true)}
+            aria-label={t('diffView.actions.reviewAria')}
+            style={{ touchAction: 'manipulation' }}
+          >
+            <Icon name={reviewFlow.submitting ? 'loader-4' : 'search-eye'} className={cn('size-4', reviewFlow.submitting && 'animate-spin')} />
+            {t('diffView.actions.review')}
+          </Button>
+        ) : null}
       </header>
+      <ReviewFlowDialog
+        open={reviewDialogOpen}
+        onOpenChange={setReviewDialogOpen}
+        projectDirectory={rootDirectory || null}
+        submitting={reviewFlow.submitting}
+        onConfirm={reviewFlow.start}
+      />
       {mode === 'working' && (
         <div className="flex shrink-0 items-center gap-2 px-3 py-2">
           <div className="min-w-0 flex-1">

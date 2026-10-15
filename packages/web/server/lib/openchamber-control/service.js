@@ -1,10 +1,11 @@
-import { asNonEmptyString } from '../shared/guards.js';
+import { asNonEmptyString, isBoolean } from '../shared/guards.js';
 import path from 'node:path';
 import { OpenCode } from '@opencode/client';
 import { OpenChamberControlError, asControlError } from './error.js';
 import { OPENCHAMBER_ALL_ACTIONS, OPENCHAMBER_KNOWLEDGE_ACTIONS } from './actions.js';
 import { writeScreenshot } from './screenshots.js';
 import { createProjectKnowledgeActions } from './project-knowledge.js';
+import { createRenderPageAction } from './render-page.js';
 
 const DEFAULT_WAIT_TIMEOUT_SECONDS = 600;
 const MAX_WAIT_TIMEOUT_SECONDS = 86_400;
@@ -222,6 +223,7 @@ export const createOpenChamberControlService = (dependencies) => {
     projectContextRuntime = null,
     resolveProjectContextId = null,
     isKnowledgeToolEnabled = async () => true,
+    isRenderToolEnabled = async () => true,
     // Puts a plan in front of the user; answers how many windows it reached.
     showPlan = null,
     // Delivers a dispatched session's result back to the session that asked
@@ -308,6 +310,8 @@ export const createOpenChamberControlService = (dependencies) => {
     showPlan,
     resolveDirectory: (input) => sessionService.resolveDirectory(input),
   });
+
+  const renderPage = createRenderPageAction({ isEnabled: isRenderToolEnabled });
 
   const models = async () => {
     const settings = await readSettingsFromDiskMigrated();
@@ -466,6 +470,17 @@ export const createOpenChamberControlService = (dependencies) => {
   };
 
   const executeSessionAction = async (action, input, contextDirectory, signal, contextSessionId) => {
+    // The tool path forwards raw JSON, so a boolean parameter can arrive as the
+    // string "true". Both of these are compared with `=== true` below, which
+    // would read a string as false and silently drop the behavior: a dispatch
+    // whose result is never delivered, or a call that returns before the turn
+    // it asked to wait for. Reject a non-boolean loudly instead.
+    if (input.wait !== undefined && !isBoolean(input.wait)) {
+      throw new OpenChamberControlError('wait must be a boolean', 400);
+    }
+    if (input.returnResult !== undefined && !isBoolean(input.returnResult)) {
+      throw new OpenChamberControlError('returnResult must be a boolean', 400);
+    }
     if (input.timeout !== undefined && input.wait !== true) throw new OpenChamberControlError('timeout requires wait', 400);
     if (input.lastAssistant === true && input.wait !== true) throw new OpenChamberControlError('lastAssistant requires wait', 400);
     assertSingleScope(input);
@@ -731,6 +746,9 @@ export const createOpenChamberControlService = (dependencies) => {
         }
         return result.body;
       }
+      if (action === 'render.page') {
+        return await renderPage(input);
+      }
       if (action === 'file.open') {
         if (!fileOpen) {
           throw new OpenChamberControlError('The file viewer is not available on this server', 503);
@@ -818,6 +836,8 @@ export const createOpenChamberControlService = (dependencies) => {
         if (branch) worktree.branchName = branch.trim();
         const startRef = asNonEmptyString(input.startRef);
         if (startRef) worktree.startRef = startRef.trim();
+        const existingBranch = asNonEmptyString(input.existingBranch);
+        if (existingBranch) worktree.existingBranch = existingBranch.trim();
         const payload = { worktree };
         if (directory) payload.directory = directory;
         return sessionService.moveToWorktree(sessionID, payload);

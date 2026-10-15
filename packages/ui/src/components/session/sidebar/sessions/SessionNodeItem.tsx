@@ -19,7 +19,7 @@ import { dropdownMenuItemClass, dropdownMenuPopupClass, dropdownMenuSeparatorCla
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getPrStatusLabel } from '../prStatusLabel';
 import { cn, formatDirectoryName } from '@/lib/utils';
-import { canUseElectronDesktopIPC, invokeDesktop, isVSCodeRuntime } from '@/lib/desktop';
+import { canUseElectronDesktopIPC, getMiniChatRuntimeArgs, invokeDesktop, isVSCodeRuntime } from '@/lib/desktop';
 import { toast } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -44,7 +44,7 @@ import { useSessionRowOrderRegistry } from './sessionRowOrder';
 import { canShowSessionWorktreeMenu, getSessionWorktreeMenuDisabled, nodeContainsSessionId, nodeHasPinnedMembershipChange, resolveSessionPrLookup, resolveTooltipBranchLabel, selectBlockingBadgeSessionScopes, type BlockingBadgeSessionScope } from './sessionNodeItemUtils';
 import { useSessionRowMenuState } from './useSessionRowMenuState';
 import type { SessionNode } from '../types';
-import { isTwoLineTimelineContext, type SessionSidebarRenderContext } from '../sessionSidebarRowModel';
+import { hasTreeSlotContext, isTwoLineTimelineContext, type SessionSidebarRenderContext } from '../sessionSidebarRowModel';
 import { SessionTimelineRowBody } from './SessionTimelineRowBody';
 import { sessionTreeRowPaddingLeft } from './sessionTreeGeometry';
 import { FileTreeChevron } from '@/components/views/files/FileTreeRowParts';
@@ -73,8 +73,6 @@ import { getCurrentSessionAssist } from '@/lib/sessionAssistMetadata';
 import { isDoneSuggested, isSessionInWork } from '@/lib/sessionWorkMetadata';
 import { setSessionWorkState } from '@/sync/session-actions';
 import { sessionGoalStatusColor, sessionGoalStatusLabelKey } from '@/lib/sessionGoalPresentation';
-import { getRuntimeBearerTokenSync } from '@/lib/runtime-auth';
-import { getRuntimeApiBaseUrl } from '@/lib/runtime-switch';
 import { getChatsRootFromDirectory, isChatDirectoryPath } from '@/lib/chatDirectories';
 import { getMultiRunIdentity, sameMultiRunIdentity } from '@/lib/multirun/identity';
 import { ArrowsMerge } from '@/components/icons/ArrowsMerge';
@@ -88,6 +86,7 @@ import { streamPerfCount } from '@/stores/utils/streamDebug';
 import { useSessionUIStore } from '@/sync/session-ui-store';
 import { useSessionFoldersStore } from '@/stores/useSessionFoldersStore';
 import { useUIStore } from '@/stores/useUIStore';
+import { useSessionDisplayStore } from '@/stores/useSessionDisplayStore';
 import { resolveEffectiveDirectory } from '@/hooks/useEffectiveDirectory';
 import type { WorktreeMetadata } from '@/types/worktree';
 import {
@@ -404,9 +403,20 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       return project.label?.trim() || formatDirectoryName(normalizePath(project.path) ?? project.path, null) || project.path;
     }, [projectId, secondaryMeta?.projectLabel]),
   );
-  const isTimelineRow = isTwoLineTimelineContext(renderContext) || renderContext === 'timeline-chat';
-  const isTimelineChatRow = renderContext === 'timeline-chat';
-  // Timeline rows in In work and Recent show the project's own icon; the row
+  // Flat rows: no tree gutter, live state on the right. Chats and the Tree
+  // view's Pinned and In work rows keep it on one line.
+  const isOneLineTimelineRow = renderContext === 'timeline-chat' || renderContext === 'tree-chat' || renderContext === 'mixed-compact';
+  const isTimelineRow = isTwoLineTimelineContext(renderContext) || isOneLineTimelineRow;
+  // The Tree view's one-line Chats, Pinned and In work rows never expand, but
+  // they keep the tree's slot and geometry, so their state reads down the
+  // same left edge as the tree under them. List rows stay flat.
+  const hasTreeSlot = hasTreeSlotContext(renderContext);
+  // While the Pinned section is shown it holds every pinned zone session, and
+  // its header already says they are pinned; In work then has none of them.
+  const isZoneRow = renderContext === 'timeline-mixed' || renderContext === 'mixed-compact';
+  const pinnedSectionShown = useSessionDisplayStore((state) => state.showPinnedSection);
+  const hidePinnedMarker = isZoneRow && pinnedSectionShown;
+  // Two-line rows in Pinned and In work show the project's own icon; the row
   // reads exactly that one project record, and `find` keeps the reference
   // stable between renders.
   const timelineProject = useProjectsStore(
@@ -802,8 +812,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
     void invokeDesktop('desktop_open_session_mini_chat_window', {
       sessionId: session.id,
       directory: sessionDirectory,
-      apiBaseUrl: getRuntimeApiBaseUrl(),
-      clientToken: getRuntimeBearerTokenSync(),
+      ...getMiniChatRuntimeArgs(),
     }).catch((error) => {
       console.warn('[session-sidebar] failed to open mini chat window', error);
     });
@@ -908,7 +917,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
         </button>
       </form>
     );
-    if (isTimelineRow) {
+    if (!hasTreeSlot) {
       // Renaming keeps the whole card in place: the title line becomes the
       // input, project and branch stay where they were.
       return (
@@ -917,12 +926,12 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
           style={{ paddingInlineStart: TIMELINE_ROW_LEFT_PX }}
           className={cn(
             'oc-ref-tint-scope group relative my-0.5 flex items-center rounded-md pe-2.5',
-            isTimelineChatRow ? 'py-1' : 'py-1.5',
+            isOneLineTimelineRow ? 'py-1' : 'py-1.5',
             isActive && 'bg-interactive-selection/70 text-interactive-selection-foreground',
           )}
         >
           <SessionTimelineRowBody
-            compact={isTimelineChatRow}
+            compact={isOneLineTimelineRow}
             project={timelineProject}
             projectLabel={tooltipProjectLabel}
             title={renameForm}
@@ -939,8 +948,10 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                 style={primaryRef.color ? refTintStyle(primaryRef.color) : undefined}
               >
                 <Icon name={primaryRef.icon} className="h-3 w-3" />
-                <span className="leading-none tabular-nums">{primaryRef.label}</span>
-                {moreRefCount > 0 ? <span className="leading-none tabular-nums text-muted-foreground">+{moreRefCount}</span> : null}
+                {isOneLineTimelineRow ? null : <>
+                  <span className="leading-none tabular-nums">{primaryRef.label}</span>
+                  {moreRefCount > 0 ? <span className="leading-none tabular-nums text-muted-foreground">+{moreRefCount}</span> : null}
+                </>}
               </span>
             ) : null}
             zombieIndicator={null}
@@ -957,7 +968,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
         style={{ paddingInlineStart: sessionTreeRowPaddingLeft(depth) }}
         // my-0.5 matches the normal row box so entering rename mode does not
         // shift the row vertically; the empty slot keeps the title in place.
-        className="group relative my-0.5 flex items-center gap-1.5 rounded-md py-[3px] pe-2.5"
+        className={cn('group relative my-0.5 flex items-center gap-1.5 rounded-md pe-2.5', isTimelineRow ? 'py-1' : 'py-[3px]')}
       >
         <span aria-hidden className="h-3.5 w-3.5 flex-shrink-0" />
         <div className="flex min-w-0 flex-1 flex-col gap-0">
@@ -982,7 +993,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
   // is how far the actions reach in from the row content's right edge: their
   // width less the 6px they sit nearer the row edge (16px buttons, 20px on
   // two-line timeline rows, 2px apart).
-  const actionsReserveClass = isTimelineRow && !isTimelineChatRow
+  const actionsReserveClass = isTimelineRow && !isOneLineTimelineRow
     ? ['[--oc-actions-reserve:14px]', '[--oc-actions-reserve:36px]', '[--oc-actions-reserve:58px]', '[--oc-actions-reserve:80px]'][extraHoverActions]
     : ['[--oc-actions-reserve:10px]', '[--oc-actions-reserve:28px]', '[--oc-actions-reserve:46px]', '[--oc-actions-reserve:64px]'][extraHoverActions];
   // An open row menu (dropdown or right-click) keeps the actions shown, so
@@ -1010,10 +1021,15 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       aria-label={isAiRenaming ? t('sessions.aiRename.generating') : t('sessions.sidebar.session.status.movingToWorktree')}
     />
   );
-  // Grouped rows are file tree rows: one guide per ancestor level, then a
-  // slot that holds the chevron of a session with subsessions, or stays empty
-  // so titles line up. Live state sits on the right, as on timeline rows.
-  const treeSlot = isTimelineRow ? null : hasChildren ? (
+  const liveStateMark = isSessionActionPending ? sessionActionSpinner : showStatusMarker ? statusMarkerContent : null;
+  // Grouped rows are file tree rows: one indent per level, then a slot left
+  // of the title. The slot shows the live state, where the eye runs
+  // down the titles; a session with subsessions trades it for its chevron
+  // while the row is hovered or focused. Touch layouts have no hover, so there
+  // a parent keeps its chevron and its state stays on the right, where List
+  // rows, flat by design, always show it.
+  const stateInSlot = hasTreeSlot && liveStateMark !== null && !(hasChildren && alwaysShowActions);
+  const treeChevron = hasChildren ? (
     <span
       role="button"
       tabIndex={0}
@@ -1029,7 +1045,10 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
           toggleParent(expansionKey);
         }
       }}
-      className="inline-flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(
+        'inline-flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        stateInSlot && 'opacity-0 transition-opacity group-hover:opacity-100 group-has-[:focus-visible]:opacity-100',
+      )}
       aria-label={isExpanded
         ? t('sessions.sidebar.session.subsessions.collapse')
         : t('sessions.sidebar.session.subsessions.expand')}
@@ -1037,7 +1056,19 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
     >
       <FileTreeChevron expanded={isExpanded} />
     </span>
-  ) : <span aria-hidden className="h-3.5 w-3.5 flex-shrink-0" />;
+  ) : null;
+  const treeSlot = !hasTreeSlot ? null : stateInSlot ? (
+    <span className="relative inline-flex h-3.5 w-3.5 flex-shrink-0 items-center justify-center">
+      {treeChevron}
+      {treeChevron ? (
+        // Under the pointer the chevron takes over, so the mark passes the
+        // pointer through to it.
+        <span className="pointer-events-none absolute inset-0 inline-flex items-center justify-center transition-opacity group-hover:opacity-0 group-has-[:focus-visible]:opacity-0">
+          {liveStateMark}
+        </span>
+      ) : liveStateMark}
+    </span>
+  ) : treeChevron ?? <span aria-hidden className="h-3.5 w-3.5 flex-shrink-0" />;
 
   const streamingIndicator = isZombie
     ? <Icon name="error-warning" className="h-4 w-4 text-status-warning" />
@@ -1545,9 +1576,9 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
 
   // Three-line timeline rows are taller, so their hover actions step up one
   // size to match the metadata they replace (the pin marker, the dot, the time).
-  const actionButtonSizeClass = alwaysShowActions ? 'h-6 w-6' : isTimelineRow && !isTimelineChatRow ? 'h-5 w-5' : 'h-4 w-4';
-  const actionIconSizeClass = alwaysShowActions ? 'h-3.5 w-3.5' : isTimelineRow && !isTimelineChatRow ? 'h-3 w-3' : 'h-2.5 w-2.5';
-  const checkIconSizeClass = alwaysShowActions ? 'h-4 w-4' : isTimelineRow && !isTimelineChatRow ? 'h-3.5 w-3.5' : 'h-3 w-3';
+  const actionButtonSizeClass = alwaysShowActions ? 'h-6 w-6' : isTimelineRow && !isOneLineTimelineRow ? 'h-5 w-5' : 'h-4 w-4';
+  const actionIconSizeClass = alwaysShowActions ? 'h-3.5 w-3.5' : isTimelineRow && !isOneLineTimelineRow ? 'h-3 w-3' : 'h-2.5 w-2.5';
+  const checkIconSizeClass = alwaysShowActions ? 'h-4 w-4' : isTimelineRow && !isOneLineTimelineRow ? 'h-3.5 w-3.5' : 'h-3 w-3';
 
   // The recap of the last turn, for the whole-row tooltip, under the same
   // freshness rule the chat uses.
@@ -1610,8 +1641,11 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
           onKeyDown={(event) => event.stopPropagation()}
         >
           <Icon name={primaryRef.icon} className="h-3 w-3" />
-          <span className="leading-none tabular-nums">{primaryRef.label}</span>
-          {moreRefCount > 0 ? <span data-ref-more className="leading-none tabular-nums text-muted-foreground">+{moreRefCount}</span> : null}
+          {/* One-line rows keep the coloured mark only; its tooltip lists every link. */}
+          {isOneLineTimelineRow ? null : <>
+            <span className="leading-none tabular-nums">{primaryRef.label}</span>
+            {moreRefCount > 0 ? <span data-ref-more className="leading-none tabular-nums text-muted-foreground">+{moreRefCount}</span> : null}
+          </>}
         </button>
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={6} className="max-w-xs">
@@ -1628,13 +1662,18 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
       project={timelineProject}
       projectLabel={tooltipProjectLabel}
       title={renderHighlightedText(sessionTitle, normalizedSessionSearchQuery)}
+      // A finished turn nobody has seen and a request waiting on the user
+      // read like an unread mail; a running turn at full strength; the rest
+      // recede.
       titleClassName={isActive || isRowSelected
         ? 'text-interactive-selection-foreground'
-        : needsAttention ? 'text-foreground' : 'text-foreground/80'}
+        : showUnreadStatus || hasPendingPermission || hasPendingForm
+          ? 'font-semibold text-foreground'
+          : isStreaming ? 'text-foreground' : 'text-muted-foreground'}
       branchLabel={tooltipBranchLabel}
       spaceMark={branchInSpace ? t('sessions.sidebar.group.space') : null}
-      statusDot={isSessionActionPending ? sessionActionSpinner : showStatusMarker ? statusMarkerContent : null}
-      pinnedMarker={isPinnedSession && !isSessionActionPending ? pinnedMarkerContent : null}
+      statusDot={stateInSlot ? null : liveStateMark}
+      pinnedMarker={isPinnedSession && !isSessionActionPending && !hidePinnedMarker ? pinnedMarkerContent : null}
       timeSlot={showActivityDuration
         ? <SessionActivityDuration sessionId={session.id} running={isStreaming} className="typography-micro" />
         : sessionCompactUpdatedLabel}
@@ -1740,15 +1779,15 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
                 data-session-archived={archivedBucket ? '1' : '0'}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={handleRowBackgroundClick}
-                // Timeline rows have no gutter: their content sits 10px in.
-                // Grouped rows use the file tree geometry: 12px per level from
-                // an 8px edge, then the chevron slot and a 6px gap.
-                style={{ paddingInlineStart: isTimelineRow ? TIMELINE_ROW_LEFT_PX : sessionTreeRowPaddingLeft(depth) }}
+                // List rows have no gutter: their content sits 10px in.
+                // Rows with the tree slot use the file tree geometry: 12px per
+                // level from an 8px edge, then the slot and a 6px gap.
+                style={{ paddingInlineStart: hasTreeSlot ? sessionTreeRowPaddingLeft(depth) : TIMELINE_ROW_LEFT_PX }}
                 className={cn(
                   'oc-ref-tint-scope group relative my-0.5 flex cursor-pointer items-center rounded-md pe-2.5',
-                  !isTimelineRow && 'gap-1.5',
+                  hasTreeSlot && 'gap-1.5',
                   // Tree rows sit a little tighter than the timeline's.
-                  isTimelineRow ? (isTimelineChatRow ? 'py-1' : 'py-1.5') : 'py-[3px]',
+                  isTimelineRow ? (isOneLineTimelineRow ? 'py-1' : 'py-1.5') : 'py-[3px]',
                   !(isActive || isRowSelected) && 'hover:bg-interactive-hover/60',
                   (isActive || isRowSelected) && 'bg-interactive-selection/70 text-interactive-selection-foreground',
                   isRowSelected && 'ring-1 ring-inset ring-border',
@@ -1850,7 +1889,7 @@ function SessionNodeItemComponent(props: SessionNodeItemProps): React.ReactNode 
             // row's vertical centre.
             // Three-line rows: the row's 6px top padding plus the fixed 20px
             // first line, so the 20px buttons cover that line exactly.
-            isTimelineRow && !isTimelineChatRow ? 'top-1.5 h-5' : 'top-1/2 -translate-y-1/2',
+            isTimelineRow && !isOneLineTimelineRow ? 'top-1.5 h-5' : 'top-1/2 -translate-y-1/2',
             isSessionMenuOpen
               ? 'opacity-100'
               : (alwaysShowActions && !isVSCode)

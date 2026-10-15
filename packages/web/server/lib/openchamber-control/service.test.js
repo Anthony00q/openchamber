@@ -247,6 +247,18 @@ describe('OpenChamber control service', () => {
     });
   });
 
+  it('passes a branch that already exists through to the move', async () => {
+    const moveToWorktree = vi.fn(async () => ({}));
+    const { service } = createService({ sessionService: { moveToWorktree } });
+
+    await service.execute('session.moveToWorktree', { worktree: 'review', existingBranch: ' origin/review ' }, '/repo', { contextSessionId: 'ses_me' });
+
+    expect(moveToWorktree).toHaveBeenCalledWith('ses_me', {
+      directory: '/repo',
+      worktree: { name: 'review', existingBranch: 'origin/review' },
+    });
+  });
+
   it('moves a named session from where that session lives', async () => {
     const moveToWorktree = vi.fn(async () => ({}));
     const { service, client } = createService({ sessionService: { moveToWorktree } });
@@ -607,6 +619,37 @@ describe('notify.send', () => {
   });
 });
 
+describe('render.page', () => {
+  const page = '<!doctype html><p>Hi</p>';
+
+  it('accepts a page with a title and tells the agent not to restate it', async () => {
+    const { service } = createService();
+
+    const result = await service.execute('render.page', { html: page, title: '  Coverage  ' }, '/repo');
+
+    expect(result).toMatchObject({ shown: true, title: 'Coverage' });
+    expect(result.note).toContain("Don't announce");
+  });
+
+  it.each([
+    [{ title: 'Coverage' }, 'html is required'],
+    [{ html: '   ', title: 'Coverage' }, 'html is required'],
+    [{ html: 'x'.repeat(200_001), title: 'Coverage' }, 'the limit is 200000'],
+    [{ html: page }, 'title is required'],
+    [{ html: page, title: 't'.repeat(121) }, 'the limit is 120'],
+  ])('refuses %o with a reason the agent can act on', async (input, reason) => {
+    const { service } = createService();
+    await expect(service.execute('render.page', input, '/repo'))
+      .rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining(reason) });
+  });
+
+  it('refuses while the tool is switched off, so a stale plugin cannot keep drawing', async () => {
+    const { service } = createService({ isRenderToolEnabled: async () => false });
+    await expect(service.execute('render.page', { html: page, title: 'Coverage' }, '/repo'))
+      .rejects.toMatchObject({ statusCode: 403 });
+  });
+});
+
 describe('browser capture', () => {
   const pixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
@@ -747,5 +790,28 @@ describe('returning a dispatched session result', () => {
     await expect(service.execute('session.create', { prompt: 'x', returnResult: true }, '/repo', { contextSessionId: 'ses_parent' }))
       .rejects.toMatchObject({ statusCode: 503 });
     expect(sessionService.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses a returnResult that is not a boolean instead of silently skipping delivery', async () => {
+    const { service, sessionService, dispatchResults } = createReturningService();
+    await expect(service.execute('session.create', { prompt: 'x', returnResult: 'true' }, '/repo', { contextSessionId: 'ses_parent' }))
+      .rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining('returnResult must be a boolean') });
+    expect(sessionService.create).not.toHaveBeenCalled();
+    expect(dispatchResults.register).not.toHaveBeenCalled();
+  });
+
+  it('accepts an explicit false returnResult as the plain dispatch path', async () => {
+    const { service, sessionService, dispatchResults } = createReturningService();
+    const result = await service.execute('session.create', { prompt: 'x', returnResult: false }, '/repo', { contextSessionId: 'ses_parent' });
+    expect(sessionService.create).toHaveBeenCalled();
+    expect(result).not.toHaveProperty('resultDelivery');
+    expect(dispatchResults.register).not.toHaveBeenCalled();
+  });
+
+  it('refuses a wait that is not a boolean', async () => {
+    const { service, sessionService } = createService();
+    await expect(service.execute('session.send', { sessionId: 'ses_1', prompt: 'x', wait: 'true' }, '/repo'))
+      .rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining('wait must be a boolean') });
+    expect(sessionService.send).not.toHaveBeenCalled();
   });
 });

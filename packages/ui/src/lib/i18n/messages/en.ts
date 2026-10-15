@@ -2,11 +2,13 @@ import { settingsDict } from './en.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { referencePickerI18n } from './reference-picker.i18n';
 import { sessionMenuHintsI18n } from './session-menu-hints.i18n';
+import { projectKnowledgeI18n } from './project-knowledge.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
 import { routingI18n } from './routing.i18n';
 import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
+import { htmlRenderI18n } from './html-render.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
@@ -16,6 +18,7 @@ import { environmentI18n } from './environment.i18n';
 import { providersI18n } from './providers.i18n';
 import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
+import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 
 export const dict = {
   "opencodeCompatibility.bundled": "OpenCode is bundled with OpenChamber. Update OpenChamber to get OpenCode v2.",
@@ -128,11 +131,13 @@ export const dict = {
   ...linearIssuePickerI18n.en,
   ...referencePickerI18n.en,
   ...sessionMenuHintsI18n.en,
+  ...projectKnowledgeI18n.en,
   ...linearPanelI18n.en,
   ...routingI18n.en,
   ...pluginPanelI18n.en,
   ...surfacePanelI18n.en,
   ...fileArtifactsI18n.en,
+  ...htmlRenderI18n.en,
   ...usageStatsI18n.en,
   ...webSearchI18n.en,
   ...isolatedSpacesI18n.en,
@@ -142,6 +147,7 @@ export const dict = {
   ...providersI18n.en,
   ...mcpGridI18n.en,
   ...pluginsGridI18n.en,
+  ...integrationsCatalogI18n['en'],
   'terminalView.actions.attachSelection': 'Attach selected output',
   'terminalView.actions.copySelection': 'Copy selected output',
   'terminalView.toast.selectionCopied': 'Output copied',
@@ -224,6 +230,7 @@ export const dict = {
   'mobile.connect.cancelPassword': 'Use another server',
   'mobile.connect.connecting': 'Connecting...',
   'mobile.connect.notice.unreachable': 'Couldn\'t reach {label}. Check that the server is running.',
+  'mobile.connect.notice.relayLimit': "The relay refused the connection to {label}: too many devices or reconnects. Close OpenChamber on another device or wait a minute, then tap {label} to try again.",
   'mobile.connect.notice.authExpired': 'Access to {label} has expired or was revoked. Sign in again.',
   'mobile.connect.recovery.description': 'Could not connect to the saved server. Check that it is running, or pick another instance.',
   'mobile.connect.scanQr': 'Scan QR code',
@@ -241,6 +248,7 @@ export const dict = {
   'mobile.connect.splash.connectingTo': 'Connecting to device:',
   'mobile.connect.error.invalidUrl': 'That server URL is not valid.',
   'mobile.connect.error.unreachable': 'Could not reach that OpenChamber server.',
+  'mobile.connect.error.relayLimit': "The relay refused the connection: too many devices or reconnects. Close OpenChamber on another device or wait a minute, then try again.",
   'mobile.connect.error.authRequired': 'This server needs a password or client token.',
   'mobile.connect.error.passwordFailed': 'Could not unlock that server. Check the password.',
   'mobile.instances.addTitle': 'Add instance',
@@ -274,12 +282,13 @@ export const dict = {
   'mobile.header.metadata.usage': 'Usage',
   'mobile.menu.titleAria': 'Workspace tools',
   'mobile.menu.files': 'Files',
-  'mobile.menu.changes': 'Changes',
+  'mobile.menu.git': 'Git',
   'mobile.menu.terminal': 'Terminal',
   'mobile.menu.mcp': 'MCP',
   'mobile.menu.instances': 'Instances',
   'mobile.menu.update': 'Update',
   'mobile.menu.settings': 'Settings',
+  'mobile.sessions.footer.more': 'More',
   'mobile.sessions.newChatCta': 'New chat in {project}',
   'mobile.sessions.dateGroup.today': 'Today',
   'mobile.sessions.dateGroup.yesterday': 'Yesterday',
@@ -562,6 +571,9 @@ export const dict = {
   'sessions.sidebar.header.displayMode.default': 'Default',
   'sessions.sidebar.header.displayMode.minimal': 'Minimal',
   'sessions.sidebar.header.displayMode.showWork': 'Show in work section',
+  'sessions.sidebar.header.displayMode.showPinned': 'Show pinned section',
+  'sessions.sidebar.header.displayMode.detailedZoneRows': 'Detailed rows',
+  'sessions.sidebar.activity.pinnedTitle': 'Pinned',
   'sessions.sidebar.header.displayMode.showArchived': 'Show archived sessions',
   'sessions.sidebar.header.displayMode.collapseAll': 'Collapse all',
   'sessions.sidebar.header.displayMode.expandAll': 'Expand all',
@@ -870,7 +882,7 @@ export const dict = {
   'sessions.sidebar.group.worktreeRemoving': 'Removing worktree…',
   'sessions.sidebar.project.folderMissing': 'Project folder is missing or unavailable',
   'sessions.sidebar.group.space': 'Isolated space',
-  'sessions.sidebar.group.spaceStale': 'The space is not answering. Sessions may be stale.',
+  'sessions.sidebar.group.spaceStale': 'Not all sessions of this space are shown.',
   'sessions.sidebar.grouping.spaceUnnamed': 'Isolated space',
   'sessions.sidebar.sessionDialogs.worktree.label': 'Worktree',
   'sessions.sidebar.sessionDialogs.worktree.pathUnavailable': 'Worktree path unavailable.',
@@ -1318,7 +1330,6 @@ export const dict = {
   'contextPanel.mode.diff': 'Changes',
   'contextPanel.mode.stagedDiff': 'Staged Diff',
   'contextPanel.mode.workingDiff': 'Working Diff',
-  'contextPanel.mode.plan': 'Plan',
   'contextPanel.mode.pr': 'Pull Request',
   'contextPanel.mode.mr': 'Merge Request',
   'gitView.mergeRequest.title': 'Merge request',
@@ -1449,7 +1460,6 @@ export const dict = {
   'walkthrough.blocked.serverUnsupported.description': 'The OpenChamber server this app is connected to did not answer the walkthrough API, which means it is older than the app. Update the server to 1.18 or newer, then refresh.',
   'walkthrough.blocked.contextTooSmall.descriptionUnknownModel': 'The small model fits about {available}K characters and this diff needs about {required}K. Nothing gets truncated — pick a model with a larger context instead.',
   'walkthrough.blocked.structuredOutput.descriptionUnknownModel': 'The small model does not support the structured responses a walkthrough needs.',
-  'contextRail.surface.plan.description': 'View the current plan',
   'contextRail.surface.pr.description': 'Create, review, and merge the pull request for the current branch',
   'contextRail.surface.mr.description': 'Create, review, and merge the merge request for the current branch',
   'contextRail.surface.notes.description': 'Notes, todos, plans, and agent memory for the project',
@@ -1901,16 +1911,10 @@ export const dict = {
   'rightSidebar.contextNotesTodo.empty.selectProject': 'Select a project to add notes and todos.',
   'rightSidebar.contextNotesTodo.notes.placeholder': 'Capture context, reminders, or links',
   'rightSidebar.contextNotesTodo.notes.addAria': 'Add note',
-  'rightSidebar.contextNotesTodo.notes.empty': 'No notes yet. Capture context, reminders, or links.',
   'rightSidebar.contextNotesTodo.notes.actions.expand': 'Expand note',
-  'rightSidebar.contextNotesTodo.notes.actions.collapse': 'Collapse note',
   'rightSidebar.contextNotesTodo.notes.actions.delete': 'Delete note',
-  'rightSidebar.contextNotesTodo.notes.actions.pin': 'Pin to agent context',
-  'rightSidebar.contextNotesTodo.notes.actions.unpin': 'Unpin from agent context',
   'rightSidebar.contextNotesTodo.notes.source.selection': 'From chat',
   'rightSidebar.contextNotesTodo.notes.source.agent': 'From agent',
-  'rightSidebar.contextNotesTodo.search.placeholder': 'Search',
-  'rightSidebar.contextNotesTodo.search.clear': 'Clear search',
   'rightSidebar.contextNotesTodo.search.noResults': 'Nothing matches "{query}".',
   'rightSidebar.contextNotesTodo.toast.deleteNoteFailed': 'Failed to delete note',
   'rightSidebar.contextNotesTodo.toast.createNoteFailed': 'Failed to create note',
@@ -1920,7 +1924,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.plans.actions.back': 'Back to plans',
   'rightSidebar.contextNotesTodo.tabs.memory': 'Memory',
   'rightSidebar.contextNotesTodo.sections.label': 'Project context sections',
-  'rightSidebar.contextNotesTodo.sections.resize': 'Resize sections sidebar',
   'rightSidebar.contextNotesTodo.memory.scope.project': 'Project',
   'rightSidebar.contextNotesTodo.memory.scope.label': 'Memory scope',
   'rightSidebar.contextNotesTodo.memory.scope.global': 'About you',
@@ -1946,7 +1949,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.todo.actions.markComplete': 'Mark "{text}" complete',
   'rightSidebar.contextNotesTodo.todo.actions.collapse': 'Collapse todo "{text}"',
   'rightSidebar.contextNotesTodo.todo.actions.expand': 'Expand todo "{text}"',
-  'rightSidebar.contextNotesTodo.todo.actions.delete': 'Delete "{text}"',
   'rightSidebar.contextNotesTodo.todo.actions.send': 'Send "{text}"',
   'rightSidebar.contextNotesTodo.todo.actions.reorder': 'Reorder "{text}"',
   'rightSidebar.contextNotesTodo.todo.sendMenu.currentSession': 'Send to current session',
@@ -1958,7 +1960,6 @@ export const dict = {
   'rightSidebar.contextNotesTodo.plans.sharedBadge': 'In repo',
   'rightSidebar.contextNotesTodo.plans.share': 'Move to the repository plans folder, so everyone who pulls the repository sees it',
   'rightSidebar.contextNotesTodo.plans.makePersonal': 'Move to my plans, out of the repository',
-  'rightSidebar.contextNotesTodo.plans.deletePlanWithTitle': 'Delete plan "{title}"',
   'rightSidebar.contextNotesTodo.sendDialog.title.newSession': 'Send to new session',
   'rightSidebar.contextNotesTodo.sendDialog.title.newWorktree': 'Send to new worktree',
   'rightSidebar.contextNotesTodo.sendDialog.variant.default': 'Default',
@@ -2279,6 +2280,7 @@ export const dict = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - bootstrapping in background',
   'session.newWorktree.toast.fetchSourceFailed': 'Couldn\'t fetch from remote — created from local state',
   'session.newWorktree.toast.fetchSourceAccess': 'Couldn\'t fetch: this repository\'s access needs attention in Configure repository. Created from local state.',
+  'session.newWorktree.toast.branchBackup': '{branch} now matches the remote. Its previous commits are kept in {backup}.',
   'session.githubIntegration.tabs.pullRequests': 'Pull Requests',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': 'Branch is already checked out in a worktree',
   'session.githubIntegration.validation.failed': 'Validation failed',
@@ -3019,6 +3021,7 @@ export const dict = {
   'desktopHostSwitcher.status.incompatible': 'Incompatible',
   'desktopHostSwitcher.status.wrongService': 'Wrong service',
   'desktopHostSwitcher.status.unreachable': 'Unreachable',
+  'desktopHostSwitcher.status.relayLimit': "Relay limit reached",
   'desktopHostSwitcher.status.unknown': 'Unknown',
   'desktopHostSwitcher.status.ping': ' · {ms}ms ping',
   'desktopHostSwitcher.statusAria': 'Instance status',
@@ -3082,6 +3085,10 @@ export const dict = {
   'desktopHostSwitcher.toast.sshConnected': 'SSH instance "{host}" connected',
   'desktopHostSwitcher.toast.sshFailedToConnect': 'SSH instance "{host}" failed to connect',
   'desktopHostSwitcher.toast.instanceUnreachable': 'Instance "{host}" is unreachable',
+  'desktopHostSwitcher.toast.relayLimit': "The relay refused the connection to \"{host}\": too many devices or reconnects. Close OpenChamber on another device or wait a minute, then try again.",
+  'relayConnection.limitReached.title': "The relay refused the connection",
+  'relayConnection.limitReached.description': "Too many devices or reconnects for this instance. Close OpenChamber on another device or wait a minute, then try again.",
+  'relayConnection.limitReached.retry': "Try again",
   'miniChat.header.newSession': 'New session',
   'miniChat.header.session': 'Session',
   'miniChat.header.defaultAgent': 'Default agent',

@@ -41,13 +41,14 @@ import { createWorktreeSession } from '@/lib/worktreeSessionCreator';
 import { formatShortcutForDisplay, getEffectiveShortcutCombo, shortcutRegistry } from '@/lib/shortcuts';
 import { showOpenCodeStatus } from '@/lib/openCodeStatus';
 import { restartOpenCodeWithFeedback } from '@/lib/restartOpenCode';
-import { canUseElectronDesktopIPC, invokeDesktop, isDesktopShell, isVSCodeRuntime, isWebRuntime } from '@/lib/desktop';
+import { canUseElectronDesktopIPC, getMiniChatRuntimeArgs, invokeDesktop, isDesktopShell, isVSCodeRuntime, isWebRuntime } from '@/lib/desktop';
 import { SETTINGS_PAGE_METADATA, type SettingsRuntimeContext } from '@/lib/settings/metadata';
 
 const EMPTY_PINNED_SESSION_IDS = new Set<string>();
 import { getSettingsNavIcon } from '@/lib/settings/metadata';
 import { Icon } from "@/components/icon/Icon";
 import { McpIcon } from '@/components/icons/McpIcon';
+import { ArrowsMerge } from '@/components/icons/ArrowsMerge';
 import { scoreByFuzzyQuery } from '@/lib/search/fuzzySearch';
 import { useI18n } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
@@ -390,7 +391,7 @@ export const CommandPalette: React.FC = () => {
         id: 'open-multi-run',
         secondary: true,
         title: t('commandPalette.item.openMultiRun'),
-        icon: <Icon name="checkbox-multiple" className="me-2 h-4 w-4" />,
+        icon: <ArrowsMerge className="me-2 h-4 w-4" />,
         searchText: t('commandPalette.item.openMultiRun'),
         onSelect: run(() => {
           setSessionSwitcherOpen(false);
@@ -502,6 +503,7 @@ export const CommandPalette: React.FC = () => {
           void invokeDesktop('desktop_open_draft_mini_chat_window', {
             directory: normalizePath(currentDirectory || activeProject?.path || ''),
             projectId: activeProject?.id ?? null,
+            ...getMiniChatRuntimeArgs(),
           }).catch((error) => {
             console.warn('[command-palette] failed to open draft mini chat window', error);
           });

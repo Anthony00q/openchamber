@@ -26,6 +26,19 @@ the user can want independently:
   `agentKnowledgeToolEnabled` is not `false`, and the control service refuses
   these actions when it is, so a stale plugin cannot keep writing. Writes are
   attributed to the session OpenCode reported, never to a payload field.
+- `openchamber_render` — `render.page`, a self-contained HTML page (`html`,
+  `title`) the chat draws inline above the agent's answer, such as a chart or
+  table. The page travels in the call's input, which OpenCode stores and
+  syncs, so the server keeps no copy: `../openchamber-control/render-page.js`
+  only checks the input (`html` at most 200,000 characters so the callback
+  body stays under its 1 MB limit, `title` at most 120) and the setting.
+  On by default: enabled while `agentRenderToolEnabled` is not `false`, and the
+  control service refuses the action when it is, so a stale plugin cannot
+  keep drawing. When to draw (`RENDER_PAGE_WHEN`) is shared with the line
+  every session carries (`../session-knowledge/DOCUMENTATION.md`, *When to
+  draw a page*). The description lists the theme variables the chat injects
+  (`packages/ui/src/components/chat/message/parts/htmlRender.ts`); change both
+  together.
 
 Both default to on, are toggled in Settings → General → OpenChamber Tools, and take
 effect in the running OpenCode within a couple of seconds — OpenChamber rewrites
@@ -97,6 +110,11 @@ both settings are `false`.
   `lastAssistant` on a dispatch with a usage error naming `returnResult`
   (`agentOnlyUsageError`). `session.messages` does not wait either: it reads
   what is there. The control service keeps `wait` for the CLI only.
+- Boolean inputs are checked at the tool boundary: the plugin forwards raw
+  JSON, so a field declared `type: 'boolean'` in any tool's schema that
+  arrives as anything else (the string `"true"`) fails the call with a usage
+  error naming the field (`nonBooleanParameterError`), before any action runs.
+  Downstream `=== true` checks would otherwise read it as false.
 - The description draws the line against OpenCode's own `subagent` tool:
   `subagent` when the agent delegates part of its own task and wants the
   answer for itself, `session.*` when the user asks for a separate session
@@ -122,7 +140,10 @@ both settings are `false`.
 - `session.moveToWorktree` moves the calling session (or `sessionId`) into a
   new worktree of its repository, carrying the checkout's uncommitted changes
   along (`../openchamber-sessions/worktree-move.js`). `worktree` is required
-  there and `startRef` defaults to the repository's default branch. When to
+  there and `startRef` defaults to the repository's default branch;
+  `existingBranch` checks out a branch that already exists instead, local or
+  remote (`origin/feature`), and cannot be combined with `branch` or
+  `startRef`. When to
   offer it is stated at the head of the tool description, in the form the
   `agentWorktreeMoveWithoutAsking` setting selects: asking first by default,
   or moving unasked and saying so. The setting is read into the plugin source

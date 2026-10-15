@@ -3,11 +3,13 @@ import { settingsDict } from './pt-BR.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { referencePickerI18n } from './reference-picker.i18n';
 import { sessionMenuHintsI18n } from './session-menu-hints.i18n';
+import { projectKnowledgeI18n } from './project-knowledge.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
 import { routingI18n } from './routing.i18n';
 import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
+import { htmlRenderI18n } from './html-render.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
@@ -17,6 +19,7 @@ import { environmentI18n } from './environment.i18n';
 import { providersI18n } from './providers.i18n';
 import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
+import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 
 export const dict: Record<I18nKey, string> = {
   "opencodeCompatibility.bundled": "O OpenCode está incluído no OpenChamber. Atualize o OpenChamber para obter o OpenCode v2.",
@@ -139,11 +142,13 @@ export const dict: Record<I18nKey, string> = {
   ...linearIssuePickerI18n['pt-BR'],
   ...referencePickerI18n['pt-BR'],
   ...sessionMenuHintsI18n['pt-BR'],
+  ...projectKnowledgeI18n['pt-BR'],
   ...linearPanelI18n['pt-BR'],
   ...routingI18n['pt-BR'],
   ...pluginPanelI18n['pt-BR'],
   ...surfacePanelI18n['pt-BR'],
   ...fileArtifactsI18n['pt-BR'],
+  ...htmlRenderI18n['pt-BR'],
   ...usageStatsI18n['pt-BR'],
   ...webSearchI18n['pt-BR'],
   ...isolatedSpacesI18n['pt-BR'],
@@ -153,6 +158,7 @@ export const dict: Record<I18nKey, string> = {
   ...providersI18n['pt-BR'],
   ...mcpGridI18n['pt-BR'],
   ...pluginsGridI18n['pt-BR'],
+  ...integrationsCatalogI18n['pt-BR'],
   'terminalView.actions.attachSelection': 'Anexar saída selecionada',
   'terminalView.actions.copySelection': 'Copiar saída selecionada',
   'terminalView.toast.selectionCopied': 'Saída copiada',
@@ -235,6 +241,7 @@ export const dict: Record<I18nKey, string> = {
   "mobile.connect.cancelPassword": "Usar outro servidor",
   "mobile.connect.connecting": "Conectando...",
   "mobile.connect.notice.unreachable": "Não foi possível conectar a {label}. Verifique se o servidor está em execução.",
+  "mobile.connect.notice.relayLimit": "O Relay recusou a conexão com {label}: dispositivos ou reconexões demais. Feche o OpenChamber em outro dispositivo ou aguarde um minuto e toque em {label} para tentar de novo.",
   "mobile.connect.notice.authExpired": "O acesso a {label} expirou ou foi revogado. Entre novamente.",
   "mobile.connect.recovery.description": "Não foi possível conectar ao servidor salvo. Verifique se ele está em execução ou escolha outra instância.",
   "mobile.connect.scanQr": "Ler código QR",
@@ -252,6 +259,7 @@ export const dict: Record<I18nKey, string> = {
   "mobile.connect.splash.connectingTo": "Conectando ao dispositivo:",
   "mobile.connect.error.invalidUrl": "Essa URL de servidor não é válida.",
   "mobile.connect.error.unreachable": "Não foi possível acessar esse servidor OpenChamber.",
+  "mobile.connect.error.relayLimit": "O Relay recusou a conexão: dispositivos ou reconexões demais. Feche o OpenChamber em outro dispositivo ou aguarde um minuto e tente de novo.",
   "mobile.connect.error.authRequired": "Este servidor requer uma senha ou token do cliente.",
   "mobile.connect.error.passwordFailed": "Não foi possível desbloquear esse servidor. Verifique a senha.",
   "mobile.instances.addTitle": "Adicionar instância",
@@ -285,12 +293,13 @@ export const dict: Record<I18nKey, string> = {
   "mobile.header.metadata.usage": "Uso",
   "mobile.menu.titleAria": "Ferramentas do espaço de trabalho",
   "mobile.menu.files": "Arquivos",
-  "mobile.menu.changes": "Alterações",
+  "mobile.menu.git": "Git",
   "mobile.menu.terminal": "Terminal",
   "mobile.menu.mcp": "MCP",
   "mobile.menu.instances": "Instâncias",
   "mobile.menu.update": "Atualizar",
   "mobile.menu.settings": "Configurações",
+  "mobile.sessions.footer.more": "Mais",
   "mobile.sessions.newChatCta": "Novo chat em {project}",
   "mobile.sessions.dateGroup.today": "Hoje",
   "mobile.sessions.dateGroup.yesterday": "Ontem",
@@ -572,6 +581,9 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.header.displayMode.default": "Padrão",
   "sessions.sidebar.header.displayMode.minimal": "Mínimo",
   "sessions.sidebar.header.displayMode.showWork": "Mostrar em andamento",
+  "sessions.sidebar.header.displayMode.showPinned": "Mostrar fixadas",
+  "sessions.sidebar.header.displayMode.detailedZoneRows": "Linhas detalhadas",
+  "sessions.sidebar.activity.pinnedTitle": "Fixadas",
   "sessions.sidebar.header.displayMode.showArchived": "Mostrar sessões arquivadas",
   "sessions.sidebar.header.displayMode.collapseAll": "Recolher tudo",
   "sessions.sidebar.header.displayMode.expandAll": "Expandir tudo",
@@ -872,7 +884,7 @@ export const dict: Record<I18nKey, string> = {
   "sessions.sidebar.group.worktreeRemoving": "Excluindo o worktree…",
   "sessions.sidebar.project.folderMissing": "A pasta do projeto não existe ou está indisponível",
   "sessions.sidebar.group.space": "Espaço isolado",
-  "sessions.sidebar.group.spaceStale": "O espaço não está respondendo. As sessões podem estar desatualizadas.",
+  "sessions.sidebar.group.spaceStale": "Nem todas as sessões deste espaço são exibidas.",
   "sessions.sidebar.grouping.spaceUnnamed": "Espaço isolado",
   "sessions.sidebar.sessionDialogs.worktree.label": "Worktree",
   "sessions.sidebar.sessionDialogs.worktree.pathUnavailable": "Caminho de worktree não disponível.",
@@ -1307,7 +1319,6 @@ export const dict: Record<I18nKey, string> = {
   "contextPanel.mode.diff": "Alterações",
   "contextPanel.mode.stagedDiff": "Staged Diff",
   "contextPanel.mode.workingDiff": "Working Diff",
-  "contextPanel.mode.plan": "Plano",
   "contextPanel.mode.pr": "Pull Request",
   'contextPanel.mode.mr': 'Merge Request',
   'gitView.mergeRequest.title': 'MR',
@@ -1438,7 +1449,6 @@ export const dict: Record<I18nKey, string> = {
   "walkthrough.blocked.serverUnsupported.description": "O servidor OpenChamber ao qual este app está conectado não respondeu à API de walkthrough, ou seja, é mais antigo que o app. Atualize o servidor para 1.18 ou mais recente e atualize a visualização.",
   "walkthrough.blocked.contextTooSmall.descriptionUnknownModel": "O modelo pequeno comporta cerca de {available} mil caracteres e este diff precisa de cerca de {required} mil. Nada é cortado — escolha um modelo com contexto maior.",
   "walkthrough.blocked.structuredOutput.descriptionUnknownModel": "O modelo pequeno não suporta as respostas estruturadas que um percurso exige.",
-  "contextRail.surface.plan.description": "Ver o plano atual",
   "contextRail.surface.pr.description": "Crie, revise e faça merge do pull request do branch atual",
   "contextRail.surface.mr.description": "Crie, revise e faça merge do merge request do branch atual",
   "contextRail.surface.notes.description": "Notas, tarefas, planos e memória do agente do projeto",
@@ -1867,16 +1877,10 @@ export const dict: Record<I18nKey, string> = {
   "rightSidebar.contextNotesTodo.empty.selectProject": "Selecione um projeto para adicionar notas e tarefas pendentes.",
   "rightSidebar.contextNotesTodo.notes.placeholder": "Capture contexto, lembretes ou links",
   "rightSidebar.contextNotesTodo.notes.addAria": "Adicionar nota",
-  "rightSidebar.contextNotesTodo.notes.empty": "Ainda não há notas. Registre contexto, lembretes ou links.",
   "rightSidebar.contextNotesTodo.notes.actions.expand": "Expandir nota",
-  "rightSidebar.contextNotesTodo.notes.actions.collapse": "Recolher nota",
   "rightSidebar.contextNotesTodo.notes.actions.delete": "Excluir nota",
-  "rightSidebar.contextNotesTodo.notes.actions.pin": "Fixar no contexto do agente",
-  "rightSidebar.contextNotesTodo.notes.actions.unpin": "Desafixar do contexto do agente",
   "rightSidebar.contextNotesTodo.notes.source.selection": "Do chat",
   "rightSidebar.contextNotesTodo.notes.source.agent": "Do agente",
-  "rightSidebar.contextNotesTodo.search.placeholder": "Buscar",
-  "rightSidebar.contextNotesTodo.search.clear": "Limpar busca",
   "rightSidebar.contextNotesTodo.search.noResults": "Nada corresponde a \"{query}\".",
   "rightSidebar.contextNotesTodo.toast.deleteNoteFailed": "Falha ao excluir a nota",
   "rightSidebar.contextNotesTodo.toast.createNoteFailed": "Falha ao criar a nota",
@@ -1886,7 +1890,6 @@ export const dict: Record<I18nKey, string> = {
   "rightSidebar.contextNotesTodo.plans.actions.back": "Voltar aos planos",
   "rightSidebar.contextNotesTodo.tabs.memory": "Memória",
   "rightSidebar.contextNotesTodo.sections.label": "Seções do contexto do projeto",
-  "rightSidebar.contextNotesTodo.sections.resize": "Redimensionar a barra de seções",
   "rightSidebar.contextNotesTodo.memory.scope.project": "Projeto",
   "rightSidebar.contextNotesTodo.memory.scope.label": "Escopo da memória",
   "rightSidebar.contextNotesTodo.memory.scope.global": "Sobre você",
@@ -1912,7 +1915,6 @@ export const dict: Record<I18nKey, string> = {
   "rightSidebar.contextNotesTodo.todo.actions.markComplete": "Marcar \"{text}\" como concluída",
   "rightSidebar.contextNotesTodo.todo.actions.collapse": "Recolher tarefa pendente \"{text}\"",
   "rightSidebar.contextNotesTodo.todo.actions.expand": "Expandir tarefa pendente \"{text}\"",
-  "rightSidebar.contextNotesTodo.todo.actions.delete": "Excluir \"{text}\"",
   "rightSidebar.contextNotesTodo.todo.actions.send": "Enviar \"{text}\"",
   "rightSidebar.contextNotesTodo.todo.actions.reorder": "Reordenar \"{text}\"",
   "rightSidebar.contextNotesTodo.todo.sendMenu.currentSession": "Enviar à sessão atual",
@@ -1924,7 +1926,6 @@ export const dict: Record<I18nKey, string> = {
   "rightSidebar.contextNotesTodo.plans.sharedBadge": "No repositório",
   "rightSidebar.contextNotesTodo.plans.share": "Mover para a pasta de planos do repositório, para que todos que o baixarem o vejam",
   "rightSidebar.contextNotesTodo.plans.makePersonal": "Mover para meus planos, fora do repositório",
-  "rightSidebar.contextNotesTodo.plans.deletePlanWithTitle": "Excluir plano \"{title}\"",
   "rightSidebar.contextNotesTodo.sendDialog.title.newSession": "Enviar a uma nova sessão",
   "rightSidebar.contextNotesTodo.sendDialog.title.newWorktree": "Enviar a uma nova sessão de worktree",
   "rightSidebar.contextNotesTodo.sendDialog.variant.default": "Padrão",
@@ -2245,6 +2246,7 @@ export const dict: Record<I18nKey, string> = {
   "session.newWorktree.toast.worktreeCreatedDescription": "{target} - configurando em segundo plano",
   "session.newWorktree.toast.fetchSourceFailed": "Não foi possível buscar do remoto — criado a partir do estado local",
   "session.newWorktree.toast.fetchSourceAccess": "Não foi possível buscar: o acesso a este repositório precisa de atenção em Configurar repositório. Criado a partir do estado local.",
+  "session.newWorktree.toast.branchBackup": "{branch} agora corresponde ao remoto. Os commits anteriores estão em {backup}.",
   "session.githubIntegration.tabs.pullRequests": "PR",
   "session.githubIntegration.validation.branchAlreadyCheckedOut": "A branch já está em uso em um worktree",
   "session.githubIntegration.validation.failed": "Não foi possível validar",
@@ -2973,6 +2975,7 @@ export const dict: Record<I18nKey, string> = {
   "desktopHostSwitcher.status.incompatible": "Incompatível",
   "desktopHostSwitcher.status.wrongService": "Serviço incorreto",
   "desktopHostSwitcher.status.unreachable": "Inacessível",
+  "desktopHostSwitcher.status.relayLimit": "Limite do Relay atingido",
   "desktopHostSwitcher.status.unknown": "Desconhecido",
   "desktopHostSwitcher.status.ping": " · {ms}ms ping",
   "desktopHostSwitcher.statusAria": "Status da instância",
@@ -3036,6 +3039,10 @@ export const dict: Record<I18nKey, string> = {
   "desktopHostSwitcher.toast.sshConnected": "Instância SSH \"{host}\" conectada",
   "desktopHostSwitcher.toast.sshFailedToConnect": "Não foi possível conectar com a instância SSH \"{host}\"",
   "desktopHostSwitcher.toast.instanceUnreachable": "Instância \"{host}\" não está disponível",
+  "desktopHostSwitcher.toast.relayLimit": "O Relay recusou a conexão com \"{host}\": dispositivos ou reconexões demais. Feche o OpenChamber em outro dispositivo ou aguarde um minuto e tente de novo.",
+  "relayConnection.limitReached.title": "O Relay recusou a conexão",
+  "relayConnection.limitReached.description": "Dispositivos ou reconexões demais para esta instância. Feche o OpenChamber em outro dispositivo ou aguarde um minuto e tente de novo.",
+  "relayConnection.limitReached.retry": "Tentar de novo",
   "miniChat.header.newSession": "Nova sessão",
   "miniChat.header.session": "Sessão",
   "miniChat.header.defaultAgent": "Agente padrão",

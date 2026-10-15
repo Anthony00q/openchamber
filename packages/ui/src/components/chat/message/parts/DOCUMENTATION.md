@@ -66,6 +66,16 @@ Use this doc when you ask an agent to change tool/header/description behavior.
   - `lib/turns/liveActivity.ts` owns final-answer and interruption boundaries.
   - `lib/turns/liveActivitySummary.ts` derives the report from tool results.
 
+- `HtmlRenderFrame.tsx` and `htmlRender.ts`
+  - A completed `openchamber_render` call that OpenChamber accepted (`renderedPage` in `@/lib/opencode/tools`: `metadata.openchamber.ok` and an `html` input) is drawn as the page itself in place of its tool row. A refused or running call keeps its ordinary row.
+  - The page loads through `srcdoc` in a frame sandboxed with `allow-scripts allow-forms` and never `allow-same-origin`, so its script runs in an opaque origin with no reach into the app. `buildHtmlRenderDocument` puts a bootstrap first in the page's head: the theme as CSS variables (`htmlRenderTheme`; the agent tool's description in `packages/web/server/lib/agent-tool/runtime.js` lists the same names; `--chart-1` is the theme's accent and `--chart-2` to `--chart-6` a fixed set per light and dark, `CHART_SERIES`, because the theme's syntax colors made near-identical series), a size report, and http(s) link clicks handed to the host, which opens them with `openExternalUrl`. A theme switch is posted to the page instead of rebuilding it, so the page keeps its script state. Messages are accepted only from the frame's own window. A focused frame keeps every key from the app, so the bootstrap passes on a Cmd/Ctrl chord the page left alone (not typed into its own fields, not handled by its script, not the clipboard, select-all or undo chords), and the host replays it as a keydown and keyup on the frame element. The app's shortcut handling then runs as for any key pressed outside a text field, with no list of shortcuts to keep in sync. A chord without Cmd or Ctrl is never replayed. Pages are interactive within themselves (tooltips, tabs, sorting) and cannot send anything to the chat or the agent.
+  - The frame fits the reported height between 48 and 1200 px; a taller page scrolls inside it. On a touch screen (`pointer: coarse`) the frame takes the page's full height (`HTML_RENDER_TOUCH_MAX_HEIGHT` only stops a page that grows with its frame), so a page never scrolls inside the chat there: a scrolling frame as tall as the screen left no place to swipe the chat from. The full-screen view builds the page `contained`, which stops its scrolling at the edges without the elastic bounce. A page that fits its frame gets `overflow-y: hidden` from the bootstrap, so a touch that starts on it scrolls the chat instead of bouncing inside the frame (iOS keeps a touch in any document that can scroll). Media is capped at the column width; content still wider scrolls sideways (`overflow-x: auto`, `overscroll-behavior-x: none`), and the tool description asks agents to give a wide table its own scroll box. Only the horizontal bounce is off: `overscroll-behavior-y` stays default, because turning it off would also keep a vertical swipe from reaching the chat. The last height is kept per call, so a row the timeline unmounted comes back at its size.
+  - The bootstrap moves a tooltip or popup the page positions itself back inside the frame when it sticks out past an edge (`translate`, so the page's own `transform` still applies). Only absolutely or fixed positioned elements that are partly inside are moved; one wholly outside, wider than the frame, or inside a box that scrolls or clips is left alone. Hover counts as a trigger, because a CSS `:hover` tooltip changes nothing in the DOM. The tool description also asks agents to keep tooltips inside the page.
+  - In the mobile layout (`useUIStore.isMobile`) the page has no full screen or download: it is already as wide as the screen.
+  - Full screen opens the page in a dialog, inset from its edges and as tall as the page up to the window, past which the page scrolls. Download saves the page with the theme it was viewed in; on Capacitor it goes through the native share sheet, and VS Code shows no download because its bridge has no save route for HTML.
+  - VS Code's webview CSP allows inline scripts but no remote ones, and a `srcdoc` page inherits that policy, so the tool description tells agents to draw charts with inline SVG or their own script.
+  - With Activity collapsed, a page is never folded away. `LiveTurnActivity` collects the turn's pages (`getShownPages`) and `LiveTurnHoistedPagesContext` keeps their rows out of the fold, so an opened fold does not draw them twice. While the turn works, and in a turn that ended without a final answer (stopped, failed), the pages sit right below the fold; once the final answer arrives, the final message draws them above its first answer text. With Activity expanded there is no fold, and a page sits where its call ran.
+
 - `BlockLine.tsx`
   - The vertical connector line left of a collapsible block's body. It is also a click target: clicking it folds/expands the block via its header toggle handler (`onToggle`), or toggles the nearest native `<details>` when no handler is passed (JSON summary sections). Geometry is inline-styled (12px hit strip centered on the 1px line) so it does not depend on compiled Tailwind classes.
 
@@ -223,32 +233,37 @@ finished with `stop`, so no tool patch is parsed while the turn streams.
   nothing is written for a token that leads nowhere, so code full of
   `console.log` and `this.state` stays plain text with no DOM change; a real
   file's token gets its span and link a moment after the message shows.
-- Final assistant Markdown rendering is independent from image gallery
-  extraction: gallery presence never changes the chat body. Assistant image
-  syntax consistently renders as a shared image icon followed by its filename,
-  without loading the image in the body; tool and simple Markdown retain normal
-  inline image rendering. The gallery separately collects HTTP(S), embedded, and workspace-local
-  PNG/JPEG/GIF/WebP image candidates into one 100px thumbnail gallery in the
-  message-completion area after all message text and above the turn's changed
-  files. Each muted filename caption includes the shared image-file icon.
-  HTTP(S) images keep their browser URL. Embedded and workspace-local images
-  are limited to 10 MiB and validated as PNG/JPEG/GIF/WebP. Chat Markdown uses
-  the assistant image-label policy without gallery-specific link rewriting,
-  completion-state switching, or hidden placeholders. A
-  completed assistant message hydrates at most 12 unique image candidates,
-  including persisted text parts that omit their optional part-level end time.
-  In server-backed runtimes, a gallery approaching the viewport prepares all
-  local candidates in one message-level request, then reuses the authenticated
-  `/api/fs/raw` asset route. Each URL loads only when its thumbnail approaches
-  the viewport. VS Code instead loads workspace-contained images through its
-  local filesystem bridge and never calls the server grant route; OpenCode
-  temporary-directory images remain unsupported there. Mounted historical
-  messages therefore do not eagerly read every image.
-  Gallery clicks do not introduce or alter preview chrome: desktop and mobile
-  both reuse the pre-existing attachment image preview overlay.
-  Workspace-external images receive the existing path-bound `outsideFileGrant`
-  only when the server verifies the exact source in the owning assistant
-  message and the real file is inside OpenCode's dedicated temporary directory.
+- Assistant images appear where the text puts them. The Markdown renderer
+  draws assistant image syntax as a label, the shared image icon and the file
+  name, and never loads an image itself (`label` mode in `markdownCore.ts`);
+  tool and simple Markdown keep their own image rendering. A label for a
+  workspace-local or embedded PNG/JPEG/GIF/WebP image outside a link carries
+  its source (`data-openchamber-markdown-image-source`). Once the text part
+  settles (`time.end`), `markdown/inlineMarkdownImages.ts` replaces each such
+  label with the picture, at most 30rem wide and tall, in a bordered frame.
+  A paragraph made only of two or more images becomes one row of equal height
+  that spans the text width (`arrangeImageRow`): each image grows with its
+  width-to-height ratio, the shared height stops at 30rem or the smallest
+  image's natural height, and below 8rem the row wraps. A label loads only when
+  it nears the viewport, so mounted history reads no image files, and the
+  picture replaces the label only after it decoded, so the row grows once.
+  An image that is missing, too large or fails validation keeps its label.
+  Remote images never load: they stay links to themselves (see
+  `MarkdownImageMode`), so a model or a fetched page cannot learn when the
+  user read the message. A click opens the shared attachment preview overlay
+  with every drawn image of the message as its gallery. Copying a selection
+  writes `![name](source)`, never the authenticated asset URL.
+  In server-backed runtimes, the first label of a part to near the viewport
+  prepares all of that part's local images (at most 12) in one request to the
+  grant route, then loads them through the authenticated `/api/fs/raw` asset
+  route; the preview prepares again, so an expired grant is renewed. Embedded
+  images are validated in the browser and limited to 10 MiB. VS Code loads
+  workspace-contained images through its local filesystem bridge and never
+  calls the grant route; OpenCode temporary-directory images remain
+  unsupported there. Workspace-external images receive the existing
+  path-bound `outsideFileGrant` only when the server verifies the exact source
+  in the owning assistant message and the real file is inside OpenCode's
+  dedicated temporary directory.
 - `read` and `skill` are **static navigation tools** and render via `StaticToolRow`.
 - Every other tool, including search/fetch, OpenCode built-ins, custom tools, plugins, and MCP tools, is **expandable** and renders through `ToolPart`.
 - The managed `openchamber` plugin tool uses the expandable path and hides its broad protocol input. The plugin supplies the selected action's human description as the native tool title; the UI renders that metadata without owning an action map. The full versioned result envelope renders through the same neutral JSON summary/tree/raw views as other tools, without a tool-specific output card.

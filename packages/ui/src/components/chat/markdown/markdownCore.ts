@@ -1,4 +1,4 @@
-import { Marked, marked, type MarkedExtension, type Tokens, type TokenizerAndRendererExtension } from 'marked';
+import { Marked, type MarkedExtension, type Tokens, type TokenizerAndRendererExtension } from 'marked';
 import markedLinkifyIt from 'marked-linkify-it';
 import remend from 'remend';
 import katex from 'katex';
@@ -28,22 +28,20 @@ import {
   isSafeSrcset,
   MARKDOWN_FORBIDDEN_TAGS,
 } from './markdownSecurity';
+import { isBareVideoUrl, isVideoSource, renderMarkdownVideo } from './markdownVideo';
 
 const escapeAttr = (value: string): string =>
   value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-const LOCAL_IMAGE_EXTENSION_RE = /\.(?:png|jpe?g|gif|webp)(?:[?#].*)?$/i;
+// A local clip is drawn in place like a local picture (inlineMarkdownImages.ts).
+const LOCAL_IMAGE_EXTENSION_RE = /\.(?:png|jpe?g|gif|webp|mp4|m4v|mov|webm)(?:[?#].*)?$/i;
 const WINDOWS_ABSOLUTE_PATH_RE = /^[A-Za-z]:[\\/]/;
 const URL_SCHEME_RE = /^[A-Za-z][A-Za-z\d+.-]*:/;
 
-export interface MarkdownImageCandidate {
-  source: string;
-  filename: string;
-}
-
 /**
  * `inline` draws every image. `label` draws none: the image becomes its file
- * name (assistant text, whose images the gallery shows). `local` draws images
+ * name (assistant text, whose settled local images are then drawn in place,
+ * see inlineMarkdownImages.ts). `local` draws images
  * from this machine and `data:` images, and turns a remote one into a link.
  * A remote image loads by itself the moment it renders, so in output the
  * model or a tool wrote (tool results, reasoning) it could report what the
@@ -51,7 +49,7 @@ export interface MarkdownImageCandidate {
  */
 export type MarkdownImageMode = 'inline' | 'label' | 'local';
 
-export const isRemoteMarkdownImageSource = (source: string): boolean => /^(?:https?:)?\/\//i.test(source);
+const isRemoteMarkdownImageSource = (source: string): boolean => /^(?:https?:)?\/\//i.test(source);
 
 /**
  * `escape` keeps raw HTML visible as text (assistant output and every other
@@ -59,21 +57,6 @@ export const isRemoteMarkdownImageSource = (source: string): boolean => /^(?:htt
  * is for documents a user opens to read, such as a README in the Files preview.
  */
 export type MarkdownRawHtmlMode = 'escape' | 'sanitize';
-
-export const MAX_MARKDOWN_IMAGE_COUNT = 12;
-
-const MARKDOWN_IMAGE_CANDIDATE_CACHE_MAX_ENTRIES = 1024;
-const MARKDOWN_IMAGE_CANDIDATE_CACHE_MAX_BYTES = 2 * 1024 * 1024;
-const MARKDOWN_IMAGE_CANDIDATE_CACHE_MAX_ENTRY_BYTES = 64 * 1024;
-
-type MarkdownImageCandidateCacheEntry = {
-  candidates: MarkdownImageCandidate[];
-  bytes: number;
-};
-
-const markdownImageCandidateCache = new Map<string, MarkdownImageCandidateCacheEntry>();
-let markdownImageCandidateCacheBytes = 0;
-let markdownImageCandidateScanCount = 0;
 
 const isLocalMarkdownImageSource = (source: string): boolean => {
   if (/^\/\//.test(source) || !LOCAL_IMAGE_EXTENSION_RE.test(source)) return false;
@@ -104,80 +87,6 @@ const getMarkdownImageFilename = (source: string, fallback: string): string => {
   }
 };
 
-const estimateMarkdownImageCandidateCacheEntryBytes = (
-  markdown: string,
-  candidates: readonly MarkdownImageCandidate[],
-): number => (
-  (markdown.length + candidates.reduce((total, candidate) => total + candidate.source.length + candidate.filename.length, 0)) * 2
-);
-
-const scanMarkdownImageCandidates = (markdown: string): MarkdownImageCandidate[] => {
-  markdownImageCandidateScanCount += 1;
-  const candidates: MarkdownImageCandidate[] = [];
-  const seen = new Set<string>();
-  const tokens = marked.lexer(markdown);
-  marked.walkTokens(tokens, (token) => {
-    if (token.type !== 'image') return;
-
-    const source = token.href ?? '';
-    if (!source || !isSupportedMarkdownImageSource(source) || seen.has(source)) return;
-    const fallback = typeof token.text === 'string' ? token.text : '';
-    const filename = getMarkdownImageFilename(source, fallback);
-    if (!filename) return;
-
-    seen.add(source);
-    candidates.push({ source, filename });
-  });
-  return candidates;
-};
-
-const getMarkdownImageCandidates = (markdown: string): MarkdownImageCandidate[] => {
-  const cached = markdownImageCandidateCache.get(markdown);
-  if (cached) {
-    markdownImageCandidateCache.delete(markdown);
-    markdownImageCandidateCache.set(markdown, cached);
-    return cached.candidates;
-  }
-
-  let candidates: MarkdownImageCandidate[];
-  try {
-    candidates = scanMarkdownImageCandidates(markdown);
-  } catch {
-    // Image discovery is optional; a malformed message must not hide the chat
-    // or prevent discovery in the other messages.
-    return [];
-  }
-  const bytes = estimateMarkdownImageCandidateCacheEntryBytes(markdown, candidates);
-  if (bytes > MARKDOWN_IMAGE_CANDIDATE_CACHE_MAX_ENTRY_BYTES) return candidates;
-
-  while (
-    markdownImageCandidateCache.size >= MARKDOWN_IMAGE_CANDIDATE_CACHE_MAX_ENTRIES
-    || markdownImageCandidateCacheBytes + bytes > MARKDOWN_IMAGE_CANDIDATE_CACHE_MAX_BYTES
-  ) {
-    const oldest = markdownImageCandidateCache.entries().next().value;
-    if (!oldest) break;
-    markdownImageCandidateCache.delete(oldest[0]);
-    markdownImageCandidateCacheBytes -= oldest[1].bytes;
-  }
-  markdownImageCandidateCache.set(markdown, { candidates, bytes });
-  markdownImageCandidateCacheBytes += bytes;
-  return candidates;
-};
-
-/** @internal Test-only cache instrumentation for deterministic regression tests. */
-export const __markdownImageCandidateCacheForTests = {
-  reset: (): void => {
-    markdownImageCandidateCache.clear();
-    markdownImageCandidateCacheBytes = 0;
-    markdownImageCandidateScanCount = 0;
-  },
-  stats: () => ({
-    entries: markdownImageCandidateCache.size,
-    bytes: markdownImageCandidateCacheBytes,
-    scans: markdownImageCandidateScanCount,
-  }),
-};
-
 /** Links being rendered right now; parsing is synchronous, so a counter is exact. */
 let markdownLinkDepth = 0;
 
@@ -190,35 +99,36 @@ const renderMarkdownImageLabel = ({
   title?: string | null;
   text: string;
 }): string => {
+  // Output a model or a tool wrote may point anywhere, so its clip reads
+  // nothing until the user presses play.
+  const video = remoteVideoOf({ href, title: title ?? null, text });
+  if (video) return renderMarkdownVideo(video, 'none');
   const label = getMarkdownImageFilename(href ?? '', text);
   const titleAttr = title ? ` title="${escapeAttr(title)}"` : '';
-  const span = `<span${titleAttr} class="inline-flex items-center gap-1 align-text-bottom text-muted-foreground" data-openchamber-markdown-image-label="true">${escapeAttr(label)}</span>`;
+  const remote = isRemoteMarkdownImageSource(href ?? '');
+  // A local or embedded image outside a link keeps its source, so the chat
+  // can draw it in place once the message settles (inlineMarkdownImages.ts).
+  const sourceAttr = !remote && markdownLinkDepth === 0 && isSupportedMarkdownImageSource(href ?? '')
+    ? ` data-openchamber-markdown-image-source="${escapeAttr(href)}"`
+    : '';
+  const span = `<span${titleAttr} class="inline-flex items-center gap-1 align-text-bottom text-muted-foreground" data-openchamber-markdown-image-label="true"${sourceAttr}>${escapeAttr(label)}</span>`;
   // A remote image becomes a link to itself, unless it already sits inside
   // one (a badge): a link cannot hold another.
-  if (!isRemoteMarkdownImageSource(href ?? '') || markdownLinkDepth > 0) return span;
+  if (!remote || markdownLinkDepth > 0) return span;
   return `<a href="${escapeAttr(href)}" class="external-link" target="_blank" rel="noopener noreferrer">${span}</a>`;
 };
 
-export const extractMarkdownImageCandidates = (
-  markdownTexts: readonly string[],
-  limit = MAX_MARKDOWN_IMAGE_COUNT,
-): MarkdownImageCandidate[] => {
-  if (limit <= 0) return [];
+/** A remote clip outside a link, which draws as a player; it names itself by its alt text. */
+const remoteVideoOf = ({ href, title, text }: Pick<Tokens.Image, 'href' | 'title' | 'text'>): { href: string; title: string } | null => (
+  markdownLinkDepth === 0 && /^https?:\/\//i.test(href) && isVideoSource(href, text)
+    ? { href, title: title || text.trim() }
+    : null
+);
 
-  const candidates: MarkdownImageCandidate[] = [];
-  const seen = new Set<string>();
-
-  for (const markdown of markdownTexts) {
-    if (!markdown || candidates.length >= limit) continue;
-    for (const candidate of getMarkdownImageCandidates(markdown)) {
-      if (candidates.length >= limit) break;
-      if (seen.has(candidate.source)) continue;
-      seen.add(candidate.source);
-      candidates.push({ ...candidate });
-    }
-  }
-
-  return candidates;
+/** A paragraph that is one bare clip URL: how GitHub writes an uploaded video. */
+const bareVideoOf = ({ raw, tokens }: Tokens.Paragraph): { href: string } | null => {
+  const url = raw.trim().replace(/^<(.*)>$/, '$1');
+  return tokens.length === 1 && tokens[0]?.type === 'link' && isBareVideoUrl(url) ? { href: url } : null;
 };
 
 // ---------------------------------------------------------------------------
@@ -850,11 +760,18 @@ const createParser = (imageMode: MarkdownImageMode, rawHtml: MarkdownRawHtmlMode
           const titleAttr = title ? ` title="${escapeAttr(title)}"` : '';
           return `<a href="${escapeAttr(target)}"${titleAttr} class="external-link" target="_blank" rel="noopener noreferrer">${text}</a>`;
         },
-        ...(imageMode === 'label' ? { image: renderMarkdownImageLabel } : {}),
-        // `false` hands a local image back to marked's own renderer.
-        ...(imageMode === 'local'
-          ? { image: (token: Tokens.Image) => (isRemoteMarkdownImageSource(token.href ?? '') ? renderMarkdownImageLabel(token) : false) }
-          : {}),
+        // `false` hands the image back to marked's own renderer.
+        image(token) {
+          if (imageMode === 'label') return renderMarkdownImageLabel(token);
+          if (imageMode === 'local' && isRemoteMarkdownImageSource(token.href ?? '')) return renderMarkdownImageLabel(token);
+          // A document draws a clip as a player; inside a link it stays an image.
+          const video = rawHtml === 'sanitize' ? remoteVideoOf(token) : null;
+          return video ? renderMarkdownVideo(video, 'metadata') : false;
+        },
+        paragraph(token) {
+          const video = rawHtml === 'sanitize' ? bareVideoOf(token) : null;
+          return video ? `${renderMarkdownVideo(video, 'metadata')}\n` : false;
+        },
       },
     },
   );
@@ -1087,6 +1004,11 @@ const getDocumentPurifier = (): DOMPurifyInstance | null => {
         return;
       }
       node.setAttribute('disabled', '');
+    }
+    // A raw `<video>` without controls could not be started; it never autoplays.
+    if (node.tagName === 'VIDEO') {
+      node.setAttribute('controls', '');
+      node.setAttribute('preload', 'metadata');
     }
     // Tailwind preflight gives images `height: auto`, which beats the height
     // attribute, so `<img height="28">` would render at its natural size.

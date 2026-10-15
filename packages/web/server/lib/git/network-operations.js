@@ -43,7 +43,9 @@ const MANAGED_ENV_NAMES = new Set([
 ]);
 const SHA_PATTERN = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/i;
 
-const operationError = (code, message, status = 500, details = {}) => Object.assign(new Error(message), { code, status, ...details });
+// The details are often a Git process result, whose `code` is the exit
+// status; the operation's own code and status are applied over them.
+const operationError = (code, message, status = 500, details = {}) => Object.assign(new Error(message), details, { code, status });
 const publicError = (code, message) => ({ code, message });
 // `ls-tree -l` adds each object's size before the tab; the submodule parser
 // reads gitlinks in the short form, so their size column (always `-`) goes.
@@ -53,6 +55,12 @@ const readTreeListing = (treeOutput) => ({
   treeObjects: parseTreeObjects(treeOutput),
 });
 const terminal = (state, code, message) => ({ state, error: publicError(code, message) });
+// A remote-tracking ref mirrors the remote, so it follows a force-pushed
+// branch the way `git fetch` with the default refspec does. A local branch
+// destination is never moved backwards.
+const singleRefFetchRefspec = (sourceRef, destinationRef) => (
+  `${destinationRef.startsWith('refs/remotes/') ? '+' : ''}${sourceRef}:${destinationRef}`
+);
 const fileIdentity = (stats) => `${stats.dev}:${stats.ino}`;
 // Linux reuses an inode number when a directory is removed and recreated in the
 // same parent, so device and inode alone cannot tell a replaced directory from
@@ -112,6 +120,83 @@ const managedEnvironment = (source, platform) => {
   result.GIT_CONFIG_NOSYSTEM = '1';
   result.GIT_CONFIG_GLOBAL = platform === 'win32' ? 'NUL' : '/dev/null';
   return result;
+};
+
+const TRUSTED_DIRECTORIES_READ_TIMEOUT_MS = 5_000;
+// A Git configuration value written back as one: quoted, backslashes and quotes escaped.
+const gitConfigValue = (value) => `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+
+/**
+ * The `safe.directory` exceptions the person keeps in their system and global
+ * Git configuration, as a configuration file that holds nothing else.
+ *
+ * Managed Git reads neither of those files, so nothing in them (a credential
+ * helper, a proxy, a URL rewrite) can stand in for the selected credential.
+ * Git takes `safe.directory` only from those files, though, so a repository
+ * Git does not consider this user's own (a WSL checkout opened from Windows,
+ * a container mount, a clone another account made) stopped every managed
+ * transfer at "dubious ownership" even after the person trusted it. Managed
+ * Git reads this file as its global configuration instead of none.
+ *
+ * The returned function answers the file's path, or null when the person
+ * trusts no directory. The file is rewritten on every call, so an exception
+ * added or removed since applies to the next transfer.
+ */
+export const createTrustedDirectoriesConfig = ({
+  gitBinary = 'git',
+  inheritedEnv = process.env,
+  spawnImpl = spawn,
+  fsImpl = fs,
+  pathImpl = path,
+  tmpdir = os.tmpdir,
+} = {}) => {
+  let directory = null;
+  const readValues = () => new Promise((resolve) => {
+    let child;
+    try {
+      // Outside any repository Git reads only the system and global files.
+      child = spawnImpl(gitBinary, ['config', '--null', '--includes', '--get-all', 'safe.directory'], {
+        cwd: tmpdir(), env: { ...inheritedEnv }, shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'],
+      });
+    } catch {
+      resolve([]);
+      return;
+    }
+    const chunks = [];
+    const timer = setTimeout(() => child.kill(), TRUSTED_DIRECTORIES_READ_TIMEOUT_MS);
+    timer.unref?.();
+    child.stdout.on('data', (chunk) => chunks.push(chunk));
+    child.once('error', () => {
+      clearTimeout(timer);
+      resolve([]);
+    });
+    child.once('close', (code) => {
+      clearTimeout(timer);
+      // Exit 1 is "not set"; every value ends in a NUL.
+      resolve(code === 0 ? Buffer.concat(chunks).toString('utf8').split('\0').slice(0, -1) : []);
+    });
+  });
+  const write = async (content) => {
+    directory ??= await fsImpl.mkdtemp(pathImpl.join(tmpdir(), 'openchamber-git-trust-'));
+    const target = pathImpl.join(directory, 'config');
+    const temporary = `${target}.${crypto.randomUUID()}.tmp`;
+    await fsImpl.writeFile(temporary, content, { encoding: 'utf8', mode: 0o600 });
+    await fsImpl.rename(temporary, target);
+    return target;
+  };
+  return async () => {
+    const values = (await readValues()).filter((value) => !/[\r\n]/.test(value));
+    if (values.length === 0) return null;
+    const content = `[safe]\n${values.map((value) => `\tdirectory = ${gitConfigValue(value)}\n`).join('')}`;
+    try {
+      return await write(content);
+    } catch (error) {
+      // The system's temporary-file cleanup may have removed the directory.
+      if (error?.code !== 'ENOENT') throw error;
+      directory = null;
+      return write(content);
+    }
+  };
 };
 
 const HTTP_CONFIG_RESETS = new Map([
@@ -278,10 +363,20 @@ export function createNetworkOperations({
   auditStore,
   operationStore,
   onCheckoutHydrated,
+  trustedDirectoriesConfig,
 } = {}) {
   if (!(validateGitTransportContext instanceof Function) || !(credentialResolver?.resolve instanceof Function)) {
     throw new TypeError('Git network operation dependencies are invalid');
   }
+  /** `managedEnvironment` that still trusts the directories the person trusted (`createTrustedDirectoriesConfig`). */
+  const managedGitEnvironment = async () => {
+    const env = managedEnvironment(inheritedEnv, platform);
+    const trusted = trustedDirectoriesConfig instanceof Function
+      ? await trustedDirectoriesConfig().catch(() => null)
+      : null;
+    if (trusted) env.GIT_CONFIG_GLOBAL = trusted;
+    return env;
+  };
 
   const cancelChild = (child) => terminateProcessTree(child, { platform, spawnImpl, escalationMs });
   const operationRegistry = registry ?? createNetworkOperationRegistry({ cancelChild, store: operationStore });
@@ -610,7 +705,7 @@ export function createNetworkOperations({
       if (error?.cancelled || error?.timedOut || error?.code === 'CANCELLED' || error?.code === 'TIMEOUT') throw error;
       throw operationError('AUTHENTICATION_REQUIRED', 'Managed Git credential is unavailable', 409);
     }
-    const env = managedEnvironment(inheritedEnv, platform);
+    const env = await managedGitEnvironment();
     if (anonymous || credential.transport === 'https') {
       // Git's Curl transport also consults netrc outside Git configuration;
       // an ambient ~/.netrc entry must not authenticate as another account
@@ -748,7 +843,7 @@ export function createNetworkOperations({
 
   const localIntegrationContext = async (directory, controls, deadline) => {
     const env = {
-      ...managedEnvironment(inheritedEnv, platform),
+      ...await managedGitEnvironment(),
       GIT_ALLOW_PROTOCOL: '', GIT_NO_LAZY_FETCH: '1', GIT_NO_REPLACE_OBJECTS: '1', GIT_LFS_SKIP_SMUDGE: '1',
     };
     const configArgs = [
@@ -1534,7 +1629,7 @@ export function createNetworkOperations({
           temporaryRef = plan.target.operation === 'pull' ? `refs/openchamber/network/${plan.operationId}` : plan.target.destinationRef;
           await commandResult(plan, controls, [
             'fetch', '--no-tags', ...(plan.target.operation === 'pull' ? ['--no-recurse-submodules'] : []),
-            '--', plan.rawEndpoint, `${plan.target.sourceRef}:${temporaryRef}`,
+            '--', plan.rawEndpoint, singleRefFetchRefspec(plan.target.sourceRef, temporaryRef),
           ], context, deadline, { transfer: true });
           await controls.markStepCompleted('transferred');
           if (plan.target.operation === 'fetch') result = { state: 'succeeded' };
@@ -1599,7 +1694,7 @@ export function createNetworkOperations({
     if (temporaryRef && plan.target.operation === 'pull') {
       try {
         const cleanupContext = integrationContext ?? context ?? {
-          env: { ...managedEnvironment(inheritedEnv, platform), GIT_ALLOW_PROTOCOL: '', GIT_NO_LAZY_FETCH: '1' },
+          env: { ...await managedGitEnvironment(), GIT_ALLOW_PROTOCOL: '', GIT_NO_LAZY_FETCH: '1' },
           configArgs: ['-c', `core.hooksPath=${platform === 'win32' ? 'NUL' : '/dev/null'}`], secrets: [],
         };
         await commandResult(plan, controls, ['update-ref', '-d', temporaryRef], cleanupContext,
@@ -1658,7 +1753,7 @@ export function createNetworkOperations({
       await revalidatePullHead(headPlan, controls, deadline);
       await commandResult(fetchPlan, controls, [
         'fetch', '--no-tags', '--no-recurse-submodules', '--', fetchPlan.rawEndpoint,
-        `${fetchPlan.target.sourceRef}:${fetchPlan.target.destinationRef}`,
+        singleRefFetchRefspec(fetchPlan.target.sourceRef, fetchPlan.target.destinationRef),
       ], context, deadline, { transfer: true, transferRole: 'fetch' });
       await controls.markStepCompleted('transferred');
       if (await safeRevoke(context, plan.operationId)) {
@@ -2138,7 +2233,7 @@ export function createNetworkOperations({
       await controls.markStepCompleted('authenticated');
       await revalidateContributorSource(plan, controls, deadline);
       await commandResult(plan, controls, [
-        'fetch', '--no-tags', '--', plan.rawEndpoint, `${plan.target.sourceRef}:${plan.target.destinationRef}`,
+        'fetch', '--no-tags', '--', plan.rawEndpoint, singleRefFetchRefspec(plan.target.sourceRef, plan.target.destinationRef),
       ], context, deadline, { transfer: true });
       await controls.markStepCompleted('transferred');
       const fetchedSha = String(await awaitPhase(
@@ -2151,6 +2246,9 @@ export function createNetworkOperations({
       if (error.code === 'STALE_CONFIG') return terminal('conflicted', 'STALE_CONFIG', error.message);
       if (error.code === 'RUNTIME_UNSUPPORTED') return terminal('failed', 'RUNTIME_UNSUPPORTED', error.message);
       if (error.code === 'UNKNOWN') return terminal('failed', 'UNKNOWN', 'Change request source resolution failed');
+      // Git's own reason, redacted, for a fetch that failed on anything but
+      // access: blaming the account would send the user to fix the wrong thing.
+      if (error.code === 'TRANSPORT_FAILED') return terminal('failed', 'TRANSPORT_FAILED', error.message);
       return terminal('failed', 'AUTHENTICATION_REQUIRED',
         'The selected account does not authorize the change request head repository');
     } finally {

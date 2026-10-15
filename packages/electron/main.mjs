@@ -2572,6 +2572,7 @@ const createBrowserWindow = ({ label, restoreGeometry, url, runtimeConfig = {}, 
       requestHeaders: desktopRequestHeaders,
       bootOutcome: state.bootOutcome || null,
       relayHostId: rendererRuntimeConfig.relayHostId || '',
+      explicitRuntime: runtimeConfig.explicitRuntime === true,
       trayEnabled: isMacMenuBarEnabled(),
     }),
   }));
@@ -3069,7 +3070,7 @@ const openHostWindow = async (host, route = null, { reuseOpenWindow = false } = 
       requestHeaders: sanitizeRuntimeRequestHeaders(host.requestHeaders || {}),
     };
   }
-  const browserWindow = await createAdditionalWindow(withSessionRoute(windowUrl, route), runtimeConfig);
+  const browserWindow = await createAdditionalWindow(withSessionRoute(windowUrl, route), { ...runtimeConfig, explicitRuntime: true });
   if (browserWindow) {
     browserWindow.__ocHostWindowId = host.id;
     browserWindow.__ocHostWindowBaseUrl = windowUrl;
@@ -3106,7 +3107,9 @@ const buildMiniChatUrl = ({ mode, sessionId, directory, projectId }) => {
 };
 
 const miniChatSessionWindowKey = (runtimeConfig, sessionId) => {
-  const runtimeKey = normalizeHostUrl(runtimeConfig?.apiBaseUrl || state.apiBaseUrl || state.localOrigin || state.sidecarUrl || '') || 'local';
+  const runtimeKey = runtimeConfig?.relayHostId
+    ? `host:${runtimeConfig.relayHostId}`
+    : normalizeHostUrl(runtimeConfig?.apiBaseUrl || state.apiBaseUrl || state.localOrigin || state.sidecarUrl || '') || 'local';
   return `${runtimeKey}\n${sessionId}`;
 };
 
@@ -3126,11 +3129,22 @@ const getWindowRuntimeConfig = (browserWindow) => {
 };
 
 const createMiniChatWindow = async ({ mode, sessionId = '', directory = '', projectId = '', runtimeConfig = {} } = {}) => {
-  const effectiveRuntimeConfig = {
-    apiBaseUrl: normalizeHostUrl(runtimeConfig.apiBaseUrl || state.apiBaseUrl || state.localOrigin || state.sidecarUrl || ''),
-    clientToken: sanitizeClientTokenForStorage(runtimeConfig.clientToken || state.clientToken || ''),
-    requestHeaders: sanitizeRuntimeRequestHeaders(runtimeConfig.requestHeaders || state.requestHeaders || {}),
-  };
+  const relayHostId = typeof runtimeConfig.relayHostId === 'string' ? runtimeConfig.relayHostId : '';
+  // A relay-target window resolves its own transport from the host id, so the
+  // app's startup runtime (another instance) must not stand in for any of it.
+  const effectiveRuntimeConfig = relayHostId
+    ? {
+      apiBaseUrl: '',
+      clientToken: sanitizeClientTokenForStorage(runtimeConfig.clientToken || ''),
+      requestHeaders: sanitizeRuntimeRequestHeaders(runtimeConfig.requestHeaders || {}),
+      relayHostId,
+    }
+    : {
+      apiBaseUrl: normalizeHostUrl(runtimeConfig.apiBaseUrl || state.apiBaseUrl || state.localOrigin || state.sidecarUrl || ''),
+      clientToken: sanitizeClientTokenForStorage(runtimeConfig.clientToken || state.clientToken || ''),
+      requestHeaders: sanitizeRuntimeRequestHeaders(runtimeConfig.requestHeaders || state.requestHeaders || {}),
+      relayHostId: '',
+    };
   const sessionWindowKey = mode === 'session' && sessionId ? miniChatSessionWindowKey(effectiveRuntimeConfig, sessionId) : '';
   if (mode === 'session' && sessionId) {
     const existing = state.miniChatWindowsBySession.get(sessionWindowKey);
@@ -3166,6 +3180,8 @@ const createMiniChatWindow = async ({ mode, sessionId = '', directory = '', proj
         apiBaseUrl: desktopApiBaseUrl,
         clientToken: desktopClientToken,
         requestHeaders: desktopRequestHeaders,
+        relayHostId: effectiveRuntimeConfig.relayHostId || '',
+        explicitRuntime: true,
       }),
       preload: resolvePreloadPath(),
       backgroundThrottling: false,
@@ -3266,6 +3282,26 @@ const resolveMiniChatRuntimeConfig = (browserWindow, args = {}) => {
   const windowConfig = getWindowRuntimeConfig(browserWindow);
   const argApiBaseUrl = typeof args.apiBaseUrl === 'string' ? args.apiBaseUrl : '';
   const targetUrl = normalizeHostUrl(argApiBaseUrl || windowConfig.apiBaseUrl || state.apiBaseUrl || state.localOrigin || state.sidecarUrl || '');
+
+  // The parent window's runtime key names the instance it is on. A relay-capable
+  // host has no injectable HTTP base (its base is the window origin on the
+  // tunnel, and the direct leg can move), so the mini chat reopens that host's
+  // own transport: the restore probes direct first and falls back to the
+  // tunnel, instead of pinning one leg or the renderer's default-host restore.
+  const runtimeKey = typeof args.runtimeKey === 'string' ? args.runtimeKey.trim() : '';
+  const hostId = runtimeKey.startsWith('host:') ? runtimeKey.slice('host:'.length) : '';
+  const relayHost = hostId
+    ? (readDesktopHostsConfig().hosts || []).find((entry) => entry.id === hostId && entry.relay) || null
+    : null;
+  if (relayHost) {
+    return {
+      apiBaseUrl: '',
+      clientToken: sanitizeClientTokenForStorage(relayHost.clientToken) || '',
+      requestHeaders: sanitizeRuntimeRequestHeaders(relayHost.requestHeaders || {}),
+      relayHostId: relayHost.id,
+    };
+  }
+
   const providedToken = sanitizeClientTokenForStorage(args.clientToken);
   const storedToken = targetUrl ? resolveStoredClientTokenForUrl(targetUrl) : '';
   const windowToken = targetUrl && sameOrigin(windowConfig.apiBaseUrl, targetUrl) ? windowConfig.clientToken : '';
@@ -3274,6 +3310,7 @@ const resolveMiniChatRuntimeConfig = (browserWindow, args = {}) => {
     apiBaseUrl: targetUrl,
     clientToken: providedToken || windowToken || storedToken || '',
     requestHeaders: sanitizeRuntimeRequestHeaders(args.requestHeaders || windowHeaders || {}),
+    relayHostId: '',
   };
 };
 
@@ -5339,7 +5376,7 @@ const handleInvoke = async (browserWindow, command, args = {}) => {
       if (shouldUsePackagedUi()) {
         windowUrl = buildPackagedUiUrl('/index.html');
       }
-      await createAdditionalWindow(windowUrl, runtimeConfig);
+      await createAdditionalWindow(windowUrl, { ...runtimeConfig, explicitRuntime: true });
       return null;
     }
 

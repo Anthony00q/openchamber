@@ -1,10 +1,10 @@
 {
   "name": "openchamber-monorepo",
-  "version": "2.3.1",
+  "version": "2.3.3",
   "description": "OpenChamber monorepo workspace for web, ui, and desktop runtimes",
   "private": true,
   "type": "module",
-  "packageManager": "bun@1.4.2",
+  "packageManager": "bun@1.4.3",
   "workspaces": [
     "packages/*",
     "packages/sdk/examples/*"
@@ -36,7 +36,6 @@
     "type-check:ui": "bun run --cwd packages/ui type-check",
     "settings-registry:generate": "bun run --cwd packages/ui src/lib/settings/registry-snapshot.ts",
     "type-check:electron": "bun run --cwd packages/electron type-check",
-    "type-check:mobile": "bun run --cwd packages/mobile type-check",
     "lint": "bun run --filter '*' lint",
     "lint:web": "bun run --cwd packages/web lint",
     "lint:ui": "bun run --cwd packages/ui lint",
@@ -131,8 +130,8 @@
     "@heroui/theme": "^2.4.23",
     "@lezer/highlight": "^1.2.3",
     "@octokit/rest": "^22.0.1",
-    "@opencode/client": "2.0.27",
-    "@opencode/schema": "2.0.27",
+    "@opencode/client": "2.0.29",
+    "@opencode/schema": "2.0.29",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -203,7 +202,7 @@
     "vite": "^7.1.2"
   },
   "patchedDependencies": {
-    "@tanstack/virtual-core@3.17.11": "bun-patches/@tanstack+virtual-core+3.17.11.patch",
+    "@tanstack/virtual-core@3.19.4": "bun-patches/@tanstack+virtual-core+3.19.4.patch",
     "bun-pty@0.4.8": "bun-patches/bun-pty@0.4.8.patch",
     "happy-dom@18.0.1": "bun-patches/happy-dom@18.0.1.patch",
     "@legendapp/list@3.6.0": "bun-patches/@legendapp%2Flist@3.6.0.patch"

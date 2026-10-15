@@ -3,11 +3,13 @@ import { settingsDict } from './ko.settings';
 import { linearIssuePickerI18n } from './linear-issue-picker.i18n';
 import { referencePickerI18n } from './reference-picker.i18n';
 import { sessionMenuHintsI18n } from './session-menu-hints.i18n';
+import { projectKnowledgeI18n } from './project-knowledge.i18n';
 import { linearPanelI18n } from './linear-panel.i18n';
 import { routingI18n } from './routing.i18n';
 import { pluginPanelI18n } from './plugin-panel.i18n';
 import { surfacePanelI18n } from './surface-panel.i18n';
 import { fileArtifactsI18n } from './file-artifacts.i18n';
+import { htmlRenderI18n } from './html-render.i18n';
 import { usageStatsI18n } from './usage-stats.i18n';
 import { webSearchI18n } from './websearch.i18n';
 import { isolatedSpacesI18n } from './isolated-spaces.i18n';
@@ -17,6 +19,7 @@ import { environmentI18n } from './environment.i18n';
 import { providersI18n } from './providers.i18n';
 import { mcpGridI18n } from './mcp-grid.i18n';
 import { pluginsGridI18n } from './plugins-grid.i18n';
+import { integrationsCatalogI18n } from './integrations-catalog.i18n';
 
 export const dict: Record<I18nKey, string> = {
   "opencodeCompatibility.bundled": "OpenCode는 OpenChamber에 포함되어 있습니다. OpenCode v2를 사용하려면 OpenChamber를 업데이트하세요.",
@@ -129,11 +132,13 @@ export const dict: Record<I18nKey, string> = {
   ...linearIssuePickerI18n.ko,
   ...referencePickerI18n.ko,
   ...sessionMenuHintsI18n.ko,
+  ...projectKnowledgeI18n.ko,
   ...linearPanelI18n.ko,
   ...routingI18n.ko,
   ...pluginPanelI18n.ko,
   ...surfacePanelI18n.ko,
   ...fileArtifactsI18n.ko,
+  ...htmlRenderI18n.ko,
   ...usageStatsI18n.ko,
   ...webSearchI18n.ko,
   ...isolatedSpacesI18n.ko,
@@ -143,6 +148,7 @@ export const dict: Record<I18nKey, string> = {
   ...providersI18n.ko,
   ...mcpGridI18n.ko,
   ...pluginsGridI18n.ko,
+  ...integrationsCatalogI18n['ko'],
   'terminalView.actions.attachSelection': '선택한 출력 첨부',
   'terminalView.actions.copySelection': '선택한 출력 복사',
   'terminalView.toast.selectionCopied': '출력을 복사했습니다',
@@ -225,6 +231,7 @@ export const dict: Record<I18nKey, string> = {
   'mobile.connect.cancelPassword': '다른 서버 사용',
   'mobile.connect.connecting': '연결 중...',
   'mobile.connect.notice.unreachable': '{label}에 연결할 수 없습니다. 서버가 실행 중인지 확인하세요.',
+  'mobile.connect.notice.relayLimit': "Relay가 {label} 연결을 거부했습니다. 기기 또는 재연결이 너무 많습니다. 다른 기기에서 OpenChamber를 닫거나 1분 기다린 뒤 {label}을(를) 탭하여 다시 시도하세요.",
   'mobile.connect.notice.authExpired': '{label} 액세스가 만료되었거나 취소되었습니다. 다시 로그인하세요.',
   'mobile.connect.recovery.description': '저장된 서버에 연결할 수 없습니다. 서버가 실행 중인지 확인하거나 다른 인스턴스를 선택하세요.',
   'mobile.connect.scanQr': 'QR 코드 스캔',
@@ -242,6 +249,7 @@ export const dict: Record<I18nKey, string> = {
   'mobile.connect.splash.connectingTo': '기기에 연결하는 중:',
   'mobile.connect.error.invalidUrl': '유효하지 않은 서버 URL입니다.',
   'mobile.connect.error.unreachable': '해당 OpenChamber 서버에 연결할 수 없습니다.',
+  'mobile.connect.error.relayLimit': "Relay가 연결을 거부했습니다. 기기 또는 재연결이 너무 많습니다. 다른 기기에서 OpenChamber를 닫거나 1분 기다린 뒤 다시 시도하세요.",
   'mobile.connect.error.authRequired': '이 서버에는 비밀번호 또는 클라이언트 토큰이 필요합니다.',
   'mobile.connect.error.passwordFailed': '서버 잠금을 해제할 수 없습니다. 비밀번호를 확인하세요.',
   'mobile.instances.addTitle': '인스턴스 추가',
@@ -275,12 +283,13 @@ export const dict: Record<I18nKey, string> = {
   'mobile.header.metadata.usage': '사용량',
   'mobile.menu.titleAria': '작업 공간 도구',
   'mobile.menu.files': '파일',
-  'mobile.menu.changes': '변경사항',
+  'mobile.menu.git': 'Git',
   'mobile.menu.terminal': '터미널',
   'mobile.menu.mcp': 'MCP',
   'mobile.menu.instances': '인스턴스',
   'mobile.menu.update': '업데이트',
   'mobile.menu.settings': '설정',
+  'mobile.sessions.footer.more': '더 보기',
   'mobile.sessions.newChatCta': '{project}에서 새 채팅',
   'mobile.sessions.dateGroup.today': '오늘',
   'mobile.sessions.dateGroup.yesterday': '어제',
@@ -563,6 +572,9 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.header.displayMode.default': '기본값',
   'sessions.sidebar.header.displayMode.minimal': '최소',
   'sessions.sidebar.header.displayMode.showWork': '작업 중 섹션 표시',
+  'sessions.sidebar.header.displayMode.showPinned': '고정됨 섹션 표시',
+  'sessions.sidebar.header.displayMode.detailedZoneRows': '자세한 행',
+  'sessions.sidebar.activity.pinnedTitle': '고정됨',
   'sessions.sidebar.header.displayMode.showArchived': '보관된 세션 표시',
   'sessions.sidebar.header.displayMode.collapseAll': '모두 접기',
   'sessions.sidebar.header.displayMode.expandAll': '모두 펼치기',
@@ -871,7 +883,7 @@ export const dict: Record<I18nKey, string> = {
   'sessions.sidebar.group.worktreeRemoving': '워크트리 제거 중…',
   'sessions.sidebar.project.folderMissing': '프로젝트 폴더가 없거나 사용할 수 없습니다',
   'sessions.sidebar.group.space': '격리 공간',
-  'sessions.sidebar.group.spaceStale': '공간이 응답하지 않습니다. 세션이 오래된 것일 수 있습니다.',
+  'sessions.sidebar.group.spaceStale': '이 공간의 세션이 모두 표시되지는 않습니다.',
   'sessions.sidebar.grouping.spaceUnnamed': '격리 공간',
   'sessions.sidebar.sessionDialogs.worktree.label': '워크트리',
   'sessions.sidebar.sessionDialogs.worktree.pathUnavailable': '워크트리 경로를 사용할 수 없습니다.',
@@ -1319,7 +1331,6 @@ export const dict: Record<I18nKey, string> = {
   "contextPanel.mode.diff": "Changes",
   'contextPanel.mode.stagedDiff': 'Staged Diff',
   'contextPanel.mode.workingDiff': 'Working Diff',
-  'contextPanel.mode.plan': '계획',
   'contextPanel.mode.pr': '풀 리퀘스트',
   'contextPanel.mode.mr': '머지 리퀘스트',
   'gitView.mergeRequest.title': 'MR',
@@ -1450,7 +1461,6 @@ export const dict: Record<I18nKey, string> = {
   'walkthrough.blocked.serverUnsupported.description': '이 앱이 연결된 OpenChamber 서버가 워크스루 API에 응답하지 않았습니다. 즉 앱보다 오래된 버전입니다. 서버를 1.18 이상으로 업데이트한 뒤 새로 고치세요.',
   'walkthrough.blocked.contextTooSmall.descriptionUnknownModel': '스몰 모델은 약 {available}천 자를 담을 수 있는데 이 diff에는 약 {required}천 자가 필요합니다. 잘라내지 않으니 컨텍스트가 더 큰 모델을 선택하세요.',
   'walkthrough.blocked.structuredOutput.descriptionUnknownModel': '스몰 모델은 워크스루에 필요한 구조화된 응답을 지원하지 않습니다.',
-  'contextRail.surface.plan.description': '현재 계획 보기',
   'contextRail.surface.pr.description': '현재 브랜치의 풀 리퀘스트를 생성, 검토, 병합',
   'contextRail.surface.mr.description': '현재 브랜치의 머지 리퀘스트를 생성, 검토, 병합',
   'contextRail.surface.notes.description': '프로젝트의 노트, 할 일, 계획, 에이전트 메모리',
@@ -1901,16 +1911,10 @@ export const dict: Record<I18nKey, string> = {
   'rightSidebar.contextNotesTodo.empty.selectProject': '메모와 Todo를 추가할 프로젝트를 선택하세요.',
   'rightSidebar.contextNotesTodo.notes.placeholder': '컨텍스트, 리마인더, 링크를 기록하세요',
   'rightSidebar.contextNotesTodo.notes.addAria': '노트 추가',
-  'rightSidebar.contextNotesTodo.notes.empty': '아직 노트가 없습니다. 맥락이나 메모, 링크를 남겨 보세요.',
   'rightSidebar.contextNotesTodo.notes.actions.expand': '노트 펼치기',
-  'rightSidebar.contextNotesTodo.notes.actions.collapse': '노트 접기',
   'rightSidebar.contextNotesTodo.notes.actions.delete': '노트 삭제',
-  'rightSidebar.contextNotesTodo.notes.actions.pin': '에이전트 컨텍스트에 고정',
-  'rightSidebar.contextNotesTodo.notes.actions.unpin': '에이전트 컨텍스트에서 고정 해제',
   'rightSidebar.contextNotesTodo.notes.source.selection': '채팅에서',
   'rightSidebar.contextNotesTodo.notes.source.agent': '에이전트에서',
-  'rightSidebar.contextNotesTodo.search.placeholder': '검색',
-  'rightSidebar.contextNotesTodo.search.clear': '검색 지우기',
   'rightSidebar.contextNotesTodo.search.noResults': '"{query}"과(와) 일치하는 항목이 없습니다.',
   'rightSidebar.contextNotesTodo.toast.deleteNoteFailed': '노트를 삭제하지 못했습니다',
   'rightSidebar.contextNotesTodo.toast.createNoteFailed': '노트를 만들지 못했습니다',
@@ -1920,7 +1924,6 @@ export const dict: Record<I18nKey, string> = {
   'rightSidebar.contextNotesTodo.plans.actions.back': '계획 목록으로',
   'rightSidebar.contextNotesTodo.tabs.memory': '메모리',
   'rightSidebar.contextNotesTodo.sections.label': '프로젝트 컨텍스트 섹션',
-  'rightSidebar.contextNotesTodo.sections.resize': '섹션 사이드바 너비 조절',
   'rightSidebar.contextNotesTodo.memory.scope.project': '프로젝트',
   'rightSidebar.contextNotesTodo.memory.scope.label': '메모리 범위',
   'rightSidebar.contextNotesTodo.memory.scope.global': '사용자 정보',
@@ -1946,7 +1949,6 @@ export const dict: Record<I18nKey, string> = {
   'rightSidebar.contextNotesTodo.todo.actions.markComplete': '"{text}" 완료로 표시',
   'rightSidebar.contextNotesTodo.todo.actions.collapse': '접기 todo "{text}"',
   'rightSidebar.contextNotesTodo.todo.actions.expand': '펼치기 todo "{text}"',
-  'rightSidebar.contextNotesTodo.todo.actions.delete': '"{text}" 삭제',
   'rightSidebar.contextNotesTodo.todo.actions.send': '보내기 "{text}"',
   'rightSidebar.contextNotesTodo.todo.actions.reorder': '재정렬 "{text}"',
   'rightSidebar.contextNotesTodo.todo.sendMenu.currentSession': '현재 세션으로 보내기',
@@ -1958,7 +1960,6 @@ export const dict: Record<I18nKey, string> = {
   'rightSidebar.contextNotesTodo.plans.sharedBadge': '저장소에 있음',
   'rightSidebar.contextNotesTodo.plans.share': '저장소 플랜 폴더로 이동하여 저장소를 받는 모든 사람이 보게 합니다',
   'rightSidebar.contextNotesTodo.plans.makePersonal': '저장소에서 내 플랜으로 이동',
-  'rightSidebar.contextNotesTodo.plans.deletePlanWithTitle': '플랜 "{title}" 삭제',
   'rightSidebar.contextNotesTodo.sendDialog.title.newSession': '새 세션으로 보내기',
   'rightSidebar.contextNotesTodo.sendDialog.title.newWorktree': '새 워크트리로 보내기',
   'rightSidebar.contextNotesTodo.sendDialog.variant.default': '기본값',
@@ -2279,6 +2280,7 @@ export const dict: Record<I18nKey, string> = {
   'session.newWorktree.toast.worktreeCreatedDescription': '{target} - 백그라운드에서 초기 설정 중',
   'session.newWorktree.toast.fetchSourceFailed': '원격에서 가져오지 못했습니다. 로컬 상태로 생성했습니다',
   'session.newWorktree.toast.fetchSourceAccess': '가져오지 못했습니다: 이 저장소의 접근 권한을 저장소 구성에서 확인해야 합니다. 로컬 상태로 생성했습니다.',
+  'session.newWorktree.toast.branchBackup': '{branch}을(를) 원격과 맞췄습니다. 이전 커밋은 {backup}에 보관했습니다.',
   'session.githubIntegration.tabs.pullRequests': 'PR',
   'session.githubIntegration.validation.branchAlreadyCheckedOut': '브랜치가 이미 워크트리에 체크아웃되어 있습니다',
   'session.githubIntegration.validation.failed': '유효성 검사에 실패했습니다',
@@ -3019,6 +3021,7 @@ export const dict: Record<I18nKey, string> = {
   'desktopHostSwitcher.status.incompatible': '호환되지 않음',
   'desktopHostSwitcher.status.wrongService': '잘못된 서비스',
   'desktopHostSwitcher.status.unreachable': '연결할 수 없음',
+  'desktopHostSwitcher.status.relayLimit': "Relay 한도 도달",
   'desktopHostSwitcher.status.unknown': '알 수 없음',
   'desktopHostSwitcher.status.ping': ' · {ms}ms 핑',
   'desktopHostSwitcher.statusAria': '인스턴스 상태',
@@ -3082,6 +3085,10 @@ export const dict: Record<I18nKey, string> = {
   'desktopHostSwitcher.toast.sshConnected': 'SSH 인스턴스 "{host}"에 연결했습니다',
   'desktopHostSwitcher.toast.sshFailedToConnect': 'SSH 인스턴스 "{host}" 연결에 실패했습니다',
   'desktopHostSwitcher.toast.instanceUnreachable': '인스턴스 "{host}"에 연결할 수 없음',
+  'desktopHostSwitcher.toast.relayLimit': "Relay가 \"{host}\" 연결을 거부했습니다. 기기 또는 재연결이 너무 많습니다. 다른 기기에서 OpenChamber를 닫거나 1분 기다린 뒤 다시 시도하세요.",
+  'relayConnection.limitReached.title': "Relay가 연결을 거부했습니다",
+  'relayConnection.limitReached.description': "이 인스턴스에 연결된 기기 또는 재연결이 너무 많습니다. 다른 기기에서 OpenChamber를 닫거나 1분 기다린 뒤 다시 시도하세요.",
+  'relayConnection.limitReached.retry': "다시 시도",
   'miniChat.header.newSession': '새 세션',
   'miniChat.header.session': '세션',
   'miniChat.header.defaultAgent': '기본 에이전트',
