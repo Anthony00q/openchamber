@@ -11,7 +11,7 @@ const script = fileURLToPath(new URL('./finalize-latest-yml.mjs', import.meta.ur
 const manifest = (platform, architecture, extension) => `version: 1.2.3
 files:
   - url: OpenChamber-1.2.3-${platform}-${architecture}.${extension}
-    sha512: ${architecture}-checksum
+    sha512: ${Buffer.alloc(64, architecture === 'x64' ? 1 : 2).toString('base64')}
     size: 123
 releaseDate: '2026-07-30T00:00:00.000Z'
 `;
@@ -37,7 +37,7 @@ const environment = ({ artifacts, output }) => ({
   ...process.env,
   LATEST_YML_DIR: artifacts,
   RUNNER_TEMP: output,
-  GH_REPO: 'openchamber/openchamber',
+  GH_REPO: 'Anthony00q/openchamber',
   OPENCHAMBER_VERSION: '1.2.3',
 });
 
@@ -65,3 +65,22 @@ test('fails instead of publishing an incomplete Windows channel set', (context) 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Both x64 and arm64 Windows update manifests are required/);
 });
+
+for (const [label, mutate, error] of [
+  ['stale version', (text) => text.replace('version: 1.2.3', 'version: 1.2.2'), /manifest version/],
+  ['wrong architecture', (text) => text.replace('win-arm64.exe', 'win-x64.exe'), /must list only/],
+  ['empty file list', () => 'version: 1.2.3\nfiles: []\n', /must list only/],
+  ['invalid size', (text) => text.replace('size: 123', 'size: -1'), /invalid installer size/],
+  ['invalid checksum', (text) => text.replace(/sha512: .*/, 'sha512: bad'), /invalid SHA-512/],
+  ['invalid date', (text) => text.replace('2026-07-30T00:00:00.000Z', 'invalid'), /invalid release date/],
+]) {
+  test(`rejects ${label} before writing either channel`, (context) => {
+    const fixture = createFixture();
+    context.after(() => fs.rmSync(fixture.root, { recursive: true, force: true }));
+    writeManifest(fixture.artifacts, 'aarch64-pc-windows-msvc', 'latest.yml', mutate(manifest('win', 'arm64', 'exe')));
+    const result = spawnSync(process.execPath, [script], { env: environment(fixture), encoding: 'utf8' });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, error);
+    assert.deepEqual(fs.readdirSync(fixture.output), []);
+  });
+}

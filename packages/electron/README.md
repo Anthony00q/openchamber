@@ -92,7 +92,11 @@ Additional windows keep their own per-window runtime bootstrap instead of being 
 
 The packaged UI protocol rejects relative `/api`, `/auth`, and `/health` requests with JSON `503`; runtime calls must use the per-window HTTP base and never fall back to the app shell.
 
+Extension frames load from `/api/guest-files/<grant>/…`, or `/api/guests/<id>/…` on a server without grants; the desktop navigation guard treats both prefixes as the extension's own pages.
+
 The HTML file preview runs in a sandboxed iframe without `allow-same-origin`, so it has an opaque origin like an extension frame. The desktop navigation guard lets the main app frame load `/api/fs/preview/<grant>/…` into an empty direct child, or reload a preview child with a new grant after the file is saved, and lets the preview follow its own links between pages of the same grant. A preview cannot reach another grant or any other route, and loaded extension frames and their children cannot navigate to a preview.
+
+For a saved host, the guard treats both its `url` and its `apiUrl` as the app's own origin. When a relay host's LAN address changes, the candidate refresh in `packages/ui/src/lib/desktopRelayRestore.ts` rewrites only `apiUrl`, and the window then loads extension pages from that address.
 
 PDF iframes also start with an opaque origin under the packaged UI protocol. The guard lets the main app frame load the HTTP `/api/fs/raw` route into an empty direct child, including under a host path prefix. This does not let loaded extensions, HTML previews, or nested frames navigate to raw files. Isolated-space raw routes are not part of this exception.
 
@@ -104,6 +108,26 @@ again in main, with the same exclusions as the shared UI classifier. Native
 opening failures do not fall back to a browser window for application links.
 
 Native menu actions reach the renderer as one DOM event per click. Main must not also send them over IPC: preload turns every IPC emit into a call to its bridge listeners and a DOM event, so the action would run again. Update-check notifications go over IPC only, for the same reason.
+
+Native Copy link uses `context-menu-clipboard.mjs` to write URL text and bookmark
+metadata together through Electron's `ClipboardItem` API. `electron-context-menu`
+4.1.2 still uses the old object-shaped clipboard write. Inside its `prepend` hook,
+`defaultActions.copyLink()` returns the existing item, so replacing that item's
+handler preserves menu order, visibility and live translations. Copy failures are
+logged without clipboard data.
+
+`scripts/smoke-context-menu.mjs`, run with Electron on an isolated display and
+clipboard, checks the real dependency's menu identity, translations and native
+clipboard writes. On Linux, run it inside a disposable container with its own Xvfb
+display; it writes synthetic data to that display's clipboard and selection.
+The fixture clicks the built menu item programmatically. A live right-click,
+menu selection and paste in the app still need a separate interaction check.
+
+From the repository root inside that disposable container:
+
+```bash
+xvfb-run -a packages/electron/node_modules/.bin/electron --no-sandbox packages/electron/scripts/smoke-context-menu.mjs
+```
 
 The local diagnostics IPC combines the desktop log with the SSH manager's in-memory history. `main.mjs` classifies SSH messages in the native process before returning them; host names, stderr and other raw SSH output never cross to the renderer. Remote SSH files are not read.
 
@@ -262,6 +286,33 @@ Build output goes to `packages/electron/dist`.
 Electron Builder copies the `@openchamber/web` workspace package whole, ignoring its `files` field, so `build.files` in `package.json` excludes what the packaged runtime never loads: the web package's `dist` (packaged builds serve `Resources/web-dist` through `OPENCHAMBER_DIST_DIR`), its `src`, configs, tests and stray tarballs; TypeScript sources, source maps and Markdown other than licenses from every dependency; `bun-pty`, which only the Bun runtime imports; luxon builds other than `build/node` (CommonJS, for cron-parser) and `build/es6` (ESM, for the server); and `node-pty` prebuilds other than `${platform}-${arch}` (the Electron-rebuilt `build/Release` binary loads first; `${platform}` is the build host, which matches the target because `rebuild:native` already builds for the host OS). Keep these exclusions in the top-level `files`: Electron Builder treats a platform-level `files` list as its own file set, and one holding only exclusions copies the whole package directory into the archive. The `afterPack` hook then reads the `app.asar` header (`scripts/packaged-app-contents.cjs`) and fails the build when anything outside `node_modules` other than the bundled main files, `preload.mjs` and `package.json` is packed, when the web `dist` is packed, or when the bundled main files, the web server entry and manifest, or the unpacked git helpers are missing.
 
 macOS builds produce `dmg` and `zip` artifacts. Windows builds produce an NSIS installer. Linux builds produce an AppImage, a `.deb` and an `.rpm` for the native x64 or arm64 host; the `.rpm` needs `rpmbuild` on the build host.
+
+## Fork publication
+
+This fork publishes Windows x64 and ARM64 desktop builds to `Anthony00q/openchamber`.
+The production updater and Electron Builder publish configuration must keep that
+owner. Release tags must name the integrated fork commit; the release preflight
+rejects a source whose package versions, updater owner or Command Code usage
+module do not match the fork release contract.
+
+Both Windows manifests are validated before either output is written. Each must
+name exactly the expected version and architecture's installer, with a positive
+integer size, a SHA-512 checksum and a valid release date. Publication requires
+both Windows builds and both feeds; a failure leaves the release in draft.
+Each Windows build verifies its manifest's installer name, size and checksum
+against the actual installer bytes before uploading anything to the release.
+
+The release workflow disables npm, macOS, Linux and mobile jobs. Independent
+VS Code publication, SDK preview publication, macOS DMG builds and mobile releases
+are disabled too, including manual runs. Fork releases never refresh the upstream
+website. A dry run builds Windows artifacts without creating or publishing a
+GitHub release. Other smoke-test workflows remain available for development.
+
+### Why separate Windows feeds
+
+Each updater channel lists one architecture's installer. Combining both in
+`latest.yml` can select an installer for the wrong CPU, so ARM64 keeps its own
+`latest-arm64.yml` and the finalizer rejects swapped or stale inputs.
 
 ## Platform Notes
 

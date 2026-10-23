@@ -18,6 +18,8 @@ on:
 
 jobs:
   build-macos-dmg-arm64-electron:
+    # Fork: build Windows desktop artifacts only, including manual runs.
+    if: false
     name: Build Electron DMG (arm64, ${{ inputs.macos_version }})
     runs-on: ${{ inputs.macos_version }}
     steps:

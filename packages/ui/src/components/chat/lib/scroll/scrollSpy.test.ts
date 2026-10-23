@@ -8,18 +8,6 @@ const originalGlobals = {
     DOMRect: globalThis.DOMRect,
 };
 
-beforeEach(() => {
-    const windowInstance = new Window();
-    Object.assign(globalThis, {
-        document: windowInstance.document,
-        DOMRect: windowInstance.DOMRect,
-    });
-});
-
-afterEach(() => {
-    Object.assign(globalThis, originalGlobals);
-});
-
 const createHarness = (scroll: { scrollHeight: number; scrollTop: number; clientHeight: number }) => {
     const frames: FrameRequestCallback[] = [];
     const activeTurnIds: string[] = [];
@@ -59,6 +47,18 @@ const turnAt = (viewportTop: number): HTMLElement => {
 };
 
 describe('createScrollSpy', () => {
+    beforeEach(() => {
+        const windowInstance = new Window();
+        Object.assign(globalThis, {
+            document: windowInstance.document,
+            DOMRect: windowInstance.DOMRect,
+        });
+    });
+
+    afterEach(() => {
+        Object.assign(globalThis, originalGlobals);
+    });
+
     test('activates the final turn throughout the chat bottom spacer', () => {
         const { container, spy, activeTurnIds, drainFrames } = createHarness({
             scrollHeight: 1_000,

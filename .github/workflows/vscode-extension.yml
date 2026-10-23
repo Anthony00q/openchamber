@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   publish:
+    # Fork: releases contain Windows desktop artifacts only.
+    if: false
     runs-on: blacksmith-4vcpu-ubuntu-2404
     env:
       VSCE_PAT: ${{ secrets.VSCE_PAT }}

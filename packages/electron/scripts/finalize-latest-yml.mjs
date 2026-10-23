@@ -79,6 +79,28 @@ const winArm64 = await read('latest-yml-aarch64-pc-windows-msvc', 'latest.yml');
 if (!winX64 || !winArm64) {
   throw new Error('Both x64 and arm64 Windows update manifests are required');
 }
+// Validate both channels before writing either output. A stale or swapped
+// artifact must leave the release in draft rather than send the wrong installer.
+for (const [architecture, manifest] of [['x64', winX64], ['arm64', winArm64]]) {
+  if (manifest.version !== version) {
+    throw new Error(`Windows ${architecture} manifest version must be ${version}`);
+  }
+  const expected = `OpenChamber-${version}-win-${architecture}.exe`;
+  if (manifest.files.length !== 1 || manifest.files[0].url !== expected) {
+    throw new Error(`Windows ${architecture} manifest must list only ${expected}`);
+  }
+  const file = manifest.files[0];
+  if (!Number.isSafeInteger(file.size) || file.size <= 0) {
+    throw new Error(`Windows ${architecture} manifest has an invalid installer size`);
+  }
+  const checksum = Buffer.from(file.sha512, 'base64');
+  if (checksum.length !== 64 || checksum.toString('base64') !== file.sha512) {
+    throw new Error(`Windows ${architecture} manifest has an invalid SHA-512 checksum`);
+  }
+  if (!Number.isFinite(Date.parse(manifest.releaseDate))) {
+    throw new Error(`Windows ${architecture} manifest has an invalid release date`);
+  }
+}
 output['latest.yml'] = serialize(winX64);
 output['latest-arm64.yml'] = serialize(winArm64);
 

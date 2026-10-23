@@ -21,6 +21,8 @@ concurrency:
 
 jobs:
   publish:
+    # Fork: npm publishing is disabled, including manual previews.
+    if: false
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     steps:

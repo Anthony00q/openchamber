@@ -50,6 +50,21 @@ jobs:
             echo "version=0.0.0-dev" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Verify fork release source
+        env:
+          VERSION: ${{ steps.get_version.outputs.version }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import fs from 'node:fs';
+          const read = (path) => JSON.parse(fs.readFileSync(path, 'utf8'));
+          for (const path of ['package.json', 'packages/ui/package.json', 'packages/web/package.json', 'packages/electron/package.json']) {
+            assert.equal(read(path).version, process.env.VERSION, `${path} must match the release version`);
+          }
+          assert.equal(read('packages/electron/package.json').build.publish.owner, 'Anthony00q', 'Release source must retain the fork updater destination');
+          assert.ok(fs.existsSync('packages/web/server/lib/quota/providers/command-code.js'), 'Release source must retain Command Code usage');
+          NODE
+
       - name: Extract changelog for release
         id: release_notes
         env:
@@ -364,6 +379,16 @@ jobs:
           node ./scripts/package.mjs --win --${{ matrix.arch }} --publish=never
           bun run verify:opencode-cli:packaged
 
+      - name: Validate Windows update manifest
+        working-directory: packages/electron
+        shell: bash
+        env:
+          VERSION: ${{ needs.create-release.outputs.version }}
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: |
+          node ./scripts/verify-update-manifest.mjs dist/latest.yml "$VERSION" \
+            "dist/OpenChamber-${VERSION}-win-${TARGET_ARCH}.exe"
+
       - name: Upload installer to release
         if: ${{ github.event.inputs.dry_run != 'true' }}
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
@@ -381,6 +406,7 @@ jobs:
         with:
           name: latest-yml-${{ matrix.target }}
           path: packages/electron/dist/latest.yml
+          if-no-files-found: error
           retention-days: 1
 
   build-desktop-electron-linux:
@@ -730,6 +756,8 @@ jobs:
           NODE
 
       - name: Trigger openchamber-website site refresh (optional)
+        # Fork releases never dispatch a refresh to the upstream website.
+        if: false
         env:
           WEBSITE_REPO: openchamber/openchamber-website
           WEBSITE_TOKEN: ${{ secrets.OPENCHAMBER_WEBSITE_REPO_TOKEN }}

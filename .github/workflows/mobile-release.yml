@@ -71,6 +71,8 @@ env:
 
 jobs:
   resolve-version:
+    # Fork: mobile publishing is disabled, including manual and reusable runs.
+    if: false
     name: Resolve mobile version
     runs-on: ubuntu-latest
     outputs:
