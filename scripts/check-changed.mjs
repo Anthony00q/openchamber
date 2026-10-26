@@ -118,10 +118,25 @@ const runOxlint = (files) => {
     if (!result.stdout) {
       throw new Error(`oxlint produced no report: ${result.error?.message ?? result.stderr ?? 'unknown process error'}`);
     }
-    diagnostics.push(...JSON.parse(result.stdout).diagnostics);
+    diagnostics.push(...parseOxlintReport(result.stdout));
   }
 
   return diagnostics;
+};
+
+/**
+ * Findings from oxlint's JSON report. A change that touches only paths the
+ * config ignores, such as generated example bundles, leaves oxlint with
+ * nothing to lint: it prints "No files found to lint." instead of a report,
+ * and that means no findings rather than a broken gate.
+ */
+export const parseOxlintReport = (stdout) => {
+  const start = stdout.indexOf('{');
+  if (start === -1) {
+    if (stdout.includes('No files found to lint')) return [];
+    throw new Error(`oxlint produced no report: ${stdout}`);
+  }
+  return JSON.parse(stdout.slice(start)).diagnostics;
 };
 
 const checkAntiSlopRatchet = (base, files) => {

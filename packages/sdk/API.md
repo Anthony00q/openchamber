@@ -215,7 +215,7 @@ Await subscription registration to handle refusal, then retain its returned unsu
 
 Snapshots carry `state: 'loading' | 'ready' | 'error'`; session snapshots also carry per-directory `coverage`. Loading/error may retain data. Only `ready` establishes complete empty success. Reads use existing shared stores and hydration, never a git scan per extension request.
 
-Projects contain `id`, `name`, `directory`. Worktrees contain `directory`, `name`, `branch`, and `status: 'ready' | 'pending' | 'invalid' | 'missing'`. Session records contain `id`, `title`, `projectId`, `directory`, `parentId`, `createdAt`, `updatedAt`, `archivedAt`, `worktree`, `activity`, `outcome`, and `items`. Item references contain only this extension's `id` and optional `data`.
+Projects contain `id`, `name`, `directory`. Worktrees contain `directory`, `name`, `branch`, and `status: 'ready' | 'pending' | 'invalid' | 'missing'`. Session records contain `id`, `title`, `projectId`, `directory`, `parentId`, `createdAt`, `updatedAt`, `archivedAt`, `worktree`, `activity`, `outcome`, `items`, and `links`. Item references contain only this extension's `id` and optional `data`. `links` is every thread linked to the session, whoever linked it (the user, the agent through `session.link`, this extension or another), each with `title`, `url`, `kind: 'issue' | 'change'` (`change` is a pull, merge or change request) and `linkedAt`; read-only, and a change to it sends a new snapshot. Hosts older than this field omit it.
 
 `activity` is `unknown`, `idle`, `running`, `retrying`, `waiting-permission`, or `waiting-question` (the agent put a form to the user and is waiting on the answer). `outcome` is the last observed `completed` or `failed` turn, or `null` when unknown or working. Outcomes are in memory for the latest 2,000 observed sessions, reset on runtime switch, and are not reconstructed from persisted history. A later idle event preserves an observed failure until another run starts. `completed` never means the extension's task is Done. Blocking-request contents and approve/reply actions are not exposed.
 
@@ -252,6 +252,31 @@ Omit `options`, or pass `{ scope: 'instance' }`, for this existing server-owned 
 `contributes.statusSection: true` reuses `panel.entry`; `{ entry: 'status/index.html', title?: 'Recent commits', height?: 160, defaultExpanded?: false, requiresProject?: true }` uses separate package HTML (`.html`, inside the package, built scripts checked at install). The object form needs no `panel.entry`, so an extension can ship only a section and no rail icon. `title` is 1 to 60 characters and replaces `panel.name` on the section header; the icon is `panel.icon`. `height` (24 to 320, default 120) is the frame height before your page calls `setHeight`. Omitted `defaultExpanded` preserves the existing expanded default; a saved user expansion choice still wins. `requiresProject` uses the actual Work Status directory and hides the section when no project is open. The section appears in the chat's Work Status panel and in its section chooser, where the user can hide it or move it. `ctx.surface` is `status`. The frame runs only while the panel is shown and the section is expanded, so keep no state in it that you cannot rebuild. It gets the same sandbox, directory, session, theme, grants, and service as a panel. A status-only package may declare `capabilities`, `service`, `integration`, and `filesystem`; `page`, `attach`, `actions`, and `commands` still need `panel.entry` or `background.entry`. Web and desktop only. `apiVersion` remains 1; VS Code and mobile remain unsupported.
 
 `setStatusControls` accepts zero to four declarations. A button is `{ kind: 'button', id, label, disabled? }`; a select is `{ kind: 'select', id, label, value, options, disabled? }`, with one to 16 unique options and a selected value in that list. IDs are kebab-case and at most 40 characters; labels are 1 to 60 characters; option values are 1 to 80 characters. Register `onStatusControl` synchronously after `connectHost`, then feature-gate `setStatusControls` with `features.statusControls`. Buttons receive no `value`; select events carry a declared value. The host rejects stale, unknown, disabled, or invalid controls. It accepts at most 20 changed control publications per second per frame and avoids semantic no-op updates. Controls exist only for the expanded, mounted status frame that registered them. Folding or hiding the section removes controls and listeners. A project change clears header controls; publish them again from `onDirectory`. Workspace subscriptions remain active. Old hosts return `UNSUPPORTED`; keep a body control visible until `setStatusControls` succeeds.
+
+#### Sections the app draws
+
+With `source`, the app draws the section itself and loads no frame: `{ source: { path: '/status', interval?: 2000 }, title?: 'Resources' }`. It needs `contributes.service`; a section with a source and no `entry` needs no `panel.entry` either. While the section is shown and expanded, the app sends `GET /status` to your service, then again `interval` ms (1000 to 60000, default 2000) after each answer. The query carries `locale` (the app's language, such as `uk` or `pt-BR`) and `directory` when the panel shows a project. Answer with JSON:
+
+```json
+{
+  "rows": [
+    { "kind": "line", "id": "cpu", "label": "CPU", "content": { "kind": "bar", "value": 25, "tone": "info" }, "value": "25%" },
+    { "kind": "line", "id": "app", "label": "OpenChamber", "value": "1.6 GB",
+      "content": { "kind": "chart", "values": [1.5e9, 1.6e9], "unit": "bytes", "step": 2, "tone": "accent" } },
+    { "kind": "line", "id": "web", "label": "web", "dot": "success",
+      "content": { "kind": "chips", "chips": [{ "id": "port-5173", "label": ":5173", "url": "http://localhost:5173" }] },
+      "actions": [{ "kind": "button", "id": "stop-web", "label": "Stop", "variant": "destructive", "confirm": "Stop web?" }] },
+    { "kind": "note", "id": "hint", "text": "Docker isn't running.", "tone": "warning" }
+  ],
+  "controls": [{ "kind": "button", "id": "refresh", "label": "Refresh" }]
+}
+```
+
+A `line` has a `label` and optionally an `icon` (a Remixicon name; an unknown one is left out), a status `dot`, one `content`, a `value` with `valueTone`, a `badge` `{ label, tone? }`, a `tooltip`, and up to two `actions`. `content` is a `bar` (`value` 0 to 100), a `chart` (`values` oldest first, at most 120; `max`; `unit` `bytes`, `percent` or `count` for the hover label; `step` seconds between points), `chips` (one to six, each with an optional `http(s)` `url` the chip opens), `text`, or a `segmented` choice of two to four options. Actions are a `button` (`variant` `default`, `outline` or `destructive`; `confirm` asks on the first click and acts on the second), a `switch` (`checked`), or a `select`. A `note` is a line of text, `muted` by default or tinted `info`, `warning` or `error`. `controls` are header controls in the `setStatusControls` shape. Tones are `default`, `muted`, `accent`, `success`, `warning`, `error` and `info`; the app takes their colours from its theme. At most 16 rows. Row ids are unique, and so are control ids across the whole answer. Types: `GuestStatusView` and friends in `@openchamber/sdk`; the app checks answers with `guestStatusViewSchema` from `@openchamber/sdk/schemas` and shows an error instead of an answer that does not parse.
+
+When the user activates a control, the app posts `{ "id": "stop-web" }` to the same path, with `value` for a choice (`on` or `off` for a switch), and reads the section again as soon as you answer. Answer 2xx when it worked; otherwise the app shows an error toast with your `{ "message": "..." }` when the body has one. The choice shows at once and stays until a reading taken after your answer.
+
+Keep `entry` beside `source` to support OpenChamber versions that predate it: they ignore `source` and load the frame. Web and desktop only, like every status section.
 
 ### File editors
 

@@ -54,7 +54,8 @@ The overlay form stays inside the chat column in `ChatContainer`.
 `useWorkStatusVisibility` hides the panel when any of these hold:
 
 - the user switched it off;
-- the runtime is mobile or VS Code;
+- the runtime is mobile or VS Code (the phone shows the sections in its own
+  tab, see below);
 - the context panel is open for the directory the app is effectively on —
   looked up through `useEffectiveDirectory` and `normalizeContextPanelDirectoryKey`,
   the same key the rail and the panel use. It is deliberately **not** the
@@ -101,6 +102,45 @@ The context-panel check mirrors `ContextPanel`'s own derivation: `isOpen` alone
 is not enough, because a panel with no resolvable active tab renders nothing
 and therefore displaces nothing.
 
+## On the phone
+
+The phone has no card. Its workspace drawer opens on a Work status tab
+(`apps/MobileStatusPane.tsx`), first by default, that renders the same
+`WorkStatusSectionList` the card renders, for the session on screen. It
+replaced the drawer's MCP tab: the MCP section carries the same switches.
+
+- **Its own hidden list.** `mobileWorkStatusHiddenSections` is per device and
+  starts with Subagents hidden; the order is the shared
+  `workStatusSectionOrder`. `useWorkStatusHiddenSections` picks the list by
+  `isMobile`, so the sections dialog edits whichever one is on screen.
+- **Usage is left out** (`useUnavailableWorkStatusSections`). The phone has its
+  own Usage page, which reads better there than these compact rows.
+- **Rows go where the phone can show them.** The rows read
+  `useMobileAppActions`: Branch and Changes switch to the drawer's Changes tab,
+  PR and Checks open the PR on the issues and PRs board by its link, and the
+  Context row and the project's app and run controls are absent, since they
+  need a desktop host. A row that opens something outside the drawer (a
+  subagent's session, a pinned message, the board) closes the drawer through
+  `LeaveWorkStatusContext`; the desktop card provides none.
+- **The phone's look, from the same primitives.** Under `WorkStatusTouchContext`
+  (`touchContext.ts`) the primitives draw what the phone's Usage popover draws:
+  a quiet heading over one toned card per section, rows at least 44px with a
+  20px icon column, label then value on the end, text from the typography
+  scale (`typography-ui-label`, `typography-meta`) so it follows the phone's
+  text size. Sections take no props for it. The one section that reads the
+  context itself is MCP: its switch moves from the icon column to the row's
+  end, full size, where a phone puts a switch.
+- The sections dialog opens from a button in the drawer's tab row, shown while
+  this tab is open, rather than over the first heading as on the card.
+- Sections mount only while the tab is on screen, so a closed drawer holds no
+  subscriptions.
+
+### Why a separate hidden list and not the shared one
+
+Subagents are off on the phone unless the user turns them on, while on desktop
+every section is on. One shared list could not hold both defaults, and a phone
+and a laptop are set up apart anyway, as the drawer's tabs already are.
+
 ## Data sources
 
 Everything is read from already-warm caches. The panel adds no aggregated
@@ -115,6 +155,7 @@ which requests only providers enabled for this panel.
 | PR + checks | `useFreshestSourceControlVisualSummaryForBranch` | **read-only**; follows the freshest bound-identity entry for the branch |
 | Subagents | child sessions from `useAllLiveSessions` (`parentID`) + `useAllSessionStatuses`; per-row cost from `computeRollup`'s `perChildCost` (each child's own subtree total, so nested subagent-of-subagent cost rolls up under its immediate parent row) | |
 | Subagent blockers | directory `permission` / `question` maps | one subscription covers every child |
+| Workflows | `useSessionWorkflowRuns` (`lib/workflows/store.ts`): the session's runs read once from the server, then kept current by `openchamber:workflow-run` events | only in builds with workflows |
 | Usage | `components/usage/usageGroups.ts` over `useQuotaStore` | grouping shared with the mobile popover; presentation is not |
 | Linked threads | `lib/linkedIssues.ts` over session metadata; state from tracked items | written by the flows that attach an issue or PR, and removable from the row; a linked PR that is also the checked-out branch's PR shows the branch summary, as its sidebar row does |
 | Turn stats | `telemetry.ts` over `useSessionMessageRecords` | computed while authoritatively idle, including when collapsed so the headline stays current; either rate above 5,000 tok/s is reported as unknown (see the two-rate description below) |
@@ -128,8 +169,13 @@ which requests only providers enabled for this panel.
 
 Subagent status uses the Tasks section's leading icons: blue for busy/retrying,
 green for idle, and a neutral clock while status is unknown. A successful status
-snapshot also establishes idle for omitted sessions in that same directory,
-compared as normalized paths and skipping sessions whose status was invalidated.
+snapshot of the panel's directory also establishes idle for omitted children,
+skipping sessions whose status was invalidated. That snapshot is the server's
+list of running sessions (`getActiveSessionStatuses`): the host's covers every
+host directory, a space's covers only that space. So it covers a child in any
+directory on the same side of that boundary, including one that moved to
+another worktree (`session_move`); comparing the directories themselves left
+such a child on the clock forever once the page reloaded after it finished.
 The global status store fills the gap for children the snapshot does not cover:
 a child it holds as busy runs, and one it saw settle is idle (or failed).
 Permission requests and questions take precedence with a warning icon and text.
@@ -169,8 +215,17 @@ message's output tokens divided by the union of its nonempty text intervals.
 It excludes initial waiting, reasoning tokens and reasoning time, and earlier
 tool steps. It requires complete, valid text timing and a final message without
 tools, errors, synthetic text or ignored text. This measures text delivery from
-stored timestamps, not provider-side decode speed. The header shows only this
-rate; unavailable response timing never falls back to whole-turn speed.
+the live text timestamps, not provider-side decode speed. The header shows only
+this rate; unavailable response timing never falls back to whole-turn speed.
+OpenCode stores no timing for text, so a reloaded or never-watched turn has
+text stamped with its step's `created` and `completed`. A text start equal to
+`created` is that stamp, so Response speed is unknown after a reload.
+
+Hiding it there was weighed against one window for both cases, the whole final
+step from `created` to `completed`. That window gives the same number live and
+after a reload, but it counts the initial wait and reasoning, which the row's
+tooltip excludes, and it read about half the live rate on real turns. A missing
+number is better than a second, lower one for the same turn.
 
 Whole-turn speed uses output plus reasoning tokens from every step, divided by
 elapsed assistant time minus the union of completed and failed tool intervals.
@@ -270,6 +325,16 @@ only the automatic remote key, so the panel reads the freshest entry for the
 directory and branch across remote keys. This keeps its PR and checks rows in
 sync with the live PR surface without adding another request owner.
 
+### Why checks read "7/9" and not one word per state
+
+The Checks row shows passed out of all after a dot in the run's colour: red
+once any check failed, yellow while any still runs (the dot blinks on the
+shared clock), green when all passed. Skipped and neutral checks count as
+passed, as the server's summary counts them. This is the form GitHub's pull
+request list uses, so the number reads the same in both places. The row once
+showed "1 failed" or "2 running" alone, which gave no sense of how far the run
+was; the per-state counts now live in the row's tooltip.
+
 ### Changed files come from git status, not the session
 
 `Session.summary` looks like the obvious source and does not work. OpenCode's
@@ -297,6 +362,31 @@ changes on the branch, so the panel neither fetches status nor renders the
 changed-files row until the bootstrap settles, then forces one status fetch so
 the row reflects the reset tree rather than a mid-creation snapshot.
 
+### Workflow rows
+
+The Workflows section lists the runs the session proposed
+(`packages/web/server/lib/workflows`), newest first. Where the context panel
+exists (desktop and web), a run is one row that opens it in the Workflows
+panel (`components/chat/workflows/WorkflowsPanel.tsx`), which shows its agents,
+log, result and script. The row carries Run and Don't run while the run waits
+for approval and Resume after a failure or a stop; a running run shows its
+current phase and how many of its agents finished; a finished run's icon is
+its state, with no word beside it, as in Subagents. Stop lives in the panel
+and on the chat card. On the phone, which has no context panel, a run's row
+carries the same actions plus Stop, an open run lists its phases with how many
+agents finished and each phase its agents, and a finished run folds to its row
+until pressed. An agent row opens its session like a subagent row
+(`useOpenChildSession`, shared with the Subagents section).
+
+A workflow's agents are child sessions of the session too. The Subagents
+section leaves them out, so a run of fifty agents does not bury the session's
+own subagents and each session shows in one place.
+
+In a build without workflows the section exists in no list: the panel and the
+sections dialog both drop it (`useUnavailableWorkStatusSections`), so the name
+of an unreleased feature does not appear in the dialog. Its id stays in the
+saved order, so it comes back where the user put it.
+
 ## Section order
 
 The default order is by durability:
@@ -306,7 +396,7 @@ The default order is by durability:
    throughput, duration, TTFT, cache hit rate) — true for as long as the session
    is open. Usage sits here rather than lower down because a spent quota stops the
    work outright;
-2. **Subagents** — what is happening right now;
+2. **Subagents** and **Workflows** — what is happening right now;
 3. **MCP**, **Pinned messages**, **Context sources** — supporting material.
 
 The sections dialog has drag handles for changing this order, including hidden
@@ -373,7 +463,25 @@ helper and the host overlay controller. This does not increase the status
 frame's 320px height limit. The public contract is in `packages/sdk/API.md`,
 under Anchored popovers.
 
-`useWorkStatusExtensionSections` lists active guests with a `statusEntry` from
+### Sections the app draws
+
+An extension that declares `statusSection.source` gets no frame. `WorkStatusGuestView` reads its service (`lib/guests/status-view.ts`) and draws the answer with the panel's own row vocabulary: the same 28px rows, muted text, tone colours from the theme, pills for chips and badges, the shared `Button`, `Switch` and dropdown. The body is mounted under the same rule as a frame (shown, expanded), so reading starts and stops with it, and is keyed by guest and directory, so a project change starts from an empty view rather than showing the last project's numbers. Reads pause while the document is hidden. Header controls in the answer go through the same `GuestStatusControlBinding` a frame's `setStatusControls` uses, so `StatusHeaderControls` draws both.
+
+A failed read keeps the last view on screen, faded, under an error note; before the first answer the body says it is reading. An action holds its control, in a row or in the header, while the request runs, shows a chosen value at once, and keeps it until a read that started after the service's answer is on screen (`StatusViewPoller.refresh` resolves then), so a read already under way cannot flip it back. A refused action drops the choice and shows the service's message, or a generic one, in a toast. A row's tooltip covers the whole row, except on a row with a chart, whose own hover label owns the middle; there the tooltip sits on the label.
+
+#### Why the host polls and not the service pushing
+
+Polling a path keeps the service a plain HTTP handler, which is what every extension service already is, and reuses the authenticated `service/request` proxy with its pause, approval and size checks. A push channel would save requests while nothing changes, but needs a socket per section and reconnect logic in every extension. The interval has a floor of one second, reads never overlap, and a hidden document reads nothing.
+
+#### Why only theme tones and not colours
+
+The section sits among the app's own sections and follows the theme, light and dark, without the extension knowing either. An extension that needs its own colours keeps its frame.
+
+#### Why rows keep their objects between reads
+
+`createGuestStatusViewReader` returns the previous view untouched when the answer's body is byte-identical, and otherwise reuses each row object, and the header controls, whose JSON did not change. Rows are memoized by identity and the header binding follows the controls' identity, so a sample that moves one number redraws one row instead of the section and its header.
+
+`useWorkStatusExtensionSections` lists active guests with a `statusEntry` or `statusSource` from
 the catalog store (`useGuestStatusSections`). It is empty on VS Code and
 mobile, which load no guests; the panel is hidden there anyway, but the empty
 list is explicit rather than an accident of visibility. The rail owns loading

@@ -575,13 +575,22 @@ const handleLocalApiRequest = async (input: RequestInfo | URL, url: URL, init: R
     // extension host's activity watcher. Its phases collapse busy and retry
     // into `busy` and it settles sessions itself through `cooldown`, so every
     // busy entry is current as of now.
-    type ActivitySnapshot = Record<string, { type: 'idle' | 'busy' | 'cooldown' }>;
+    type ActivitySnapshot = Record<string, { type: 'idle' | 'busy' | 'cooldown'; startedAgoMs?: number }>;
     const activity = await sendBridgeMessage<ActivitySnapshot>('api:session-activity:get')
       .catch((): ActivitySnapshot => ({}));
     const now = Date.now();
-    const sessions: Record<string, { status: 'busy'; lastUpdateAt: number }> = {};
+    type StatusEntry = { status: 'busy'; lastUpdateAt: number; turnStartedAt?: number };
+    const sessions: Record<string, StatusEntry> = {};
     for (const [sessionId, entry] of Object.entries(activity || {})) {
-      if (entry?.type === 'busy') sessions[sessionId] = { status: 'busy', lastUpdateAt: now };
+      if (entry?.type !== 'busy') continue;
+      const status: StatusEntry = { status: 'busy', lastUpdateAt: now };
+      // The extension host reports the age, not a timestamp, because its clock
+      // and this webview's may differ on a remote window. Anchoring the age
+      // here keeps the count on this device's clock.
+      if (entry.startedAgoMs !== undefined) {
+        status.turnStartedAt = now - Math.max(0, entry.startedAgoMs);
+      }
+      sessions[sessionId] = status;
     }
     // The extension host keeps no pending-request map; directory stores and
     // its own auto-accept path cover requests in VS Code.

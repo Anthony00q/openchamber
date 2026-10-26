@@ -20,6 +20,7 @@ try {
 test('JSON tree stays bounded and its tail remains reachable', { skip: !chrome && 'Set OPENCHAMBER_TEST_CHROME to run the browser regression', timeout: 120_000 }, async (t) => {
   mkdirSync(path.join(repo, 'tmp'), { recursive: true });
   const fixture = mkdtempSync(path.join(repo, 'tmp/json-tree-'));
+  const profileDir = mkdtempSync(path.join(repo, 'tmp/json-tree-profile-'));
   writeFileSync(path.join(fixture, 'index.html'), '<!doctype html><html><body><div id="host" style="height:520px;width:320px;overflow:auto"></div><script type="module" src="/fixture.tsx"></script></body></html>');
   writeFileSync(path.join(fixture, 'fixture.tsx'), `
     import React from 'react';
@@ -54,7 +55,7 @@ test('JSON tree stays bounded and its tail remains reachable', { skip: !chrome &
   try {
     await server.listen();
     const port = await reservePort();
-    browser = launchChrome({ chrome, port, profileDir: path.join(fixture, 'profile'), headless: true, extraArgs: ['--no-sandbox', '--disable-dev-shm-usage'] });
+    browser = launchChrome({ chrome, port, profileDir, headless: true, extraArgs: ['--no-sandbox', '--disable-dev-shm-usage'] });
     const target = await createPageTarget(port);
     client = new CdpClient(target.webSocketDebuggerUrl);
     await client.connect();
@@ -203,5 +204,6 @@ test('JSON tree stays bounded and its tail remains reachable', { skip: !chrome &
     }
     await within(server.close(), 3_000);
     rmSync(fixture, { recursive: true, force: true });
+    rmSync(profileDir, { recursive: true, force: true });
   }
 });

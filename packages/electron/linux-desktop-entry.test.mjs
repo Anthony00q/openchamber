@@ -6,6 +6,7 @@ import test from 'node:test';
 
 import { buildAppImageDesktopEntry, reconcileAppImageDesktopEntry } from './linux-desktop-entry.mjs';
 
+const testLinux = process.platform === 'linux' ? test : test.skip;
 const ICON = Buffer.from('png-bytes');
 
 const makeLab = async (t) => {
@@ -37,7 +38,7 @@ const writeEntry = async (filePath, contents) => {
   await fs.writeFile(filePath, contents);
 };
 
-test('a first AppImage launch writes a visible launcher entry and its icon', async (t) => {
+testLinux('a first AppImage launch writes a visible launcher entry and its icon', async (t) => {
   const lab = await makeLab(t);
   const result = await reconcileAppImageDesktopEntry({ env: lab.env, homeDir: lab.homeDir });
 
@@ -50,14 +51,14 @@ test('a first AppImage launch writes a visible launcher entry and its icon', asy
   assert.doesNotMatch(entry, /NoDisplay/);
 });
 
-test('a second launch from the same place changes nothing', async (t) => {
+testLinux('a second launch from the same place changes nothing', async (t) => {
   const lab = await makeLab(t);
   await reconcileAppImageDesktopEntry({ env: lab.env, homeDir: lab.homeDir });
   const result = await reconcileAppImageDesktopEntry({ env: lab.env, homeDir: lab.homeDir });
   assert.equal(result.changed, false);
 });
 
-test('an entry the user hid with a menu editor stays hidden', async (t) => {
+testLinux('an entry the user hid with a menu editor stays hidden', async (t) => {
   const lab = await makeLab(t);
   await reconcileAppImageDesktopEntry({ env: lab.env, homeDir: lab.homeDir });
   const hidden = `${await fs.readFile(lab.desktopPath, 'utf8')}NoDisplay=true\n`;
@@ -68,7 +69,7 @@ test('an entry the user hid with a menu editor stays hidden', async (t) => {
   assert.equal(await fs.readFile(lab.desktopPath, 'utf8'), hidden);
 });
 
-test('a moved AppImage rewrites Exec and TryExec', async (t) => {
+testLinux('a moved AppImage rewrites Exec and TryExec', async (t) => {
   const lab = await makeLab(t);
   await reconcileAppImageDesktopEntry({ env: lab.env, homeDir: lab.homeDir });
   const moved = { ...lab.env, APPIMAGE: path.join(lab.homeDir, 'Apps', 'OpenChamber.AppImage') };
@@ -78,7 +79,7 @@ test('a moved AppImage rewrites Exec and TryExec', async (t) => {
   assert.match(await fs.readFile(lab.desktopPath, 'utf8'), new RegExp(`^TryExec=${moved.APPIMAGE}$`, 'm'));
 });
 
-test('an entry written by Gear Lever under the same name is left alone', async (t) => {
+testLinux('an entry written by Gear Lever under the same name is left alone', async (t) => {
   const lab = await makeLab(t);
   const gearLever = '[Desktop Entry]\nName=OpenChamber (2.3.0)\nExec=env DESKTOPINTEGRATION=1 /home/u/AppImages/openchamber.appimage --no-sandbox %U\nStartupWMClass=openchamber\n';
   await writeEntry(lab.desktopPath, gearLever);
@@ -88,7 +89,7 @@ test('an entry written by Gear Lever under the same name is left alone', async (
   assert.equal(await fs.readFile(lab.desktopPath, 'utf8'), gearLever);
 });
 
-test('a launch from Gear Lever withdraws our earlier entry', async (t) => {
+testLinux('a launch from Gear Lever withdraws our earlier entry', async (t) => {
   const lab = await makeLab(t);
   await reconcileAppImageDesktopEntry({ env: lab.env, homeDir: lab.homeDir });
   const result = await reconcileAppImageDesktopEntry({ env: { ...lab.env, DESKTOPINTEGRATION: '1' }, homeDir: lab.homeDir });
@@ -98,7 +99,7 @@ test('a launch from Gear Lever withdraws our earlier entry', async (t) => {
   await assert.rejects(fs.access(lab.iconPath));
 });
 
-test('another entry claiming the window class withdraws ours', async (t) => {
+testLinux('another entry claiming the window class withdraws ours', async (t) => {
   const lab = await makeLab(t);
   await reconcileAppImageDesktopEntry({ env: lab.env, homeDir: lab.homeDir });
   await writeEntry(path.join(path.dirname(lab.desktopPath), 'appimagekit_abc-OpenChamber.desktop'),
@@ -109,7 +110,7 @@ test('another entry claiming the window class withdraws ours', async (t) => {
   await assert.rejects(fs.access(lab.desktopPath));
 });
 
-test('another entry that starts this AppImage counts as an integration', async (t) => {
+testLinux('another entry that starts this AppImage counts as an integration', async (t) => {
   const lab = await makeLab(t);
   await writeEntry(path.join(lab.homeDir, 'data', 'applications', 'my-chamber.desktop'),
     `[Desktop Entry]\nName=Mine\nExec=${lab.env.APPIMAGE}\n`);
@@ -119,7 +120,7 @@ test('another entry that starts this AppImage counts as an integration', async (
   await assert.rejects(fs.access(lab.desktopPath));
 });
 
-test('nothing is written outside an AppImage or without its icon', async (t) => {
+testLinux('nothing is written outside an AppImage or without its icon', async (t) => {
   const lab = await makeLab(t);
   assert.deepEqual(
     await reconcileAppImageDesktopEntry({ env: { ...lab.env, APPIMAGE: '' }, homeDir: lab.homeDir }),
@@ -135,7 +136,7 @@ test('nothing is written outside an AppImage or without its icon', async (t) => 
 const PACKAGE_ENTRY = '[Desktop Entry]\nName=OpenChamber\nExec=/opt/OpenChamber/openchamber %U\n';
 const packagedEnv = (lab) => ({ XDG_DATA_HOME: lab.env.XDG_DATA_HOME, XDG_DATA_DIRS: lab.env.XDG_DATA_DIRS });
 
-test('an installed package withdraws the entry an earlier AppImage run left', async (t) => {
+testLinux('an installed package withdraws the entry an earlier AppImage run left', async (t) => {
   const lab = await makeLab(t);
   await reconcileAppImageDesktopEntry({ env: lab.env, homeDir: lab.homeDir });
   await writeEntry(lab.packageEntryPath, PACKAGE_ENTRY);
@@ -145,7 +146,7 @@ test('an installed package withdraws the entry an earlier AppImage run left', as
   await assert.rejects(fs.access(lab.iconPath));
 });
 
-test('an extracted AppImage run keeps the entry when no package is installed', async (t) => {
+testLinux('an extracted AppImage run keeps the entry when no package is installed', async (t) => {
   const lab = await makeLab(t);
   await reconcileAppImageDesktopEntry({ env: lab.env, homeDir: lab.homeDir });
 
@@ -153,7 +154,7 @@ test('an extracted AppImage run keeps the entry when no package is installed', a
   await fs.access(lab.desktopPath);
 });
 
-test('a data directory list that includes the user folder does not count our entry as a package', async (t) => {
+testLinux('a data directory list that includes the user folder does not count our entry as a package', async (t) => {
   const lab = await makeLab(t);
   const env = { ...lab.env, XDG_DATA_DIRS: `${lab.env.XDG_DATA_HOME}:${lab.env.XDG_DATA_DIRS}` };
   await reconcileAppImageDesktopEntry({ env, homeDir: lab.homeDir });
@@ -162,7 +163,7 @@ test('a data directory list that includes the user folder does not count our ent
   assert.deepEqual(result, { status: 'integrated', changed: false, desktopPath: lab.desktopPath });
 });
 
-test('an AppImage run beside an installed package writes nothing', async (t) => {
+testLinux('an AppImage run beside an installed package writes nothing', async (t) => {
   const lab = await makeLab(t);
   await reconcileAppImageDesktopEntry({ env: lab.env, homeDir: lab.homeDir });
   await writeEntry(lab.packageEntryPath, PACKAGE_ENTRY);
@@ -172,7 +173,7 @@ test('an AppImage run beside an installed package writes nothing', async (t) => 
   await assert.rejects(fs.access(lab.desktopPath));
 });
 
-test('an installed package leaves an unmarked entry alone', async (t) => {
+testLinux('an installed package leaves an unmarked entry alone', async (t) => {
   const lab = await makeLab(t);
   const gearLever = '[Desktop Entry]\nName=OpenChamber\nExec=/home/u/AppImages/openchamber.appimage\n';
   await writeEntry(lab.desktopPath, gearLever);
@@ -183,7 +184,7 @@ test('an installed package leaves an unmarked entry alone', async (t) => {
   assert.equal(await fs.readFile(lab.desktopPath, 'utf8'), gearLever);
 });
 
-test('Exec quotes the path the way the Desktop Entry spec asks', () => {
+testLinux('Exec quotes the path the way the Desktop Entry spec asks', () => {
   const entry = buildAppImageDesktopEntry({ appImagePath: '/home/u/My "Apps"/100% $x.AppImage', iconPath: '/i.png' });
   assert.match(entry, /^Exec="\/home\/u\/My \\\\"Apps\\\\"\/100%% \\\\\$x\.AppImage" %U$/m);
   assert.match(entry, /^TryExec=\/home\/u\/My "Apps"\/100% \$x\.AppImage$/m);

@@ -71,17 +71,21 @@ describe('magic prompts in the extension host', () => {
       });
       return (await service.ownerOfDirectory(directory))?.path ?? null;
     };
-    const repo = { root: '/repo', worktrees: ['/repo', '/wts/one'] };
+    const rootPath = (...parts: string[]) => path.resolve(path.parse(process.cwd()).root, ...parts);
+    const primary = rootPath('repo');
+    const worktree = rootPath('wts', 'one');
+    const repo = { root: primary, worktrees: [primary, worktree] };
 
     for (const [folders, directory, owner] of [
-      [['/repo'], '/wts/one/src', '/repo'],
-      [['/repo/ai', '/repo/web'], '/wts/one/ai/nested', '/repo/ai'],
-      [['/repo/ai'], '/wts/one/docs', null],
+      [[primary], path.join(worktree, 'src'), primary],
+      [[path.join(primary, 'ai'), path.join(primary, 'web')], path.join(worktree, 'ai', 'nested'), path.join(primary, 'ai')],
+      [[path.join(primary, 'ai')], path.join(worktree, 'docs'), null],
       // A worktree opened as its own folder is its own project, also with the parent open.
-      [['/repo', '/wts/one'], '/wts/one/src', '/wts/one'],
-      [['/repo'], '/repo-copy', null],
+      [[primary, worktree], path.join(worktree, 'src'), worktree],
+      [[primary], rootPath('repo-copy'), null],
     ] as const) {
-      assert.equal(await ownerFor([...folders], repo, directory), owner, `${directory} in ${folders.join(', ')}`);
+      const expectedOwner = owner?.replace(/\\/g, '/') ?? null;
+      assert.equal(await ownerFor([...folders], repo, directory), expectedOwner, `${directory} in ${folders.join(', ')}`);
     }
   });
 

@@ -5,7 +5,7 @@ import yaml from 'yaml';
 
 import { assertGitAvailable, looksLikeAuthError, runGit } from './git.js';
 import { parseSkillRepoSource } from './source.js';
-import { removeDirectory } from './remove-directory.js';
+import { removeDirectory, removeStaleCatalogFolders } from './remove-directory.js';
 
 const SKILL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
 
@@ -83,6 +83,7 @@ export async function scanSkillsRepository({
   // checkout or `show` that lazily fetch blobs from the partial clone.
   const remoteGitOptions = { identity, credentialResolver };
 
+  void removeStaleCatalogFolders();
   const tempBase = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'openchamber-skills-scan-'));
 
   try {

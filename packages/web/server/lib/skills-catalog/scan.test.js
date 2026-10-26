@@ -23,7 +23,7 @@ const writeSkill = (repoDir, skillDir) => {
 // the clone URL through the environment, and the partial clone fetches its
 // blobs from it the way it would from GitHub.
 beforeAll(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'openchamber-skills-scan-test-'));
+  root = fs.mkdtempSync(path.join(os.tmpdir(), 'skills-scan-fixture-'));
   const work = path.join(root, 'work');
   fs.mkdirSync(work);
   git(work, 'init', '-q');

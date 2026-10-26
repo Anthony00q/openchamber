@@ -3840,25 +3840,24 @@ type CommandCodeQuotaDependencies = {
   fetchImpl?: (url: string, options: RequestInit) => Promise<Response>;
 };
 
+const commandCodeJsonBodySchema = z.record(z.string(), z.json());
+type CommandCodeJsonObject = z.infer<typeof commandCodeJsonBodySchema>;
+const commandCodeScalarSchema = z.union([z.string(), z.number(), z.null()]);
+
 // Parse at the I/O boundary: raw JSON becomes a flat string|number record, so
 // downstream code branches on domain values instead of unknown shapes.
-type CommandCodeScalarRecord = Record<string, string | number | null>;
-const flattenJsonRecord = (payload: { [key: string]: unknown }): CommandCodeScalarRecord => {
-  const record: CommandCodeScalarRecord = {};
-  for (const [key, value] of Object.entries(payload)) {
-    // SAFETY: only JSON scalar leaves are kept; nested objects are skipped
-    // and re-flattened by the caller, arrays and booleans are dropped.
-    if (typeof value === 'string' || typeof value === 'number') record[key] = value;
-    else if (value === null) record[key] = null;
-  }
-  return record;
-};
+const flattenJsonRecord = (payload: CommandCodeJsonObject) => Object.fromEntries(
+  Object.entries(payload).flatMap(([key, value]) => {
+    const scalar = commandCodeScalarSchema.safeParse(value);
+    return scalar.success ? [[key, scalar.data]] : [];
+  }),
+);
 
 // The /alpha endpoints are CLI-internal and undocumented: accept camelCase or
 // snake_case keys, epoch seconds/milliseconds or ISO timestamps, and payloads
 // either flat or wrapped in `data`. Anything unrecognized is skipped, never
 // guessed at.
-const parseCommandCodeServerWindow = (payload: { [key: string]: unknown } | null): { usedPercent: number; resetAt: number | null } | null => {
+const parseCommandCodeServerWindow = (payload: CommandCodeJsonObject | null): { usedPercent: number; resetAt: number | null } | null => {
   if (!payload) return null;
   const record = flattenJsonRecord(payload);
   const entry: CommandCodeServerWindow = {
@@ -3875,16 +3874,9 @@ const parseCommandCodeServerWindow = (payload: { [key: string]: unknown } | null
   };
 };
 
-type CommandCodeJsonObject = { [key: string]: JsonValue };
 type CommandCodeJsonResponse = {
   status?: number;
   payload: CommandCodeJsonObject | null;
-};
-
-const commandCodeJsonBodySchema = z.record(z.string(), z.json());
-const parseCommandCodeJsonBody = (body: unknown): CommandCodeJsonObject | null => {
-  const parsed = commandCodeJsonBodySchema.safeParse(body);
-  return parsed.success ? parsed.data : null;
 };
 
 const requestCommandCodeJson = async (
@@ -3905,8 +3897,8 @@ const requestCommandCodeJson = async (
   if (!response.ok) return { status: response.status, payload: null };
   // Non-object 2xx payloads are rejected here; every call site receives an
   // object or null, never raw unknown JSON.
-  const body = parseCommandCodeJsonBody(await response.json());
-  return { payload: body };
+  const body = commandCodeJsonBodySchema.safeParse(await response.json());
+  return { payload: body.success ? body.data : null };
 };
 
 export const fetchCommandCodeQuota = async ({ readAuth = readOpenCodeCredentials, fetchImpl = fetch }: CommandCodeQuotaDependencies = {}): Promise<ProviderResult> => {
@@ -3932,7 +3924,7 @@ export const fetchCommandCodeQuota = async ({ readAuth = readOpenCodeCredentials
   // Unwrap one level of server envelope: payloads arrive flat or under `data`.
   // The guards below are the module's only narrowing for these payloads.
   const isPlainJsonObject = (value: JsonValue | undefined): value is CommandCodeJsonObject =>
-    value !== null && typeof value === 'object' && !Array.isArray(value);
+    commandCodeJsonBodySchema.safeParse(value).success;
   const unwrapEnvelope = (payload: CommandCodeJsonObject): CommandCodeJsonObject => {
     const nested = payload.data;
     return isPlainJsonObject(nested) ? nested : payload;
@@ -3951,7 +3943,8 @@ export const fetchCommandCodeQuota = async ({ readAuth = readOpenCodeCredentials
     if (!payload) return null;
     for (const key of keys) {
       const value = payload[key];
-      if (typeof value === 'string' || typeof value === 'number') return value;
+      const scalar = commandCodeScalarSchema.safeParse(value);
+      if (scalar.success && scalar.data !== null) return scalar.data;
     }
     return null;
   };

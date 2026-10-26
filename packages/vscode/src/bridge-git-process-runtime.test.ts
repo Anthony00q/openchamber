@@ -51,17 +51,18 @@ test('a Git process terminated by a signal is never reported as successful', { s
   }
 });
 
-// Twelve processes, a 1.5 s deadline and a tree kill each take about 4.5 s on Windows, too close to
-// Bun's 5 s default under a parallel run.
+// Exercise several overlapping deadlines without making Windows start enough
+// concurrent taskkill commands to exceed their own five-second timeout.
 test('repeated read deadlines terminate the processes, not just the waiters', { timeout: 30_000 }, async () => {
+  const processCount = 4;
   const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'oc-vscode-deadlines-'));
   const marker = path.join(cwd, 'pids');
   try {
-    const requests = Array.from({ length: 12 }, () => execGit(['-e', holdingCommand(marker)], cwd, {
+    const requests = Array.from({ length: processCount }, () => execGit(['-e', holdingCommand(marker)], cwd, {
       binary: process.execPath, timeoutMs: 1500,
     }));
-    const pids = await waitForPids(marker, 12);
-    assert.ok(pids.every(alive), 'all twelve commands must actually run');
+    const pids = await waitForPids(marker, processCount);
+    assert.ok(pids.every(alive), 'all fixture commands must actually run');
     const results = await Promise.all(requests);
     assert.ok(results.every((result) => result.exitCode !== 0 && result.stderr.includes('timed out')));
     assert.deepEqual(pids.filter(alive), []);

@@ -1,7 +1,7 @@
 export { OPENCHAMBER_SDK_API_VERSION, OPENCHAMBER_SDK_CHANNEL, OPENCHAMBER_SDK_MANIFEST_API_VERSIONS } from './api-version.ts';
 export { GUEST_SCROLLBAR_CSS, GUEST_SCROLLBAR_SCRIPT } from './scrollbar-style.ts';
 export { guestFramePolicy } from './frame-policy.ts';
-export type { GuestLoadState, GuestProject, GuestWorktree, GuestSessionActivity, GuestSessionRecord, GuestDirectoryCoverage, GuestProjectsSnapshot, GuestWorktreesSnapshot, GuestSessionsSnapshot, GuestWorkspaceSnapshot, GuestWorkspaceQuery, GuestWorkspaceSubscription, GuestWorkspaceUpdate, GuestStorageRequest, GuestStorageResult, GuestStorageOptions, GuestStorageScope, GuestSessionWorktree } from './workspace.ts';
+export type { GuestLoadState, GuestProject, GuestWorktree, GuestSessionActivity, GuestSessionRecord, GuestSessionLink, GuestDirectoryCoverage, GuestProjectsSnapshot, GuestWorktreesSnapshot, GuestSessionsSnapshot, GuestWorkspaceSnapshot, GuestWorkspaceQuery, GuestWorkspaceSubscription, GuestWorkspaceUpdate, GuestStorageRequest, GuestStorageResult, GuestStorageOptions, GuestStorageScope, GuestSessionWorktree } from './workspace.ts';
 export { GUEST_STORAGE_KEY_MAX, GUEST_STORAGE_KEYS_MAX, GUEST_STORAGE_VALUE_BYTES, GUEST_STORAGE_TOTAL_BYTES, GUEST_DEVICE_STORAGE_TOTAL_BYTES } from './workspace.ts';
 export type {
   GuestRunningShell,
@@ -22,6 +22,31 @@ export {
 } from './shells.ts';
 export { GUEST_STATUS_CONTROLS_MAX, GUEST_STATUS_CONTROL_ID, GUEST_STATUS_CONTROL_LABEL_MAX, GUEST_STATUS_CONTROL_OPTIONS_MAX, GUEST_STATUS_CONTROL_VALUE_MAX } from './status-controls.ts';
 export type { GuestStatusControl, GuestStatusControlEvent, GuestStatusControlOption } from './status-controls.ts';
+export {
+  GUEST_STATUS_SOURCE_INTERVAL_DEFAULT,
+  GUEST_STATUS_SOURCE_INTERVAL_MAX,
+  GUEST_STATUS_SOURCE_INTERVAL_MIN,
+  GUEST_STATUS_VIEW_ACTIONS_MAX,
+  GUEST_STATUS_VIEW_CHART_POINTS_MAX,
+  GUEST_STATUS_VIEW_CHIPS_MAX,
+  GUEST_STATUS_VIEW_ICON,
+  GUEST_STATUS_VIEW_NOTE_MAX,
+  GUEST_STATUS_VIEW_ROWS_MAX,
+  GUEST_STATUS_VIEW_SEGMENTS_MAX,
+  GUEST_STATUS_VIEW_SEGMENTS_MIN,
+  GUEST_STATUS_VIEW_TEXT_MAX,
+} from './status-view.ts';
+export type {
+  GuestStatusAction,
+  GuestStatusActionEvent,
+  GuestStatusChartUnit,
+  GuestStatusChip,
+  GuestStatusContent,
+  GuestStatusRow,
+  GuestStatusTone,
+  GuestStatusView,
+  StatusSectionSource,
+} from './status-view.ts';
 export type { OpenChamberManifestApiVersion } from './api-version.ts';
 export {
   compareOpenChamberVersions,
@@ -73,6 +98,7 @@ export {
   resolveAttachEntry,
   resolvePageEntry,
   resolveStatusSectionEntry,
+  resolveStatusSectionSource,
   resolveAttachMode,
   resolveIntegrationApi,
   resolveIntegrationAuth,

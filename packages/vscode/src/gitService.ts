@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import { execFile } from 'child_process';
+import { exec, execFile } from 'child_process';
 import { promisify } from 'util';
 import { execGit as executeGit } from './bridge-git-process-runtime';
 import { readConfig } from './opencodeConfig';
@@ -119,6 +119,7 @@ const waitForActiveWorktreeBootstrap = async (directory: string): Promise<void> 
 };
 
 const execFileAsync = promisify(execFile);
+const execShellAsync = promisify(exec);
 const gpgconfCandidates = ['gpgconf', '/opt/homebrew/bin/gpgconf', '/usr/local/bin/gpgconf'];
 
 async function isSocketPath(candidate: string): Promise<boolean> {
@@ -1497,10 +1498,11 @@ const runWorktreeStartCommand = async (directory: string, command: string): Prom
   const env = await buildGitEnv();
   if (process.platform === 'win32') {
     try {
-      const { stdout, stderr } = await execFileAsync('cmd', ['/c', text], {
+      const { stdout, stderr } = await execShellAsync(text, {
         cwd: directory,
         env,
         maxBuffer: 20 * 1024 * 1024,
+        windowsHide: true,
       });
       return { success: true, stdout: String(stdout || ''), stderr: String(stderr || '') };
     } catch (error) {

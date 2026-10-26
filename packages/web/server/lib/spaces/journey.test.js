@@ -18,7 +18,7 @@ import { createMemoryPlace } from './places/memory-place.js';
 import { createPlaceRegistry } from './places/registry.js';
 import { createSpaceRecords } from './space-records.js';
 
-const PROJECT = '/home/me/project';
+const PROJECT = path.resolve('/home/me/project');
 const NETWORK = { mode: 'allowlist', domains: ['api.anthropic.com'] };
 const BASE = 'b'.repeat(40);
 const quiet = { warn: () => {} };
@@ -141,12 +141,14 @@ const steps = (events, spaceId) => events.filter((event) => event.spaceId === sp
 
 describe('the journey: create', () => {
   it('answers at once, then makes the space, sets its network, brings the code in and sends the history behind it', async () => {
-    const { journey, place, records, calls, events, changes } = journeyWith();
+    const { journey, place, records, calls, events, changes, releaseCodeIn } = journeyWith({ holdCodeIn: true });
 
     const answer = await journey.createSpace(REQUEST);
     expect(answer).toMatchObject({ id: expect.stringMatching(/^[0-9a-f]{12}$/), name: 'Fix login', placeId: 'memory', projectDirectory: PROJECT, directory: `/spaces/${answer.id}/project`, state: 'preparing', step: 'checking_place', network: NETWORK, history: 'pending' });
     // Listed as preparing while the steps run, whether or not the place has it yet.
-    expect((await journey.listSpaces()).find((space) => space.id === answer.id)).toMatchObject({ state: 'preparing' });
+    const listedWhilePreparing = await journey.listSpaces();
+    expect(listedWhilePreparing.find((space) => space.id === answer.id)).toMatchObject({ state: 'preparing' });
+    releaseCodeIn();
 
     expect(await until(() => steps(events, answer.id).includes('ready'))).toBe(true);
     expect(steps(events, answer.id)).toEqual(['checking_place', 'creating', 'setting_network', 'bringing_code', 'ready']);

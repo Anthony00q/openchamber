@@ -18,11 +18,6 @@ import { useI18n } from '@/lib/i18n';
 import { CrossfadeZoneHeader } from './CrossfadeZoneHeaders';
 import { useProjectFolderMissing } from './useProjectFolderMissing';
 
-export type SortableDragHandleProps = {
-  listeners: ReturnType<typeof useSortable>['listeners'];
-  setActivatorNodeRef: ReturnType<typeof useSortable>['setActivatorNodeRef'];
-};
-
 type ProjectIdentityProps = {
   id: string;
   projectLabel: string;
@@ -31,7 +26,6 @@ type ProjectIdentityProps = {
   projectIconImage?: { mime: string; updatedAt: number; source: 'custom' | 'auto' };
   projectIconBackground?: string;
 };
-
 type ProjectHeaderIdentityProps = ProjectIdentityProps & {
   isCollapsed?: boolean;
   alwaysShowActions?: boolean;
@@ -508,41 +502,3 @@ export const SortableProjectItem: React.FC<SortableProjectItemProps> = ({
     </div>
   );
 };
-
-const SortableGroupItemBase: React.FC<{
-  id: string;
-  disabled?: boolean;
-  children: (dragHandleProps: SortableDragHandleProps) => React.ReactNode;
-}> = ({ id, disabled = false, children }) => {
-  const {
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id, disabled });
-
-  const dragHandleProps = React.useMemo<SortableDragHandleProps>(() => ({
-    listeners,
-    setActivatorNodeRef,
-  }), [listeners, setActivatorNodeRef]);
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-      }}
-      className={cn(
-        'space-y-0.5 rounded-md',
-        isDragging && 'opacity-50',
-      )}
-    >
-      {children(dragHandleProps)}
-    </div>
-  );
-};
-
-export const SortableGroupItem = React.memo(SortableGroupItemBase);

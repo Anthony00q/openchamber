@@ -8,9 +8,15 @@ import yaml from 'yaml';
 
 import { readEnterprisePolicy } from '../../web/server/lib/enterprise-mode.js';
 import { isInstalledFromSource, readInstalledSources } from '../../web/server/lib/skills-catalog/installed-sources.js';
-import { removeDirectory } from '../../web/server/lib/skills-catalog/remove-directory.js';
+import { removeDirectory, removeStaleCatalogFolders } from '../../web/server/lib/skills-catalog/remove-directory.js';
+import { getOutputChannel } from './outputChannel';
 
 const execFileAsync = promisify(execFile);
+
+// The extension host's console is not kept in any log, so a folder left
+// behind is named in the Output panel instead.
+const removeCatalogDirectory = (dir: string) =>
+  removeDirectory(dir, { warn: (message) => getOutputChannel().appendLine(message) });
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_MAX_BUFFER = 4 * 1024 * 1024;
@@ -275,6 +281,7 @@ export async function scanSkillsRepository(options: { source: string; subpath?: 
   }
 
   const effectiveSubpath = parsed.effectiveSubpath || options.defaultSubpath || null;
+  void removeStaleCatalogFolders();
   const tempBase = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'openchamber-vscode-skills-scan-'));
 
   try {
@@ -381,7 +388,7 @@ export async function scanSkillsRepository(options: { source: string; subpath?: 
 
     return { ok: true as const, items };
   } finally {
-    await removeDirectory(tempBase);
+    await removeCatalogDirectory(tempBase);
   }
 }
 
@@ -506,6 +513,7 @@ export async function installSkillsFromRepository(options: {
     };
   }
 
+  void removeStaleCatalogFolders();
   const tempBase = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'openchamber-vscode-skills-install-'));
 
   try {
@@ -563,7 +571,7 @@ export async function installSkillsFromRepository(options: {
       }
 
       if (exists && decision === 'overwrite') {
-        await removeDirectory(targetDir);
+        await removeCatalogDirectory(targetDir);
       }
 
       await fs.promises.mkdir(path.dirname(targetDir), { recursive: true });
@@ -572,7 +580,7 @@ export async function installSkillsFromRepository(options: {
         await copyDirectoryNoSymlinks(srcDir, targetDir);
         installed.push({ skillName: plan.skillName, skillDir: plan.skillDirPosix, scope: options.scope, source: targetSource });
       } catch (error) {
-        await removeDirectory(targetDir);
+        await removeCatalogDirectory(targetDir);
         skipped.push({
           skillName: plan.skillName,
           reason: error instanceof Error ? error.message : 'Failed to copy skill files',
@@ -582,7 +590,7 @@ export async function installSkillsFromRepository(options: {
 
     return { ok: true as const, installed, skipped };
   } finally {
-    await removeDirectory(tempBase);
+    await removeCatalogDirectory(tempBase);
   }
 }
 
